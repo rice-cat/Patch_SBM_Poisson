@@ -1,0 +1,10 @@
+/home/ajaywsl2/DEAL/HIWI/Patch_SBM_Poisson/build/CMakeFiles/step-85.dir
+/home/ajaywsl2/DEAL/HIWI/Patch_SBM_Poisson/build/CMakeFiles/run.dir
+/home/ajaywsl2/DEAL/HIWI/Patch_SBM_Poisson/build/CMakeFiles/debug.dir
+/home/ajaywsl2/DEAL/HIWI/Patch_SBM_Poisson/build/CMakeFiles/release.dir
+/home/ajaywsl2/DEAL/HIWI/Patch_SBM_Poisson/build/CMakeFiles/runclean.dir
+/home/ajaywsl2/DEAL/HIWI/Patch_SBM_Poisson/build/CMakeFiles/distclean.dir
+/home/ajaywsl2/DEAL/HIWI/Patch_SBM_Poisson/build/CMakeFiles/strip_comments.dir
+/home/ajaywsl2/DEAL/HIWI/Patch_SBM_Poisson/build/CMakeFiles/info.dir
+/home/ajaywsl2/DEAL/HIWI/Patch_SBM_Poisson/build/CMakeFiles/edit_cache.dir
+/home/ajaywsl2/DEAL/HIWI/Patch_SBM_Poisson/build/CMakeFiles/rebuild_cache.dir
