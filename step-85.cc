@@ -27,6 +27,7 @@
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/precondition.h>
+#include <deal.II/lac/relaxation_block.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/solver_gmres.h>
@@ -42,18 +43,44 @@
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
+#include <algorithm>
 #include <fstream>
+#include <random>
 #include <vector>
-
 namespace Step85
 {
   using namespace dealii;
+
+  template <int dim, int spacedim>
+  void
+  make_custom_patches(SparsityPattern                 &block_list,
+                      const DoFHandler<dim, spacedim> &dof_handler,
+                      const unsigned int               level);
+
+  struct Settings
+  {
+    enum DoFRenumberingStrategy
+    {
+      none,
+      downstream,
+      upstream,
+      random
+    };
+
+    double                 epsilon;
+    unsigned int           fe_degree;
+    std::string            smoother_type;
+    unsigned int           smoothing_steps;
+    DoFRenumberingStrategy dof_renumbering;
+    bool                   with_streamline_diffusion;
+    bool                   output;
+  };
 
   template <int dim>
   class LaplaceSolver
   {
   public:
-    LaplaceSolver();
+    LaplaceSolver(const Settings &settings);
 
     void
     run();
@@ -69,10 +96,16 @@ namespace Step85
     distribute_dofs();
 
     void
+    write_dof_locations(const std::string &filename);
+
+    void
     initialize_matrices();
 
     void
     assemble_system();
+
+    void
+    setup_smoother();
 
     void
     solve();
@@ -103,22 +136,34 @@ namespace Step85
     DoFHandler<dim>       dof_handler;
     Vector<double>        solution;
 
+    hp::MappingCollection<dim> mapping_collection;
+
     NonMatching::MeshClassifier<dim> mesh_classifier;
 
     SparsityPattern      sparsity_pattern;
     SparseMatrix<double> stiffness_matrix;
     Vector<double>       rhs;
+
+    using SmootherType =
+      RelaxationBlock<SparseMatrix<double>, double, Vector<double>>;
+    using SmootherAdditionalDataType = SmootherType::AdditionalData;
+
+    std::unique_ptr<SmootherType> patch_smoother;
+    SmootherAdditionalDataType    smoother_data;
+
+    const Settings settings;
   };
 
   template <int dim>
-  LaplaceSolver<dim>::LaplaceSolver()
-    : fe_degree(2)
-    , rhs_function(4.0)
-    , boundary_condition(1.0)
+  LaplaceSolver<dim>::LaplaceSolver(const Settings &settings)
+    : fe_degree(settings.fe_degree)
+    , rhs_function(0)
+    , boundary_condition(0.0)
     , fe_level_set(fe_degree)
     , level_set_dof_handler(triangulation)
     , dof_handler(triangulation)
     , mesh_classifier(level_set_dof_handler, level_set)
+    , settings(settings)
   {}
 
   template <int dim>
@@ -161,6 +206,8 @@ namespace Step85
     fe_collection.push_back(FE_Q<dim>(fe_degree));
     fe_collection.push_back(FE_Nothing<dim>());
 
+    mapping_collection.push_back(MappingQ1<dim>());
+    mapping_collection.push_back(MappingQ1<dim>());
     for (const auto &cell : dof_handler.active_cell_iterators())
       {
         const NonMatching::LocationToLevelSet cell_location =
@@ -251,15 +298,9 @@ namespace Step85
     Vector<double>     local_rhs(n_dofs_per_cell);
     std::vector<types::global_dof_index> local_dof_indices(n_dofs_per_cell);
 
-    // const double ghost_parameter   = 0.5;
     const double nitsche_parameter = 5 * (fe_degree + 1) * fe_degree;
 
     const QGauss<dim - 1> face_quadrature(fe_degree + 1);
-    // FEInterfaceValues<dim> fe_interface_values(fe_collection[0],
-    //                                            face_quadrature,
-    //                                            update_gradients |
-    //                                              update_JxW_values |
-    //                                              update_normal_vectors);
 
     FEFaceValues<dim> face_fe_values(fe_collection[0],
                                      face_quadrature,
@@ -284,13 +325,6 @@ namespace Step85
                                                       level_set_dof_handler,
                                                       level_set);
 
-    // uuh nvm this part
-    // const QGauss<2> quadrature_2D(fe_degree + 1);
-    // FEValues<dim>   ordinary_fe_values(fe_collection[0],
-    //                                  quadrature_2D,
-    //                                  update_values | update_gradients |
-    //                                    update_JxW_values |
-    //                                    update_quadrature_points);
 
     for (const auto &cell :
          dof_handler.active_cell_iterators() |
@@ -414,24 +448,171 @@ namespace Step85
 
         stiffness_matrix.add(local_dof_indices, local_stiffness);
         rhs.add(local_dof_indices, local_rhs);
-
       }
+  }
+
+  template <int dim>
+  void
+  LaplaceSolver<dim>::setup_smoother()
+  {
+    unsigned int level = triangulation.n_levels() - 1;
+    make_custom_patches(smoother_data.block_list, dof_handler, level);
+    smoother_data.relaxation = 1.;
+    smoother_data.inversion  = PreconditionBlockBase<double>::svd;
+    auto smoother            = std::make_unique<SmootherType>();
+    smoother->initialize(stiffness_matrix, smoother_data);
+    // smoother->set_steps(settings.smoothing_steps);
+    patch_smoother = std::move(smoother);
+  }
+
+
+  template <int dim, int spacedim>
+  void
+  make_custom_patches(SparsityPattern                 &block_list,
+                      const DoFHandler<dim, spacedim> &dof_handler,
+                      const unsigned int               level)
+  {
+    unsigned int                         i = 0;
+    std::map<unsigned int, unsigned int> vertex_global_to_array_index;
+
+
+    // counting vertices and generating mapping all in one loop
+    for (const auto &cell : dof_handler.cell_iterators_on_level(level))
+      {
+        //   if (cell->is_locally_owned_on_level())
+        //     ++i;
+        for (const auto vertex : GeometryInfo<dim>::vertex_indices())
+          {
+            unsigned int global_vertex_index = cell->vertex_index(vertex);
+            auto         result =
+              vertex_global_to_array_index.emplace(global_vertex_index, i);
+            if (result.second == true) // successfully added vertex
+              i++;
+          }
+      }
+
+    std::vector<std::set<types::global_dof_index>> patches_indices(i);
+    std::vector<types::global_dof_index>           object_dofs;
+    const FiniteElement<dim>                      &fe = dof_handler.get_fe(0);
+    types::fe_index                                fe_index;
+
+    object_dofs.reserve(fe.n_dofs_per_cell());
+    AssertDimension(dim,
+                    2); // for now untill i need to implement other dimensions
+    if (dim == 2)
+      {
+        unsigned int n_dof_quad =
+          dof_handler.get_fe()
+            .n_dofs_per_quad(); // dofs strictly on quad and not on
+                                // lower dimensional objects
+        unsigned int n_dof_line   = dof_handler.get_fe().n_dofs_per_line();
+        unsigned int n_dof_vertex = dof_handler.get_fe().n_dofs_per_vertex();
+        for (const auto &cell : dof_handler.cell_iterators_on_level(level))
+          {
+            fe_index = cell->active_fe_index();
+            // FACE DOFS
+            for (const auto &face : cell->face_iterators())
+              {
+                object_dofs.clear();
+                for (unsigned int j = 0; j < n_dof_line; j++)
+                  object_dofs.push_back(face->dof_index(
+                    j, fe_index)); // here we get all dofs that are strictly on
+                                   // the interior of the faces
+                for (const auto vertex :
+                     GeometryInfo<dim - 1>::vertex_indices())
+                  {
+                    unsigned int vertex_global_index =
+                      face->vertex_index(vertex);
+                    unsigned int vertex_array_index =
+                      vertex_global_to_array_index[vertex_global_index];
+                    // for (const auto dof : object_dofs)
+                    //   patches_indices[vertex_array_index].insert(dof);
+                    patches_indices[vertex_array_index].insert(
+                      object_dofs.begin(), object_dofs.end());
+                    // Q: dealii c++ version ?
+                  }
+              }
+
+            // CELL DOFS & VERTEX DOFS
+            object_dofs.clear();
+            for (unsigned int j = 0; j < n_dof_quad; j++)
+              object_dofs.push_back(
+                cell->dof_index(j)); // here we get all dofs that are
+                                     // strictly on the interior of the cell
+            for (const auto vertex : GeometryInfo<dim>::vertex_indices())
+              {
+                unsigned int vertex_global_index = cell->vertex_index(vertex);
+                unsigned int vertex_array_index =
+                  vertex_global_to_array_index[vertex_global_index];
+                for (const auto dof : object_dofs)
+                  patches_indices[vertex_array_index].insert(dof);
+                // VERTEX DOFS
+                for (unsigned int j = 0; j < n_dof_vertex; j++)
+                  {
+                    patches_indices[vertex_array_index].insert(
+                      cell->vertex_dof_index(vertex, j, fe_index));
+                  }
+              }
+          }
+
+        // TODO : migrate patches of unused vertices to some nearby used vertex
+
+        block_list.reinit(patches_indices.size(),
+                          dof_handler.n_dofs(level),
+                          dof_handler.get_fe().n_dofs_per_cell() *
+                            std::pow(2, dim));
+        // Q: 2^dim just to be safe for now, how
+        // much does this impact performance ?
+        for (i = 0; i < patches_indices.size(); i++)
+          {
+            for (const auto dof_index : patches_indices[i])
+              block_list.add(i, dof_index);
+          }
+      }
+
+    block_list.compress();
+  }
+
+  template <int dim>
+  void
+  LaplaceSolver<dim>::write_dof_locations(const std::string &filename)
+  {
+    const std::map<types::global_dof_index, Point<dim>> dof_location_map =
+      DoFTools::map_dofs_to_support_points(mapping_collection, dof_handler);
+
+    std::ofstream dof_location_file(filename);
+    DoFTools::write_gnuplot_dof_support_point_info(dof_location_file,
+                                                   dof_location_map);
   }
 
   template <int dim>
   void
   LaplaceSolver<dim>::solve()
   {
-    std::cout << "Solving system" << std::endl;
-    SparseDirectUMFPACK sparse_direct;
-    sparse_direct.initialize(stiffness_matrix);
-    sparse_direct.vmult(solution, rhs);
-    return;
-    const unsigned int max_iterations = solution.size();
-    SolverControl      solver_control(max_iterations);
-    // SolverCG<>         solver(solver_control);
-    SolverGMRES<> solver(solver_control);
-    solver.solve(stiffness_matrix, solution, rhs, PreconditionIdentity());
+    std::random_device rd;
+    std::mt19937       e2(rd());
+    e2.seed(85);
+    std::uniform_real_distribution<double> dist(-1, 1);
+
+    for (unsigned int i = 0; i < solution.size(); i++)
+      {
+        solution[i] = dist(e2);
+        if (i < 20)
+          std::cout << i << std::endl;
+      }
+
+
+
+    // std::cout << "Solving system" << std::endl;
+    // SparseDirectUMFPACK sparse_direct;
+    // sparse_direct.initialize(stiffness_matrix);
+    // sparse_direct.vmult(solution, rhs);
+    // return;
+    // const unsigned int max_iterations = solution.size();
+    // SolverControl      solver_control(max_iterations);
+    // // SolverCG<>         solver(solver_control);
+    // SolverGMRES<> solver(solver_control);
+    // solver.solve(stiffness_matrix, solution, rhs, PreconditionIdentity());
   }
 
   template <int dim>
@@ -543,9 +724,13 @@ namespace Step85
         std::cout << "Classifying cells" << std::endl;
         mesh_classifier.reclassify();
         distribute_dofs();
+
+        write_dof_locations("dof-locations-1.gnuplot");
+
         initialize_matrices();
         assemble_system();
-        solve();
+        setup_smoother();
+        solve(); //"SOLVE does smoother steps"
         if (cycle == 1)
           output_results();
         const double error_L2 = compute_L2_error();
@@ -571,8 +756,10 @@ namespace Step85
 int
 main()
 {
-  const int dim = 2;
-
-  Step85::LaplaceSolver<dim> laplace_solver;
+  const int        dim = 2;
+  Step85::Settings settings;
+  settings.fe_degree       = 2;
+  settings.smoothing_steps = 5;
+  Step85::LaplaceSolver<dim> laplace_solver(settings);
   laplace_solver.run();
 }
