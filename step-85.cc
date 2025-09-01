@@ -18,6 +18,7 @@
 
 #include <deal.II/grid/filtered_iterator.h>
 #include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/tria.h>
 
 #include <deal.II/hp/fe_collection.h>
@@ -132,9 +133,10 @@ namespace Step85
     DoFHandler<dim> level_set_dof_handler;
     Vector<double>  level_set;
 
-    hp::FECollection<dim> fe_collection;
-    DoFHandler<dim>       dof_handler;
-    Vector<double>        solution;
+    // hp::FECollection<dim> fe_collection;
+    const FE_Q<dim> fe_poisson;
+    DoFHandler<dim> dof_handler;
+    Vector<double>  solution;
 
     hp::MappingCollection<dim> mapping_collection;
 
@@ -145,7 +147,7 @@ namespace Step85
     Vector<double>       rhs;
 
     using SmootherType =
-      RelaxationBlock<SparseMatrix<double>, double, Vector<double>>;
+      RelaxationBlockSOR<SparseMatrix<double>, double, Vector<double>>;
     using SmootherAdditionalDataType = SmootherType::AdditionalData;
 
     std::unique_ptr<SmootherType> patch_smoother;
@@ -159,7 +161,9 @@ namespace Step85
     : fe_degree(settings.fe_degree)
     , rhs_function(0)
     , boundary_condition(0.0)
+    , triangulation(Triangulation<dim>::limit_level_difference_at_vertices)
     , fe_level_set(fe_degree)
+    , fe_poisson(fe_degree)
     , level_set_dof_handler(triangulation)
     , dof_handler(triangulation)
     , mesh_classifier(level_set_dof_handler, level_set)
@@ -203,11 +207,12 @@ namespace Step85
   {
     std::cout << "Distributing degrees of freedom" << std::endl;
 
-    fe_collection.push_back(FE_Q<dim>(fe_degree));
-    fe_collection.push_back(FE_Nothing<dim>());
+    // fe_collection.push_back(FE_Q<dim>(fe_degree));
+    // fe_collection.push_back(FE_Nothing<dim>());
 
-    mapping_collection.push_back(MappingQ1<dim>());
-    mapping_collection.push_back(MappingQ1<dim>());
+    // mapping_collection.push_back(MappingQ1<dim>());
+    // mapping_collection.push_back(MappingQ1<dim>());
+    triangulation.clear_user_flags();
     for (const auto &cell : dof_handler.active_cell_iterators())
       {
         const NonMatching::LocationToLevelSet cell_location =
@@ -216,12 +221,15 @@ namespace Step85
         // This is another place where code is changed from step-85, now the
         // only langrage elements are inside
         if (cell_location != NonMatching::LocationToLevelSet::inside)
-          cell->set_active_fe_index(ActiveFEIndex::nothing);
+          {
+            // cell->set_active_fe_index(ActiveFEIndex::nothing);
+          }
         else
-          cell->set_active_fe_index(ActiveFEIndex::lagrange);
+          cell->set_user_flag();
       }
 
-    dof_handler.distribute_dofs(fe_collection);
+    dof_handler.distribute_dofs(fe_poisson);
+    dof_handler.distribute_mg_dofs();
   }
 
   template <int dim>
@@ -237,7 +245,7 @@ namespace Step85
 
     DynamicSparsityPattern dsp(dof_handler.n_dofs(), dof_handler.n_dofs());
 
-    const unsigned int           n_components = fe_collection.n_components();
+    const unsigned int n_components = 1; // fe_collection.n_components();
     Table<2, DoFTools::Coupling> cell_coupling(n_components, n_components);
     Table<2, DoFTools::Coupling> face_coupling(n_components, n_components);
     cell_coupling[0][0] = DoFTools::always;
@@ -293,7 +301,7 @@ namespace Step85
   {
     std::cout << "Assembling" << std::endl;
 
-    const unsigned int n_dofs_per_cell = fe_collection[0].dofs_per_cell;
+    const unsigned int n_dofs_per_cell = fe_poisson.dofs_per_cell;
     FullMatrix<double> local_stiffness(n_dofs_per_cell, n_dofs_per_cell);
     Vector<double>     local_rhs(n_dofs_per_cell);
     std::vector<types::global_dof_index> local_dof_indices(n_dofs_per_cell);
@@ -302,76 +310,69 @@ namespace Step85
 
     const QGauss<dim - 1> face_quadrature(fe_degree + 1);
 
-    FEFaceValues<dim> face_fe_values(fe_collection[0],
+    FEFaceValues<dim> face_fe_values(fe_poisson,
                                      face_quadrature,
                                      update_values | update_gradients |
                                        update_normal_vectors |
                                        update_JxW_values |
                                        update_quadrature_points);
 
-    const QGauss<1> quadrature_1D(fe_degree + 1);
+    const QGauss<dim> quadrature_formula(fe_degree + 1);
 
-    NonMatching::RegionUpdateFlags region_update_flags;
-    region_update_flags.inside = update_values | update_gradients |
-                                 update_JxW_values | update_quadrature_points;
-    region_update_flags.surface = update_values | update_gradients |
-                                  update_JxW_values | update_quadrature_points |
-                                  update_normal_vectors;
-
-    NonMatching::FEValues<dim> non_matching_fe_values(fe_collection,
-                                                      quadrature_1D,
-                                                      region_update_flags,
-                                                      mesh_classifier,
-                                                      level_set_dof_handler,
-                                                      level_set);
+    FEValues<dim> cell_fe_values(fe_poisson,
+                                 quadrature_formula,
+                                 update_values | update_gradients |
+                                   update_JxW_values |
+                                   update_quadrature_points);
 
 
     for (const auto &cell :
-         dof_handler.active_cell_iterators() |
-           IteratorFilters::ActiveFEIndexEqualTo(ActiveFEIndex::lagrange))
+         dof_handler.active_cell_iterators() | IteratorFilters::UserFlagSet())
       {
         local_stiffness = 0;
         local_rhs       = 0;
 
         const double cell_side_length = cell->minimum_vertex_distance();
         const double alpha            = nitsche_parameter / cell_side_length;
-        non_matching_fe_values.reinit(cell);
+        cell_fe_values.reinit(cell);
 
-        const std_cxx17::optional<FEValues<dim>> &inside_fe_values =
-          non_matching_fe_values.get_inside_fe_values();
-
-        // if (inside_fe_values) // I dont think i need this anymore, as all
-        //                       // lagrange elements are now "inside"
-        for (const unsigned int q :
-             inside_fe_values->quadrature_point_indices())
+        for (const unsigned int q : cell_fe_values.quadrature_point_indices())
           {
-            const Point<dim> &point = inside_fe_values->quadrature_point(q);
-            for (const unsigned int i : inside_fe_values->dof_indices())
+            const Point<dim> &point = cell_fe_values.quadrature_point(q);
+            for (const unsigned int i : cell_fe_values.dof_indices())
               {
-                for (const unsigned int j : inside_fe_values->dof_indices())
+                for (const unsigned int j : cell_fe_values.dof_indices())
                   {
-                    local_stiffness(i, j) +=
-                      inside_fe_values->shape_grad(i, q) *
-                      inside_fe_values->shape_grad(j, q) *
-                      inside_fe_values->JxW(q);
+                    local_stiffness(i, j) += cell_fe_values.shape_grad(i, q) *
+                                             cell_fe_values.shape_grad(j, q) *
+                                             cell_fe_values.JxW(q);
                   }
                 local_rhs(i) += rhs_function.value(point) *
-                                inside_fe_values->shape_value(i, q) *
-                                inside_fe_values->JxW(q);
+                                cell_fe_values.shape_value(i, q) *
+                                cell_fe_values.JxW(q);
               }
           }
 
         for (size_t face_index = 0; face_index < cell->n_faces(); face_index++)
           {
-            const NonMatching::LocationToLevelSet neighbor_location =
-              mesh_classifier.location_to_level_set(cell->neighbor(
-                face_index)); // Q: is face->index correct replacement for
-                              // face_index   A: NO, cell->face_accessors() is
-                              // functionally useless?
-            if (neighbor_location ==
-                NonMatching::LocationToLevelSet::
-                  intersected) // face is on the shifted boundary
+            bool face_on_boundary = false;
+            if (cell->neighbor_index(face_index) != -1)
+              // if(!cell->at_boundary(face_index))
               {
+                const NonMatching::LocationToLevelSet neighbor_location =
+                  mesh_classifier.location_to_level_set(
+                    cell->neighbor(face_index));
+                if (neighbor_location ==
+                    NonMatching::LocationToLevelSet::intersected)
+                  face_on_boundary = true;
+              }
+            else
+              {
+                face_on_boundary = true;
+              }
+            if (face_on_boundary) // face is on the shifted boundary
+              {
+                cell->face(face_index)->set_user_flag();
                 face_fe_values.reinit(cell, face_index);
                 for (const unsigned int q :
                      face_fe_values.quadrature_point_indices())
@@ -379,20 +380,19 @@ namespace Step85
                     const Point<dim> &point =
                       face_fe_values.quadrature_point(q);
                     const Point<dim> unit_point =
-                      inside_fe_values->get_mapping()
-                        .transform_real_to_unit_cell(cell, point);
+                      cell_fe_values.get_mapping().transform_real_to_unit_cell(
+                        cell, point);
                     const Point<dim> closest_boundary_point =
                       point / point.norm();
                     const Point<dim> unit_boundary_point =
-                      inside_fe_values->get_mapping()
-                        .transform_real_to_unit_cell(cell,
-                                                     closest_boundary_point);
+                      cell_fe_values.get_mapping().transform_real_to_unit_cell(
+                        cell, closest_boundary_point);
 
                     std::vector<double> shifted_shape_values(n_dofs_per_cell);
                     std::vector<double> shape_values(n_dofs_per_cell);
                     std::vector<Tensor<1, dim>> shape_grad(n_dofs_per_cell);
 
-                    const FiniteElement<dim> &fe_lagrange = fe_collection[0];
+                    const FiniteElement<dim> &fe_lagrange = fe_poisson;
                     for (size_t i = 0; i < n_dofs_per_cell; i++)
                       {
                         shifted_shape_values[i] =
@@ -472,33 +472,132 @@ namespace Step85
                       const DoFHandler<dim, spacedim> &dof_handler,
                       const unsigned int               level)
   {
-    unsigned int                         i = 0;
-    std::map<unsigned int, unsigned int> vertex_global_to_array_index;
+    AssertDimension(dim,
+                    2); // for now untill i need to implement other dimensions
+    bool         is_active = level == numbers::invalid_unsigned_int;
+    unsigned int i         = 0;
+    using patch_index_type = unsigned int;
+    std::map<types::global_vertex_index, patch_index_type>
+      index_from_global_vertex_to_patch;
 
 
-    // counting vertices and generating mapping all in one loop
-    for (const auto &cell : dof_handler.cell_iterators_on_level(level))
+    // counting patches and generating mapping vertex to patch index all in one
+    // loop
+    if (dim == 2) // code only works for dim == 2
       {
-        //   if (cell->is_locally_owned_on_level())
-        //     ++i;
-        for (const auto vertex : GeometryInfo<dim>::vertex_indices())
+        std::map<types::global_vertex_index, types::global_vertex_index>
+          vertex_neighbour; // neighbour of vertex, PRIORITIZED to be vertex not
+                            // on the boundary
+        std::set<types::global_vertex_index> vertices_on_boundary;
+        for (const auto &cell :
+             dof_handler.cell_iterators_on_level(level) |
+               IteratorFilters::UserFlagSet()) // user flag is set for cells
+                                               // which are "inside"
           {
-            unsigned int global_vertex_index = cell->vertex_index(vertex);
-            auto         result =
-              vertex_global_to_array_index.emplace(global_vertex_index, i);
-            if (result.second == true) // successfully added vertex
-              i++;
+            vertex_neighbour.clear();
+            vertices_on_boundary.clear();
+            for (const auto &face : cell->face_iterators())
+              {
+                if (face->user_flag_set()) // user_flag_set() on face means that
+                                           // face IS ON the boundary
+                  {
+                    vertices_on_boundary.insert(face->vertex_index(0));
+                    vertices_on_boundary.insert(face->vertex_index(1));
+                    if (vertex_neighbour.find(face->vertex_index(0)) ==
+                        vertex_neighbour.end())
+                      vertex_neighbour.emplace(face->vertex_index(0),
+                                               face->vertex_index(1));
+                    if (vertex_neighbour.find(face->vertex_index(1)) ==
+                        vertex_neighbour.end())
+                      vertex_neighbour.emplace(face->vertex_index(1),
+                                               face->vertex_index(0));
+                  }
+                else
+                  {
+                    vertex_neighbour.emplace(face->vertex_index(0),
+                                             face->vertex_index(1));
+                    vertex_neighbour.emplace(face->vertex_index(1),
+                                             face->vertex_index(0));
+                  }
+              }
+
+            for (const auto vertex : GeometryInfo<dim>::vertex_indices())
+              {
+                types::global_vertex_index global_vertex_index =
+                  cell->vertex_index(vertex);
+                if (index_from_global_vertex_to_patch.find(
+                      global_vertex_index) ==
+                    index_from_global_vertex_to_patch
+                      .end()) // doesnt contain the vertex, so we need to add it
+                  {
+                    if (vertices_on_boundary.find(global_vertex_index) ==
+                        vertices_on_boundary
+                          .end()) // vertex not on boundary, gets its own patch
+                      {
+                        index_from_global_vertex_to_patch.emplace(
+                          global_vertex_index, i);
+                        cout << "vertex : " << std::setw(10)
+                             << global_vertex_index << " added at " << i
+                             << std::endl;
+                        i++;
+                      }
+                    else // vertex on boundary need to add to other vertex's
+                         // patch
+                      {
+                        // finding "closest" vertex  that is not on the
+                        // boundary, and
+                        std::stack<types::global_vertex_index> vertices_to_join;
+                        vertices_to_join.push(global_vertex_index);
+                        types::global_vertex_index current_vertex =
+                          vertex_neighbour[global_vertex_index];
+                        while (vertices_on_boundary.find(current_vertex) ==
+                               vertices_on_boundary.end())
+                          {
+                            vertices_to_join.push(current_vertex);
+                            current_vertex = vertex_neighbour
+                              [current_vertex]; // assumign this is a path that
+                                                // leads to a vertex not on
+                                                // boundary
+                          }
+                        patch_index_type neighbour_index = 0;
+                        if (index_from_global_vertex_to_patch.find(
+                              current_vertex) ==
+                            index_from_global_vertex_to_patch.end())
+                          {
+                            index_from_global_vertex_to_patch.emplace(
+                              global_vertex_index, i);
+                            neighbour_index = i;
+                            cout << "vertex : " << std::setw(10)
+                                 << global_vertex_index << " added at " << i
+                                 << std::endl;
+                            i++;
+                          }
+                        else
+                          {
+                            neighbour_index =
+                              index_from_global_vertex_to_patch[current_vertex];
+                          }
+                        while (!vertices_to_join.empty())
+                          {
+                            index_from_global_vertex_to_patch.emplace(
+                              vertices_to_join.top(), neighbour_index);
+                            cout << "vertex : " << std::setw(10)
+                                 << vertices_to_join.top() << " added at "
+                                 << neighbour_index << std::endl;
+                            vertices_to_join.pop();
+                          }
+                      }
+                  }
+              }
           }
       }
-
     std::vector<std::set<types::global_dof_index>> patches_indices(i);
     std::vector<types::global_dof_index>           object_dofs;
     const FiniteElement<dim>                      &fe = dof_handler.get_fe(0);
     types::fe_index                                fe_index;
 
     object_dofs.reserve(fe.n_dofs_per_cell());
-    AssertDimension(dim,
-                    2); // for now untill i need to implement other dimensions
+
     if (dim == 2)
       {
         unsigned int n_dof_quad =
@@ -507,7 +606,8 @@ namespace Step85
                                 // lower dimensional objects
         unsigned int n_dof_line   = dof_handler.get_fe().n_dofs_per_line();
         unsigned int n_dof_vertex = dof_handler.get_fe().n_dofs_per_vertex();
-        for (const auto &cell : dof_handler.cell_iterators_on_level(level))
+        for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
+                                  IteratorFilters::UserFlagSet())
           {
             fe_index = cell->active_fe_index();
             // FACE DOFS
@@ -515,16 +615,20 @@ namespace Step85
               {
                 object_dofs.clear();
                 for (unsigned int j = 0; j < n_dof_line; j++)
-                  object_dofs.push_back(face->dof_index(
-                    j, fe_index)); // here we get all dofs that are strictly on
-                                   // the interior of the faces
+                  if (is_active)
+                    object_dofs.push_back(face->dof_index(j));
+                  else
+                    object_dofs.push_back(face->mg_dof_index(
+                      level,
+                      j)); // here we get all dofs that are strictly on
+                           // the interior of the faces
                 for (const auto vertex :
                      GeometryInfo<dim - 1>::vertex_indices())
                   {
                     unsigned int vertex_global_index =
                       face->vertex_index(vertex);
                     unsigned int vertex_array_index =
-                      vertex_global_to_array_index[vertex_global_index];
+                      index_from_global_vertex_to_patch[vertex_global_index];
                     // for (const auto dof : object_dofs)
                     //   patches_indices[vertex_array_index].insert(dof);
                     patches_indices[vertex_array_index].insert(
@@ -537,20 +641,21 @@ namespace Step85
             object_dofs.clear();
             for (unsigned int j = 0; j < n_dof_quad; j++)
               object_dofs.push_back(
-                cell->dof_index(j)); // here we get all dofs that are
-                                     // strictly on the interior of the cell
+                cell->mg_dof_index(level,
+                                   j)); // here we get all dofs that are
+                                        // strictly on the interior of the cell
             for (const auto vertex : GeometryInfo<dim>::vertex_indices())
               {
                 unsigned int vertex_global_index = cell->vertex_index(vertex);
                 unsigned int vertex_array_index =
-                  vertex_global_to_array_index[vertex_global_index];
+                  index_from_global_vertex_to_patch[vertex_global_index];
                 for (const auto dof : object_dofs)
                   patches_indices[vertex_array_index].insert(dof);
                 // VERTEX DOFS
                 for (unsigned int j = 0; j < n_dof_vertex; j++)
                   {
                     patches_indices[vertex_array_index].insert(
-                      cell->vertex_dof_index(vertex, j, fe_index));
+                      cell->mg_vertex_dof_index(level, vertex, j, fe_index));
                   }
               }
           }
@@ -566,10 +671,16 @@ namespace Step85
         for (i = 0; i < patches_indices.size(); i++)
           {
             for (const auto dof_index : patches_indices[i])
-              block_list.add(i, dof_index);
+              {
+                block_list.add(i, dof_index);
+                cout << "Dof : " << std::setw(4) << dof_index
+                     << " added to patch " << i << std::endl;
+              }
           }
       }
-
+    cout << "Displaying Block_list : \n";
+    block_list.print(cout);
+    cout << "\nEnd Block_list \n\n";
     block_list.compress();
   }
 
@@ -578,7 +689,7 @@ namespace Step85
   LaplaceSolver<dim>::write_dof_locations(const std::string &filename)
   {
     const std::map<types::global_dof_index, Point<dim>> dof_location_map =
-      DoFTools::map_dofs_to_support_points(mapping_collection, dof_handler);
+      DoFTools::map_dofs_to_support_points(MappingQ1<dim>(), dof_handler);
 
     std::ofstream dof_location_file(filename);
     DoFTools::write_gnuplot_dof_support_point_info(dof_location_file,
@@ -597,10 +708,13 @@ namespace Step85
     for (unsigned int i = 0; i < solution.size(); i++)
       {
         solution[i] = dist(e2);
-        if (i < 20)
-          std::cout << i << std::endl;
+        // if (i < 20)
+        //   std::cout << solution[i] << std::endl;
       }
 
+    std::cout << "Before : " << solution.norm_sqr() << std::endl;
+    patch_smoother->step(solution, rhs);
+    std::cout << "After  : " << solution.norm_sqr() << std::endl << std::endl;
 
 
     // std::cout << "Solving system" << std::endl;
@@ -664,44 +778,36 @@ namespace Step85
   {
     std::cout << "Computing L2 error" << std::endl;
 
-    const QGauss<1> quadrature_1D(fe_degree + 1);
+    const QGauss<dim> quadrature_formula(fe_degree + 1);
 
-    NonMatching::RegionUpdateFlags region_update_flags;
-    region_update_flags.inside =
-      update_values | update_JxW_values | update_quadrature_points;
+    // NonMatching::RegionUpdateFlags region_update_flags;
+    // region_update_flags.inside =
+    //   update_values | update_JxW_values | update_quadrature_points;
 
-    NonMatching::FEValues<dim> non_matching_fe_values(fe_collection,
-                                                      quadrature_1D,
-                                                      region_update_flags,
-                                                      mesh_classifier,
-                                                      level_set_dof_handler,
-                                                      level_set);
+    FEValues<dim> cell_fe_values(fe_poisson,
+                                 quadrature_formula,
+                                 update_values | update_JxW_values |
+                                   update_quadrature_points);
 
     AnalyticalSolution<dim> analytical_solution;
     double                  error_L2_squared = 0;
 
     for (const auto &cell :
-         dof_handler.active_cell_iterators() |
-           IteratorFilters::ActiveFEIndexEqualTo(ActiveFEIndex::lagrange))
+         dof_handler.active_cell_iterators() | IteratorFilters::UserFlagSet())
       {
-        non_matching_fe_values.reinit(cell);
+        cell_fe_values.reinit(cell);
 
-        const std_cxx17::optional<FEValues<dim>> &fe_values =
-          non_matching_fe_values.get_inside_fe_values();
 
-        if (fe_values)
+        std::vector<double> solution_values(cell_fe_values.n_quadrature_points);
+        cell_fe_values.get_function_values(solution, solution_values);
+
+        for (const unsigned int q : cell_fe_values.quadrature_point_indices())
           {
-            std::vector<double> solution_values(fe_values->n_quadrature_points);
-            fe_values->get_function_values(solution, solution_values);
-
-            for (const unsigned int q : fe_values->quadrature_point_indices())
-              {
-                const Point<dim> &point = fe_values->quadrature_point(q);
-                const double      error_at_point =
-                  solution_values.at(q) - analytical_solution.value(point);
-                error_L2_squared +=
-                  std::pow(error_at_point, 2) * fe_values->JxW(q);
-              }
+            const Point<dim> &point = cell_fe_values.quadrature_point(q);
+            const double      error_at_point =
+              solution_values.at(q) - analytical_solution.value(point);
+            error_L2_squared +=
+              std::pow(error_at_point, 2) * cell_fe_values.JxW(q);
           }
       }
 
@@ -713,7 +819,7 @@ namespace Step85
   LaplaceSolver<dim>::run()
   {
     ConvergenceTable   convergence_table;
-    const unsigned int n_refinements = 5;
+    const unsigned int n_refinements = 1;
 
     make_grid();
     for (unsigned int cycle = 0; cycle <= n_refinements; cycle++)
@@ -724,7 +830,8 @@ namespace Step85
         std::cout << "Classifying cells" << std::endl;
         mesh_classifier.reclassify();
         distribute_dofs();
-
+        std::ofstream mesh_file("mesh.gnuplot");
+        GridOut().write_gnuplot(triangulation, mesh_file);
         write_dof_locations("dof-locations-1.gnuplot");
 
         initialize_matrices();
