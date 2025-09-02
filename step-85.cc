@@ -54,9 +54,9 @@ namespace Step85
 
   template <int dim, int spacedim>
   void
-  make_custom_patches(SparsityPattern                 &block_list,
-                      const DoFHandler<dim, spacedim> &dof_handler,
-                      const unsigned int               level);
+  make_shy_vertex_patches(SparsityPattern                 &block_list,
+                          const DoFHandler<dim, spacedim> &dof_handler,
+                          const unsigned int               level);
 
   struct Settings
   {
@@ -373,6 +373,14 @@ namespace Step85
             if (face_on_boundary) // face is on the shifted boundary
               {
                 cell->face(face_index)->set_user_flag();
+                // for (size_t vertex_index = 0;
+                //      vertex_index < cell->face(face_index)->n_vertices();
+                //      vertex_index++)
+                //   cell->face(face_index)
+                //     ->vertex_iterator(vertex_index)
+                //     ->set_user_flag();
+                // error: ‘class dealii::TriaAccessor<0, 2, 2>’ has no member
+                // named ‘set_user_flag’
                 face_fe_values.reinit(cell, face_index);
                 for (const unsigned int q :
                      face_fe_values.quadrature_point_indices())
@@ -456,7 +464,7 @@ namespace Step85
   LaplaceSolver<dim>::setup_smoother()
   {
     unsigned int level = triangulation.n_levels() - 1;
-    make_custom_patches(smoother_data.block_list, dof_handler, level);
+    make_shy_vertex_patches(smoother_data.block_list, dof_handler, level);
     smoother_data.relaxation = 1.;
     smoother_data.inversion  = PreconditionBlockBase<double>::svd;
     auto smoother            = std::make_unique<SmootherType>();
@@ -468,129 +476,128 @@ namespace Step85
 
   template <int dim, int spacedim>
   void
-  make_custom_patches(SparsityPattern                 &block_list,
-                      const DoFHandler<dim, spacedim> &dof_handler,
-                      const unsigned int               level)
+  make_shy_vertex_patches(SparsityPattern                 &block_list,
+                          const DoFHandler<dim, spacedim> &dof_handler,
+                          const unsigned int               level)
   {
+    // This function expects all cells that are within the surrogate boundary
+    // be user_flag_set() and every face on these cells that are on the
+    // surrogate boundary also user_flag_set()
     AssertDimension(dim,
                     2); // for now untill i need to implement other dimensions
-    bool         is_active = level == numbers::invalid_unsigned_int;
-    unsigned int i         = 0;
+
+    bool is_active         = level == numbers::invalid_unsigned_int;
     using patch_index_type = unsigned int;
+
+    // SECTION for counting patches and generating mapping from vertex to patch
+    patch_index_type i = 0;
     std::map<types::global_vertex_index, patch_index_type>
       index_from_global_vertex_to_patch;
 
 
-    // counting patches and generating mapping vertex to patch index all in one
-    // loop
-    if (dim == 2) // code only works for dim == 2
+    std::vector<bool> vertex_on_patch(
+      dof_handler.get_triangulation().n_vertices());
+    std::vector<bool> vertex_inside_boundary;
+    vertex_inside_boundary.resize(dof_handler.get_triangulation().n_vertices());
+    // unusued vertices outside boundary should never be traveeresd!, vertices
+    // for (auto &vertex : vertex_inside_boundary) //how to use ranged based for
+    // loops to assign value ?
+    //   {
+    //     vertex = true;
+    //   }
+    // this loop sets vertex_inside_boundary for all boundary vertices to false
+    for (unsigned int ii = 0; ii < vertex_inside_boundary.size(); ii++)
       {
-        std::map<types::global_vertex_index, types::global_vertex_index>
-          vertex_neighbour; // neighbour of vertex, PRIORITIZED to be vertex not
-                            // on the boundary
-        std::set<types::global_vertex_index> vertices_on_boundary;
-        for (const auto &cell :
-             dof_handler.cell_iterators_on_level(level) |
-               IteratorFilters::UserFlagSet()) // user flag is set for cells
-                                               // which are "inside"
-          {
-            vertex_neighbour.clear();
-            vertices_on_boundary.clear();
-            for (const auto &face : cell->face_iterators())
-              {
-                if (face->user_flag_set()) // user_flag_set() on face means that
-                                           // face IS ON the boundary
-                  {
-                    vertices_on_boundary.insert(face->vertex_index(0));
-                    vertices_on_boundary.insert(face->vertex_index(1));
-                    if (vertex_neighbour.find(face->vertex_index(0)) ==
-                        vertex_neighbour.end())
-                      vertex_neighbour.emplace(face->vertex_index(0),
-                                               face->vertex_index(1));
-                    if (vertex_neighbour.find(face->vertex_index(1)) ==
-                        vertex_neighbour.end())
-                      vertex_neighbour.emplace(face->vertex_index(1),
-                                               face->vertex_index(0));
-                  }
-                else
-                  {
-                    vertex_neighbour.emplace(face->vertex_index(0),
-                                             face->vertex_index(1));
-                    vertex_neighbour.emplace(face->vertex_index(1),
-                                             face->vertex_index(0));
-                  }
-              }
+        vertex_inside_boundary[ii] = true;
+      }
 
-            for (const auto vertex : GeometryInfo<dim>::vertex_indices())
+
+    for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
+                              IteratorFilters::UserFlagSet())
+      {
+        for (const auto &face : cell->face_iterators())
+          {
+            if (face->user_flag_set())
+              for (const auto vertex : GeometryInfo<dim - 1>::vertex_indices())
+                vertex_inside_boundary[face->vertex_index(vertex)] = false;
+          }
+      }
+
+    // this loops assigns 1 patch for every interior vertex
+    for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
+                              IteratorFilters::UserFlagSet())
+      {
+        for (const auto &face : cell->face_iterators())
+          {
+            for (const auto vertex : GeometryInfo<dim - 1>::vertex_indices())
               {
                 types::global_vertex_index global_vertex_index =
-                  cell->vertex_index(vertex);
-                if (index_from_global_vertex_to_patch.find(
-                      global_vertex_index) ==
-                    index_from_global_vertex_to_patch
-                      .end()) // doesnt contain the vertex, so we need to add it
+                  face->vertex_index(vertex);
+                if (vertex_inside_boundary[global_vertex_index] == true)
                   {
-                    if (vertices_on_boundary.find(global_vertex_index) ==
-                        vertices_on_boundary
-                          .end()) // vertex not on boundary, gets its own patch
+                    if (vertex_on_patch[global_vertex_index] == false)
                       {
+                        vertex_on_patch[global_vertex_index] = true;
                         index_from_global_vertex_to_patch.emplace(
                           global_vertex_index, i);
-                        cout << "vertex : " << std::setw(10)
-                             << global_vertex_index << " added at " << i
-                             << std::endl;
-                        i++;
-                      }
-                    else // vertex on boundary need to add to other vertex's
-                         // patch
-                      {
-                        // finding "closest" vertex  that is not on the
-                        // boundary, and
-                        std::stack<types::global_vertex_index> vertices_to_join;
-                        vertices_to_join.push(global_vertex_index);
-                        types::global_vertex_index current_vertex =
-                          vertex_neighbour[global_vertex_index];
-                        while (vertices_on_boundary.find(current_vertex) ==
-                               vertices_on_boundary.end())
-                          {
-                            vertices_to_join.push(current_vertex);
-                            current_vertex = vertex_neighbour
-                              [current_vertex]; // assumign this is a path that
-                                                // leads to a vertex not on
-                                                // boundary
-                          }
-                        patch_index_type neighbour_index = 0;
-                        if (index_from_global_vertex_to_patch.find(
-                              current_vertex) ==
-                            index_from_global_vertex_to_patch.end())
-                          {
-                            index_from_global_vertex_to_patch.emplace(
-                              global_vertex_index, i);
-                            neighbour_index = i;
-                            cout << "vertex : " << std::setw(10)
-                                 << global_vertex_index << " added at " << i
-                                 << std::endl;
-                            i++;
-                          }
-                        else
-                          {
-                            neighbour_index =
-                              index_from_global_vertex_to_patch[current_vertex];
-                          }
-                        while (!vertices_to_join.empty())
-                          {
-                            index_from_global_vertex_to_patch.emplace(
-                              vertices_to_join.top(), neighbour_index);
-                            cout << "vertex : " << std::setw(10)
-                                 << vertices_to_join.top() << " added at "
-                                 << neighbour_index << std::endl;
-                            vertices_to_join.pop();
-                          }
+                        i++; // this is where number of patches gets counted
                       }
                   }
               }
           }
       }
+
+    std::set<types::global_vertex_index> modified_vertices;
+    while (true) // assigning border vertices to nearby patches untill exhausted
+      {
+        // bool modified = false;
+        modified_vertices.clear();
+        for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
+                                  IteratorFilters::UserFlagSet())
+          {
+            for (const auto &face : cell->face_iterators())
+              {
+                for (const auto vertex : GeometryInfo<1>::vertex_indices())
+                  {
+                    types::global_vertex_index global_vertex_index =
+                      face->vertex_index(vertex);
+                    if (vertex_on_patch[global_vertex_index] == false)
+                      {
+                        types::global_vertex_index other_vertex =
+                          face->vertex_index(
+                            (vertex + 1) %
+                            2); // here making assumption that face is an edge,
+                                // otherwise we need more loops
+                        if (vertex_on_patch[other_vertex]) // other vertex is on
+                                                           // a patch and we can
+                                                           // add current vertex
+                                                           // to it
+                          {
+                            if (modified_vertices.count(other_vertex) ==
+                                0) // a vertex modified in this loop doesnt
+                                   // count. This is required to make sure
+                                   // patches are independent on vertex
+                                   // traversal order
+                              {
+                                vertex_on_patch[global_vertex_index] = true;
+                                modified_vertices.insert(global_vertex_index);
+                                index_from_global_vertex_to_patch.emplace(
+                                  global_vertex_index,
+                                  index_from_global_vertex_to_patch
+                                    [other_vertex]); // adding current vertex to
+                                                     // patch of other vertex
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+        if (modified_vertices.empty())
+          break;
+      }
+
+    // Section Finding vertices for each dof, and assigning it to the patch for
+    // that vertex
     std::vector<std::set<types::global_dof_index>> patches_indices(i);
     std::vector<types::global_dof_index>           object_dofs;
     const FiniteElement<dim>                      &fe = dof_handler.get_fe(0);
@@ -627,11 +634,11 @@ namespace Step85
                   {
                     unsigned int vertex_global_index =
                       face->vertex_index(vertex);
-                    unsigned int vertex_array_index =
+                    unsigned int vertex_patch_index =
                       index_from_global_vertex_to_patch[vertex_global_index];
                     // for (const auto dof : object_dofs)
-                    //   patches_indices[vertex_array_index].insert(dof);
-                    patches_indices[vertex_array_index].insert(
+                    //   patches_indices[vertex_patch_index].insert(dof);
+                    patches_indices[vertex_patch_index].insert(
                       object_dofs.begin(), object_dofs.end());
                     // Q: dealii c++ version ?
                   }
@@ -647,27 +654,23 @@ namespace Step85
             for (const auto vertex : GeometryInfo<dim>::vertex_indices())
               {
                 unsigned int vertex_global_index = cell->vertex_index(vertex);
-                unsigned int vertex_array_index =
+                unsigned int vertex_patch_index =
                   index_from_global_vertex_to_patch[vertex_global_index];
                 for (const auto dof : object_dofs)
-                  patches_indices[vertex_array_index].insert(dof);
+                  patches_indices[vertex_patch_index].insert(dof);
                 // VERTEX DOFS
                 for (unsigned int j = 0; j < n_dof_vertex; j++)
                   {
-                    patches_indices[vertex_array_index].insert(
+                    patches_indices[vertex_patch_index].insert(
                       cell->mg_vertex_dof_index(level, vertex, j, fe_index));
                   }
               }
           }
 
-        // TODO : migrate patches of unused vertices to some nearby used vertex
-
         block_list.reinit(patches_indices.size(),
                           dof_handler.n_dofs(level),
                           dof_handler.get_fe().n_dofs_per_cell() *
                             std::pow(2, dim));
-        // Q: 2^dim just to be safe for now, how
-        // much does this impact performance ?
         for (i = 0; i < patches_indices.size(); i++)
           {
             for (const auto dof_index : patches_indices[i])
