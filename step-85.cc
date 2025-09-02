@@ -673,8 +673,8 @@ namespace Step85
             for (const auto dof_index : patches_indices[i])
               {
                 block_list.add(i, dof_index);
-                cout << "Dof : " << std::setw(4) << dof_index
-                     << " added to patch " << i << std::endl;
+                // cout << "Dof : " << std::setw(4) << dof_index
+                //      << " added to patch " << i << std::endl;
               }
           }
       }
