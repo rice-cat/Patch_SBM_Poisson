@@ -56,7 +56,8 @@ namespace Step85
   void
   make_shy_vertex_patches(SparsityPattern                 &block_list,
                           const DoFHandler<dim, spacedim> &dof_handler,
-                          const unsigned int               level);
+                          const unsigned int               level,
+                          unsigned int                     shyness = 3);
 
   struct Settings
   {
@@ -134,9 +135,10 @@ namespace Step85
     Vector<double>  level_set;
 
     // hp::FECollection<dim> fe_collection;
-    const FE_Q<dim> fe_poisson;
-    DoFHandler<dim> dof_handler;
-    Vector<double>  solution;
+    const FE_Q<dim>   fe_poisson;
+    DoFHandler<dim>   dof_handler;
+    Vector<double>    solution;
+    std::vector<bool> active_dofs;
 
     hp::MappingCollection<dim> mapping_collection;
 
@@ -301,6 +303,10 @@ namespace Step85
   {
     std::cout << "Assembling" << std::endl;
 
+    // Reset active dofs mask:
+    active_dofs.clear();
+    active_dofs.resize(dof_handler.n_dofs(), false);
+
     const unsigned int n_dofs_per_cell = fe_poisson.dofs_per_cell;
     FullMatrix<double> local_stiffness(n_dofs_per_cell, n_dofs_per_cell);
     Vector<double>     local_rhs(n_dofs_per_cell);
@@ -436,7 +442,7 @@ namespace Step85
                             // decided to shift both
                             local_stiffness(i, j) +=
                               alpha * shifted_shape_values[j] *
-                              shape_values[i] * face_fe_values.JxW(q);
+                              shifted_shape_values[i] * face_fe_values.JxW(q);
                           }
                         local_rhs[i] -=
                           boundary_condition.value(closest_boundary_point) *
@@ -446,13 +452,16 @@ namespace Step85
                         local_rhs[i] +=
                           alpha *
                           boundary_condition.value(closest_boundary_point) *
-                          shape_values[i] * face_fe_values.JxW(q);
+                          shifted_shape_values[i] * face_fe_values.JxW(q);
                       }
                   }
               }
           }
 
         cell->get_dof_indices(local_dof_indices);
+        // set all DoFs on this cell to active:
+        for (const auto index : local_dof_indices)
+          active_dofs[index] = true;
 
         stiffness_matrix.add(local_dof_indices, local_stiffness);
         rhs.add(local_dof_indices, local_rhs);
@@ -476,9 +485,14 @@ namespace Step85
 
   template <int dim, int spacedim>
   void
-  make_shy_vertex_patches(SparsityPattern                 &block_list,
-                          const DoFHandler<dim, spacedim> &dof_handler,
-                          const unsigned int               level)
+  make_shy_vertex_patches(
+    SparsityPattern                 &block_list,
+    const DoFHandler<dim, spacedim> &dof_handler,
+    const unsigned int               level,
+    unsigned int shyness // shyness is the number of cells per vertex needed
+                         // to assign it a patch of its own. These cells are
+                         // considered "sheltered"
+  )
   {
     // This function expects all cells that are within the surrogate boundary
     // be user_flag_set() and every face on these cells that are on the
@@ -497,33 +511,37 @@ namespace Step85
 
     std::vector<bool> vertex_on_patch(
       dof_handler.get_triangulation().n_vertices());
-    std::vector<bool> vertex_inside_boundary;
-    vertex_inside_boundary.resize(dof_handler.get_triangulation().n_vertices());
-    // unusued vertices outside boundary should never be traveeresd!, vertices
-    // for (auto &vertex : vertex_inside_boundary) //how to use ranged based for
-    // loops to assign value ?
-    //   {
-    //     vertex = true;
-    //   }
-    // this loop sets vertex_inside_boundary for all boundary vertices to false
-    for (unsigned int ii = 0; ii < vertex_inside_boundary.size(); ii++)
+    std::vector<unsigned int> vertex_cell_count(
+      dof_handler.get_triangulation().n_vertices());
+    std::vector<bool> vertex_is_sheltered;
+    vertex_is_sheltered.resize(dof_handler.get_triangulation().n_vertices());
+
+
+    for (unsigned int ii = 0; ii < vertex_cell_count.size(); ii++)
       {
-        vertex_inside_boundary[ii] = true;
+        vertex_cell_count[ii] = 0;
       }
 
-
+    // counting interior cells per vertex
     for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
                               IteratorFilters::UserFlagSet())
       {
-        for (const auto &face : cell->face_iterators())
+        for (const auto vertex : GeometryInfo<dim>::vertex_indices())
           {
-            if (face->user_flag_set())
-              for (const auto vertex : GeometryInfo<dim - 1>::vertex_indices())
-                vertex_inside_boundary[face->vertex_index(vertex)] = false;
+            vertex_cell_count[cell->vertex_index(vertex)]++;
           }
       }
 
-    // this loops assigns 1 patch for every interior vertex
+    // setting vertex_is_sheltered
+    for (unsigned int ii = 0; ii < vertex_is_sheltered.size(); ii++)
+      {
+        if (vertex_cell_count[ii] >= shyness)
+          vertex_is_sheltered[ii] = true;
+        else
+          vertex_is_sheltered[ii] = false;
+      }
+
+    // this loops assigns 1 patch for every sheltered vertex
     for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
                               IteratorFilters::UserFlagSet())
       {
@@ -533,7 +551,7 @@ namespace Step85
               {
                 types::global_vertex_index global_vertex_index =
                   face->vertex_index(vertex);
-                if (vertex_inside_boundary[global_vertex_index] == true)
+                if (vertex_is_sheltered[global_vertex_index] == true)
                   {
                     if (vertex_on_patch[global_vertex_index] == false)
                       {
@@ -548,7 +566,8 @@ namespace Step85
       }
 
     std::set<types::global_vertex_index> modified_vertices;
-    while (true) // assigning border vertices to nearby patches untill exhausted
+    while (
+      true) // assigning unassigned vertices to nearby patches untill exhausted
       {
         // bool modified = false;
         modified_vertices.clear();
@@ -681,9 +700,9 @@ namespace Step85
               }
           }
       }
-    cout << "Displaying Block_list : \n";
-    block_list.print(cout);
-    cout << "\nEnd Block_list \n\n";
+    std::cout << "Displaying Block_list : \n";
+    block_list.print(std::cout);
+    std::cout << "\nEnd Block_list \n\n";
     block_list.compress();
   }
 
@@ -691,8 +710,26 @@ namespace Step85
   void
   LaplaceSolver<dim>::write_dof_locations(const std::string &filename)
   {
-    const std::map<types::global_dof_index, Point<dim>> dof_location_map =
+    std::map<types::global_dof_index, Point<dim>> dof_location_map =
       DoFTools::map_dofs_to_support_points(MappingQ1<dim>(), dof_handler);
+
+
+    for (auto map_element = dof_location_map.begin();
+         map_element != dof_location_map.end();)
+      {
+        if (active_dofs[map_element->first] == false)
+          {
+            auto temp = map_element;
+            map_element++;
+            dof_location_map.erase(temp);
+          }
+        else
+          {
+            map_element++;
+          }
+      }
+
+
 
     std::ofstream dof_location_file(filename);
     DoFTools::write_gnuplot_dof_support_point_info(dof_location_file,
@@ -710,13 +747,15 @@ namespace Step85
 
     for (unsigned int i = 0; i < solution.size(); i++)
       {
-        solution[i] = dist(e2);
+        if (active_dofs[i])
+          solution[i] = dist(e2);
         // if (i < 20)
         //   std::cout << solution[i] << std::endl;
       }
 
     std::cout << "Before : " << solution.norm_sqr() << std::endl;
-    patch_smoother->step(solution, rhs);
+    for (unsigned int i = 0; i < 5; i++)
+      patch_smoother->step(solution, rhs);
     std::cout << "After  : " << solution.norm_sqr() << std::endl << std::endl;
 
 
@@ -743,15 +782,9 @@ namespace Step85
     data_out.add_data_vector(level_set_dof_handler, level_set, "level_set");
     // data_out.add_data_vector()
 
-    data_out.set_cell_selection(
-      [this](const typename Triangulation<dim>::cell_iterator &cell) {
-        return cell->is_active() &&
-               mesh_classifier.location_to_level_set(cell) ==
-                 NonMatching::LocationToLevelSet::inside;
-      });
 
     data_out.build_patches();
-    std::ofstream output("step-85.vtu");
+    std::ofstream output("patch_smoother.vtu");
     data_out.write_vtu(output);
   }
 
@@ -835,14 +868,15 @@ namespace Step85
         distribute_dofs();
         std::ofstream mesh_file("mesh.gnuplot");
         GridOut().write_gnuplot(triangulation, mesh_file);
-        write_dof_locations("dof-locations-1.gnuplot");
 
         initialize_matrices();
         assemble_system();
+
+        write_dof_locations("dof-locations-1.gnuplot");
         setup_smoother();
         solve(); //"SOLVE does smoother steps"
-        if (cycle == 1)
-          output_results();
+                 // if (cycle == 1)
+        output_results();
         const double error_L2 = compute_L2_error();
         const double cell_side_length =
           triangulation.begin_active()->minimum_vertex_distance();
