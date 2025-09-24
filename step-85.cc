@@ -510,25 +510,29 @@ namespace Step85
 
 
     std::vector<bool> vertex_on_patch(
-      dof_handler.get_triangulation().n_vertices());
+      dof_handler.get_triangulation().n_vertices(), false);
     std::vector<unsigned int> vertex_cell_count(
       dof_handler.get_triangulation().n_vertices());
     std::vector<bool> vertex_is_sheltered;
     vertex_is_sheltered.resize(dof_handler.get_triangulation().n_vertices());
 
+    std::vector<std::set<dealii::CellId>> cells_of_vertex;
+    cells_of_vertex.resize(dof_handler.get_triangulation().n_vertices());
 
     for (unsigned int ii = 0; ii < vertex_cell_count.size(); ii++)
       {
         vertex_cell_count[ii] = 0;
       }
 
-    // counting interior cells per vertex
+    // counting interior cells per vertex and also building a list of cells per
+    // vertex
     for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
                               IteratorFilters::UserFlagSet())
       {
         for (const auto vertex : GeometryInfo<dim>::vertex_indices())
           {
             vertex_cell_count[cell->vertex_index(vertex)]++;
+            cells_of_vertex[cell->vertex_index(vertex)].insert(cell->id());
           }
       }
 
@@ -565,11 +569,74 @@ namespace Step85
           }
       }
 
-    std::set<types::global_vertex_index> modified_vertices;
-    while (
-      true) // assigning unassigned vertices to nearby patches untill exhausted
+
+    // re writing this  assigment differently
+
+    // std::set<types::global_vertex_index> modified_vertices;
+    // while (
+    //   true) // assigning unassigned vertices to nearby patches untill
+    //   exhausted
+    //   {
+    //     // bool modified = false;
+    //     modified_vertices.clear();
+    //     for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
+    //                               IteratorFilters::UserFlagSet())
+    //       {
+    //         for (const auto &face : cell->face_iterators())
+    //           {
+    //             for (const auto vertex : GeometryInfo<1>::vertex_indices())
+    //               {
+    //                 types::global_vertex_index global_vertex_index =
+    //                   face->vertex_index(vertex);
+    //                 if (vertex_on_patch[global_vertex_index] == false)
+    //                   {
+    //                     types::global_vertex_index other_vertex =
+    //                       face->vertex_index(
+    //                         (vertex + 1) %
+    //                         2); // here making assumption that face is an
+    //                         edge,
+    //                             // otherwise we need more loops
+    //                     if (vertex_on_patch[other_vertex]) // other vertex is
+    //                     on
+    //                                                        // a patch and we
+    //                                                        can
+    //                                                        // add current
+    //                                                        vertex
+    //                                                        // to it
+    //                       {
+    //                         if (modified_vertices.count(other_vertex) ==
+    //                             0) // a vertex modified in this loop doesnt
+    //                                // count. This is required to make sure
+    //                                // patches are independent on vertex
+    //                                // traversal order
+    //                           {
+    //                             vertex_on_patch[global_vertex_index] = true;
+    //                             modified_vertices.insert(global_vertex_index);
+    //                             index_from_global_vertex_to_patch.emplace(
+    //                               global_vertex_index,
+    //                               index_from_global_vertex_to_patch
+    //                                 [other_vertex]); // adding current vertex
+    //                                 to
+    //                                                  // patch of other vertex
+    //                           }
+    //                       }
+    //                   }
+    //               }
+    //           }
+    //       }
+    //     if (modified_vertices.empty())
+    //       break;
+    //   }
+
+
+
+    std::vector<types::global_cell_index> candidate_vertices;
+    std::vector<unsigned int>             cells_shared;
+    std::set<types::global_vertex_index>  modified_vertices;
+    while (true) // assigning unassigned vertices to patches of nearby vertices.
+                 // vertices sharing an edge are considered nearby. The nearby
+                 // vertex must have all the cells of this vertex
       {
-        // bool modified = false;
         modified_vertices.clear();
         for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
                                   IteratorFilters::UserFlagSet())
@@ -598,13 +665,31 @@ namespace Step85
                                    // patches are independent on vertex
                                    // traversal order
                               {
-                                vertex_on_patch[global_vertex_index] = true;
-                                modified_vertices.insert(global_vertex_index);
-                                index_from_global_vertex_to_patch.emplace(
-                                  global_vertex_index,
-                                  index_from_global_vertex_to_patch
-                                    [other_vertex]); // adding current vertex to
-                                                     // patch of other vertex
+                                bool patch_contains_all_cells = true;
+                                for (dealii::CellId cell_index :
+                                     cells_of_vertex[global_vertex_index])
+                                  {
+                                    if (cells_of_vertex[other_vertex].find(
+                                          cell_index) ==
+                                        cells_of_vertex[other_vertex].end())
+                                      {
+                                        patch_contains_all_cells = false;
+                                        break;
+                                      }
+                                  }
+
+                                if (patch_contains_all_cells)
+                                  {
+                                    vertex_on_patch[global_vertex_index] = true;
+                                    modified_vertices.insert(
+                                      global_vertex_index);
+                                    index_from_global_vertex_to_patch.emplace(
+                                      global_vertex_index,
+                                      index_from_global_vertex_to_patch
+                                        [other_vertex]); // adding current
+                                                         // vertex to
+                                    // patch of other vertex
+                                  }
                               }
                           }
                       }
@@ -613,6 +698,27 @@ namespace Step85
           }
         if (modified_vertices.empty())
           break;
+      }
+
+    bool all_vertices_on_patch = true;
+    for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
+                              IteratorFilters::UserFlagSet())
+      for (const auto vertex : GeometryInfo<dim>::vertex_indices())
+        if (vertex_on_patch[cell->vertex_index(vertex)] == false)
+          {
+            all_vertices_on_patch = false;
+            break;
+          }
+
+    std::cout << "All vertices on patch  = " << all_vertices_on_patch
+              << std::endl;
+
+    if (all_vertices_on_patch == false)
+      {
+        // This can happen for shyess of 4
+        // Q: what to do for this scenario ? or not relevant at all
+
+        throw std::runtime_error(" Not all vertices have a patch :( ");
       }
 
     // Section Finding vertices for each dof, and assigning it to the patch for
