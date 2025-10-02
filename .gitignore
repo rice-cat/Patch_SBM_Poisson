@@ -42,7 +42,9 @@ doc/html
 
 # Vscode local configuration
 .vscode
-build/*
+
+# Build directory
+build/
 
 # Output files
 *.vtu
