@@ -33,6 +33,9 @@
 # CMake garbage
 CMakeFiles
 CMakeCache.txt
+MakeFile
+compile_commands.json
+cmake_install.cmake
 
 compile_commands.json
 /build/*
