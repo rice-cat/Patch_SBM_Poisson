@@ -38,5 +38,5 @@ compile_commands.json
 cmake_install.cmake
 
 compile_commands.json
-/build/*
+build/*
 .vscode/*
