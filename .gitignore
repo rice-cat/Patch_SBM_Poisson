@@ -33,7 +33,7 @@
 # CMake garbage
 CMakeFiles
 CMakeCache.txt
-MakeFile
+Makefile
 compile_commands.json
 cmake_install.cmake
 
