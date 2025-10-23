@@ -27,6 +27,9 @@ DEAL_II_INITIALIZE_CACHED_VARIABLES()
 
 PROJECT(${_library_target})
 
+# Enable testing
+ENABLE_TESTING()
+
 # We add one library and one target for each type of deal.II library
 # we found. If you compiled deal.II with both Release and Debug
 # mode, this will generate both Release and Debug programs for you.
@@ -63,3 +66,8 @@ FOREACH(_build_type ${_d2_build_types})
     ENDFOREACH()
   ENDIF()
 ENDFOREACH()
+
+# Deal.II style testing
+IF(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+  ADD_SUBDIRECTORY(tests)
+ENDIF()
