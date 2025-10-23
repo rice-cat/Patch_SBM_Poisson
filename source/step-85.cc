@@ -25,8 +25,9 @@ namespace Step85
     , boundary_condition(0.0)
     , triangulation(Triangulation<dim>::limit_level_difference_at_vertices)
     , fe_level_set(fe_degree)
-    , fe_poisson(fe_degree)
     , level_set_dof_handler(triangulation)
+    , level_set()
+    , fe_poisson(fe_degree)
     , dof_handler(triangulation)
     , mesh_classifier(level_set_dof_handler, level_set)
     , settings(settings)
@@ -680,15 +681,6 @@ namespace Step85
     std::ofstream output("patch_smoother.vtu");
     data_out.write_vtu(output);
   }
-
-  template <int dim>
-  class AnalyticalSolution : public Function<dim>
-  {
-  public:
-    double
-    value(const Point<dim>  &point,
-          const unsigned int component = 0) const override;
-  };
 
   template <int dim>
   double
