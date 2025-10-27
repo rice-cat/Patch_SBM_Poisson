@@ -3,10 +3,12 @@
 #include <deal.II/base/geometry_info.h>
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/fe/fe.h>
+#include <deal.II/fe/mapping_q1.h>
 #include <deal.II/grid/filtered_iterator.h>
 #include <deal.II/grid/tria.h>
 
 #include <algorithm>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <set>
@@ -243,5 +245,122 @@ namespace Step85
                                  const DoFHandler<2, 2> &dof_handler,
                                  const unsigned int       level,
                                  unsigned int             shyness);
+
+  template <int dim, int spacedim>
+  void
+  output_patches_vtk(const SparsityPattern               &block_list,
+                     const DoFHandler<dim, spacedim>     &dof_handler,
+                     const unsigned int                   level,
+                     const std::string                   &filename)
+  {
+    // Get support points for DoFs on the given level
+    const MappingQ1<dim, spacedim> mapping;
+    std::map<types::global_dof_index, Point<spacedim>> dof_location_map;
+    
+    // Manually get support points for the multigrid level
+    const FiniteElement<dim, spacedim> &fe = dof_handler.get_fe();
+    const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
+    
+    std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+    
+    for (const auto &cell : dof_handler.cell_iterators_on_level(level))
+      {
+        cell->get_mg_dof_indices(local_dof_indices);
+        
+        const std::vector<Point<dim>> &unit_support_points = 
+          fe.get_unit_support_points();
+          
+        for (unsigned int i = 0; i < dofs_per_cell; ++i)
+          {
+            const Point<spacedim> support_point = 
+              mapping.transform_unit_to_real_cell(cell, unit_support_points[i]);
+            dof_location_map[local_dof_indices[i]] = support_point;
+          }
+      }
+
+    std::ofstream vtk_file(filename);
+    
+    // Write VTK header
+    vtk_file << "# vtk DataFile Version 3.0\n";
+    vtk_file << "Shy Patches Visualization\n";
+    vtk_file << "ASCII\n";
+    vtk_file << "DATASET UNSTRUCTURED_GRID\n";
+
+    // Count total points (DoFs can appear in multiple patches)
+    unsigned int total_points = 0;
+    for (unsigned int patch = 0; patch < block_list.n_rows(); ++patch)
+      {
+        for (SparsityPattern::iterator it = block_list.begin(patch);
+             it != block_list.end(patch); ++it)
+          {
+            ++total_points;
+          }
+      }
+
+    // Write points
+    vtk_file << "POINTS " << total_points << " double\n";
+    for (unsigned int patch = 0; patch < block_list.n_rows(); ++patch)
+      {
+        for (SparsityPattern::iterator it = block_list.begin(patch);
+             it != block_list.end(patch); ++it)
+          {
+            const types::global_dof_index dof_index = it->column();
+            const Point<spacedim> &point = dof_location_map[dof_index];
+            
+            vtk_file << point[0] << " " << point[1];
+            if (spacedim == 3)
+              vtk_file << " " << point[2];
+            else
+              vtk_file << " 0.0";
+            vtk_file << "\n";
+          }
+      }
+
+    // Write cells (each point is a vertex cell)
+    vtk_file << "\nCELLS " << total_points << " " << (total_points * 2) << "\n";
+    for (unsigned int i = 0; i < total_points; ++i)
+      vtk_file << "1 " << i << "\n";
+
+    // Write cell types (VTK_VERTEX = 1)
+    vtk_file << "\nCELL_TYPES " << total_points << "\n";
+    for (unsigned int i = 0; i < total_points; ++i)
+      vtk_file << "1\n";
+
+    // Write point data
+    vtk_file << "\nPOINT_DATA " << total_points << "\n";
+    
+    // DoF indices as scalar data
+    vtk_file << "SCALARS dof_index int 1\n";
+    vtk_file << "LOOKUP_TABLE default\n";
+    for (unsigned int patch = 0; patch < block_list.n_rows(); ++patch)
+      {
+        for (SparsityPattern::iterator it = block_list.begin(patch);
+             it != block_list.end(patch); ++it)
+          {
+            vtk_file << it->column() << "\n";
+          }
+      }
+
+    // Patch indices as scalar data
+    vtk_file << "\nSCALARS patch_index int 1\n";
+    vtk_file << "LOOKUP_TABLE default\n";
+    for (unsigned int patch = 0; patch < block_list.n_rows(); ++patch)
+      {
+        for (SparsityPattern::iterator it = block_list.begin(patch);
+             it != block_list.end(patch); ++it)
+          {
+            vtk_file << patch << "\n";
+          }
+      }
+
+    vtk_file.close();
+    std::cout << "Patches output to VTK file: " << filename << std::endl;
+  }
+
+  template void
+  output_patches_vtk<2, 2>(const SparsityPattern     &block_list,
+                           const DoFHandler<2, 2>   &dof_handler,
+                           const unsigned int         level,
+                           const std::string         &filename);
 
 } // namespace Step85

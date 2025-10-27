@@ -49,6 +49,9 @@ main()
   
   Step85::make_shy_vertex_patches(block_list, dof_handler, level, shyness);
   
+  // Output patches to VTK file for visualization
+  Step85::output_patches_vtk(block_list, dof_handler, level, "shy_patches.vtk");
+  
   deallog << "Shy patches created successfully" << std::endl;
   
   return 0;

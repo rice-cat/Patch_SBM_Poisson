@@ -4,6 +4,8 @@
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/lac/sparsity_pattern.h>
 
+#include <string>
+
 namespace Step85
 {
   using namespace dealii;
@@ -14,6 +16,13 @@ namespace Step85
                           const DoFHandler<dim, spacedim> &dof_handler,
                           const unsigned int               level,
                           unsigned int                     shyness = 3);
+
+  template <int dim, int spacedim>
+  void
+  output_patches_vtk(const SparsityPattern               &block_list,
+                     const DoFHandler<dim, spacedim>     &dof_handler,
+                     const unsigned int                   level,
+                     const std::string                   &filename);
 
 } // namespace Step85
 
