@@ -14,6 +14,8 @@
 
 #include <deal.II/numerics/data_out.h>
 
+#include <sstream>
+
 #include "tests.h"
 
 using namespace dealii;
@@ -80,9 +82,15 @@ main()
   data_out.build_patches();
 
   std::ofstream output("user_flags.vtk");
-  data_out.write_vtk(output);
-
   deallog << "Shy patches created successfully" << std::endl;
+
+  {
+    std::ostringstream oss;
+    block_list.print(oss);
+    deallog << oss.str();
+    deallog << std::endl;
+  }
+
 
   return 0;
 }
