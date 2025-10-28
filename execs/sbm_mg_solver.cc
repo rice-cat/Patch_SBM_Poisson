@@ -353,24 +353,109 @@ namespace Step85
   void
   MGSolver<dim>::solve()
   {
-    std::cout << "Solving with MG preconditioner" << std::endl;
+    // ADDED, not working. Make it work
+    std::cout << "Solving system with multigrid" << std::endl;
+    mg::Matrix<VectorType> mg_matrix(system_matrices);
 
-    // For now, use simple CG solver
-    // TODO: Replace with MG-preconditioned solver
-    SolverControl solver_control(mg_params.max_iterations,
-                                 mg_params.solver_tolerance);
-    SolverCG<>    solver(solver_control);
+    using SmootherType =
+      Patch::PreconditionPatch<SparseMatrix<double>, VectorType, dim>;
 
-    try
+    typename SmootherType::AdditionalData additional_data_example;
+
+    MGSmootherPrecondition<SparseMatrixType, SmootherType, VectorType>
+                                                         mg_smoother;
+    MGLevelObject<typename SmootherType::AdditionalData> smoother_data(
+      0, max_hp_level, additional_data_example);
+    for (unsigned int level = 0; level <= max_hp_level; ++level)
       {
-        solver.solve(stiffness_matrix, solution, rhs, PreconditionIdentity());
-        std::cout << "  Converged in " << solver_control.last_step()
-                  << " iterations" << std::endl;
+        smoother_data[level].dof_handler = &dof_handlers[level];
+        smoother_data[level].relaxation  = dim == 2 ? 0.20 : 1. / 9.;
       }
-    catch (std::exception &e)
+
+    mg_smoother.initialize(system_matrices, smoother_data);
+    mg_smoother.set_steps(parameters.n_smoothing_steps);
+
+    CoarseDirectSolver coarse_direct;
+    coarse_direct.initialize(system_matrices[0]);
+
+    IterationNumberControl  coarse_control(10000, 1e-12);
+    SolverGMRES<VectorType> coarse_solver(coarse_control);
+    SmootherType            coarse_preconditioner;
+    coarse_preconditioner.initialize(system_matrices[0], smoother_data[0]);
+
+    MGCoarseGridIterativeSolver<VectorType,
+                                SolverGMRES<VectorType>,
+                                SparseMatrixType,
+                                SmootherType>
+      mg_coarse_solver;
+    mg_coarse_solver.initialize(coarse_solver,
+                                system_matrices[0],
+                                coarse_preconditioner);
+
+    AffineConstraints<double> constrains_dummy;
+    constrains_dummy.close();
+
+    using TwoLevelTransfer = MGTwoLevelTransfer<dim, VectorType>;
+    // using TwoLevelTransfer = SBM::MGTransfer<dim, VectorType>;
+    MGLevelObject<TwoLevelTransfer> transfers;
+    AffineConstraints<double>       constraints_dummy;
+    transfers.resize(0, max_hp_level);
+    for (unsigned int level = 0; level < max_hp_level; ++level)
+      transfers[level + 1].reinit(dof_handlers[level + 1],
+                                  dof_handlers[level],
+                                  constraints_dummy,
+                                  constraints_dummy);
+
+
+    using MGTransferType = MGTransferGlobalCoarsening<dim, VectorType>;
+    MGTransferType mg_transfer(transfers, [&](const auto l, auto &vec) {
+      // if (l == max_level + 1)
+      //   vec.reinit(dof_handlers[l].n_dofs());
+      // else
+      vec.reinit(dof_handlers[l].n_dofs());
+    });
+
+
+    SBM::Multigrid<VectorType> mg_new(mg_matrix,
+                                      coarse_direct,
+                                      mg_transfer,
+                                      mg_smoother,
+                                      mg_smoother,
+                                      0,
+                                      max_hp_level,
+                                      SBM::Multigrid<VectorType>::v_cycle);
+
+    Multigrid<VectorType> mg(mg_matrix,
+                             coarse_direct,
+                             mg_transfer,
+                             mg_smoother,
+                             mg_smoother,
+                             0,
+                             max_hp_level,
+                             Multigrid<VectorType>::v_cycle);
+
+    MGLevelObject<SBM::PrePostTransfer<dim, VectorType>> mg_pre_post_transfer;
+    mg_pre_post_transfer.resize(0, max_hp_level);
+    for (unsigned int level = 0; level <= max_hp_level; ++level)
       {
-        std::cout << "  Solver failed: " << e.what() << std::endl;
+        mg_pre_post_transfer[level].reinit(dof_handlers[level]);
       }
+
+    // mg_new.set_pre_transfers(mg_pre_post_transfer);
+
+    using PreconditionerType =
+      SBM::PreconditionMG<dim, VectorType, MGTransferType>;
+    PreconditionerType preconditioner(dof_handlers[max_hp_level],
+                                      mg_new,
+                                      mg_transfer);
+
+    SolverControl solver_control(parameters.n_iterations, parameters.tolerance);
+
+    SolverGMRES<VectorType>(solver_control)
+      .solve(system_matrices[max_hp_level], solution, rhs, preconditioner);
+    std::cout << "Solved in " << solver_control.last_step()
+              << " iterations, final residual" << solver_control.last_value()
+              << std::endl;
   }
 
   template <int dim>
