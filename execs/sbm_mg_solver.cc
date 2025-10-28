@@ -1,22 +1,22 @@
-#include "step-85.h"
-#include "shy_patches.h"
-
 #include <deal.II/base/parameter_handler.h>
 
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_control.h>
 
+#include <deal.II/multigrid/mg_base.h>
 #include <deal.II/multigrid/mg_coarse.h>
 #include <deal.II/multigrid/mg_matrix.h>
 #include <deal.II/multigrid/mg_smoother.h>
 #include <deal.II/multigrid/mg_tools.h>
 #include <deal.II/multigrid/mg_transfer_matrix_free.h>
 #include <deal.II/multigrid/multigrid.h>
-#include <deal.II/multigrid/mg_base.h>
 
 #include <fstream>
 #include <iostream>
+
+#include "shy_patches.h"
+#include "step-85.h"
 
 namespace Step85
 {
@@ -24,14 +24,14 @@ namespace Step85
 
   struct MGParameters
   {
-    double       omega               = 1.0;
-    unsigned int shyness             = 3;
-    bool         multiplicative      = true;
-    std::string  smoother_type       = "shy_patches";
-    unsigned int fe_degree           = 2;
-    unsigned int n_refinements       = 2;
-    unsigned int max_iterations      = 100;
-    double       solver_tolerance    = 1e-10;
+    double       omega            = 1.0;
+    unsigned int shyness          = 3;
+    bool         multiplicative   = true;
+    std::string  smoother_type    = "shy_patches";
+    unsigned int fe_degree        = 2;
+    unsigned int n_refinements    = 2;
+    unsigned int max_iterations   = 100;
+    double       solver_tolerance = 1e-10;
 
     void
     declare_parameters(ParameterHandler &prm)
@@ -46,10 +46,11 @@ namespace Step85
                           "3",
                           Patterns::Integer(0),
                           "Shyness parameter for patch construction");
-        prm.declare_entry("multiplicative",
-                          "true",
-                          Patterns::Bool(),
-                          "Use multiplicative (true) or additive (false) smoother");
+        prm.declare_entry(
+          "multiplicative",
+          "true",
+          Patterns::Bool(),
+          "Use multiplicative (true) or additive (false) smoother");
         prm.declare_entry("smoother_type",
                           "shy_patches",
                           Patterns::Selection("shy_patches|full_residual"),
@@ -79,13 +80,13 @@ namespace Step85
     {
       prm.enter_subsection("Multigrid parameters");
       {
-        omega           = prm.get_double("omega");
-        shyness         = prm.get_integer("shyness");
-        multiplicative  = prm.get_bool("multiplicative");
-        smoother_type   = prm.get("smoother_type");
-        fe_degree       = prm.get_integer("fe_degree");
-        n_refinements   = prm.get_integer("n_refinements");
-        max_iterations  = prm.get_integer("max_iterations");
+        omega            = prm.get_double("omega");
+        shyness          = prm.get_integer("shyness");
+        multiplicative   = prm.get_bool("multiplicative");
+        smoother_type    = prm.get("smoother_type");
+        fe_degree        = prm.get_integer("fe_degree");
+        n_refinements    = prm.get_integer("n_refinements");
+        max_iterations   = prm.get_integer("max_iterations");
         solver_tolerance = prm.get_double("solver_tolerance");
       }
       prm.leave_subsection();
@@ -139,9 +140,9 @@ namespace Step85
     MGLevelObject<FE_Q<dim>>          mg_fe_level_set;
     MGLevelObject<DoFHandler<dim>>    mg_level_set_dof_handlers;
     MGLevelObject<Vector<double>>     mg_level_sets;
-    
-    MGLevelObject<FE_Q<dim>>          mg_fe_poisson;
-    MGLevelObject<DoFHandler<dim>>    mg_dof_handlers;
+
+    MGLevelObject<FE_Q<dim>>                        mg_fe_poisson;
+    MGLevelObject<DoFHandler<dim>>                  mg_dof_handlers;
     MGLevelObject<NonMatching::MeshClassifier<dim>> mg_mesh_classifiers;
 
     // Fine level solution and RHS
@@ -172,9 +173,9 @@ namespace Step85
   MGSolver<dim>::make_grid()
   {
     std::cout << "Creating background meshes for MG levels" << std::endl;
-    
+
     const unsigned int n_levels = mg_params.n_refinements + 1;
-    
+
     // Resize all level objects
     mg_triangulations.resize(0, n_levels - 1);
     mg_fe_level_set.resize(0, n_levels - 1);
@@ -183,7 +184,7 @@ namespace Step85
     mg_fe_poisson.resize(0, n_levels - 1);
     mg_dof_handlers.resize(0, n_levels - 1);
     mg_mesh_classifiers.resize(0, n_levels - 1);
-    
+
     // Create triangulations for each level (h-coarsening)
     for (unsigned int level = 0; level < n_levels; ++level)
       {
@@ -191,13 +192,14 @@ namespace Step85
           Triangulation<dim>::limit_level_difference_at_vertices);
         GridGenerator::hyper_cube(mg_triangulations[level], -1.21, 1.21);
         mg_triangulations[level].refine_global(level);
-        
+
         // Initialize FE objects for this level
         mg_fe_level_set[level] = FE_Q<dim>(fe_degree);
-        mg_fe_poisson[level] = FE_Q<dim>(fe_degree);
-        
-        std::cout << "  Level " << level << ": " 
-                  << mg_triangulations[level].n_active_cells() << " cells" << std::endl;
+        mg_fe_poisson[level]   = FE_Q<dim>(fe_degree);
+
+        std::cout << "  Level " << level << ": "
+                  << mg_triangulations[level].n_active_cells() << " cells"
+                  << std::endl;
       }
   }
 
@@ -205,27 +207,30 @@ namespace Step85
   void
   MGSolver<dim>::setup_discrete_level_set()
   {
-    std::cout << "Setting up discrete level set functions for all levels" << std::endl;
-    
+    std::cout << "Setting up discrete level set functions for all levels"
+              << std::endl;
+
     const unsigned int n_levels = mg_triangulations.size();
     const Functions::SignedDistance::Sphere<dim> signed_distance_sphere;
-    
+
     for (unsigned int level = 0; level < n_levels; ++level)
       {
         mg_level_set_dof_handlers[level].reinit(mg_triangulations[level]);
-        mg_level_set_dof_handlers[level].distribute_dofs(mg_fe_level_set[level]);
+        mg_level_set_dof_handlers[level].distribute_dofs(
+          mg_fe_level_set[level]);
         mg_level_sets[level].reinit(mg_level_set_dof_handlers[level].n_dofs());
-        
+
         VectorTools::interpolate(mg_level_set_dof_handlers[level],
                                  signed_distance_sphere,
                                  mg_level_sets[level]);
-        
+
         // Initialize mesh classifier for this level
         mg_mesh_classifiers[level].reinit(mg_level_set_dof_handlers[level],
                                           mg_level_sets[level]);
-        
-        std::cout << "  Level " << level << ": " 
-                  << mg_level_set_dof_handlers[level].n_dofs() << " level set DoFs" << std::endl;
+
+        std::cout << "  Level " << level << ": "
+                  << mg_level_set_dof_handlers[level].n_dofs()
+                  << " level set DoFs" << std::endl;
       }
   }
 
@@ -234,29 +239,29 @@ namespace Step85
   MGSolver<dim>::distribute_dofs()
   {
     std::cout << "Distributing degrees of freedom for all levels" << std::endl;
-    
+
     const unsigned int n_levels = mg_triangulations.size();
-    
+
     for (unsigned int level = 0; level < n_levels; ++level)
       {
         mg_triangulations[level].clear_user_flags();
-        
+
         // Reinitialize DoFHandler for this level's triangulation
         mg_dof_handlers[level].reinit(mg_triangulations[level]);
-        
+
         // Set user flags for cells inside the domain
         for (const auto &cell : mg_dof_handlers[level].active_cell_iterators())
           {
             const NonMatching::LocationToLevelSet cell_location =
               mg_mesh_classifiers[level].location_to_level_set(cell);
-            
+
             if (cell_location == NonMatching::LocationToLevelSet::inside)
               cell->set_user_flag();
           }
-        
+
         mg_dof_handlers[level].distribute_dofs(mg_fe_poisson[level]);
-        
-        std::cout << "  Level " << level << ": " 
+
+        std::cout << "  Level " << level << ": "
                   << mg_dof_handlers[level].n_dofs() << " DoFs" << std::endl;
       }
   }
@@ -266,17 +271,22 @@ namespace Step85
   MGSolver<dim>::initialize_matrices()
   {
     std::cout << "Initializing matrices for finest level" << std::endl;
-    
-    const unsigned int finest_level = mg_dof_handlers.size() - 1;
-    
+
+
     // Initialize fine level matrix and vectors
-    DynamicSparsityPattern dsp(mg_dof_handlers[finest_level].n_dofs(),
-                               mg_dof_handlers[finest_level].n_dofs());
-    
-    DoFTools::make_sparsity_pattern(mg_dof_handlers[finest_level], dsp);
-    sparsity_pattern.copy_from(dsp);
-    
-    stiffness_matrix.reinit(sparsity_pattern);
+    for (unsigned int level = 0; level < mg_dof_handlers.size(); ++level)
+      {
+        DynamicSparsityPattern dsp(mg_dof_handlers[level].n_dofs(),
+                                   mg_dof_handlers[level].n_dofs());
+
+        DoFTools::make_sparsity_pattern(mg_dof_handlers[level], dsp);
+        sparsity_pattern.copy_from(dsp);
+
+        stiffness_matrix.reinit(sparsity_pattern);
+      }
+
+    const unsigned int finest_level = mg_dof_handlers.size() - 1;
+
     solution.reinit(mg_dof_handlers[finest_level].n_dofs());
     rhs.reinit(mg_dof_handlers[finest_level].n_dofs());
   }
@@ -286,7 +296,7 @@ namespace Step85
   MGSolver<dim>::assemble_system()
   {
     const unsigned int finest_level = mg_dof_handlers.size() - 1;
-    
+
     Step85::assemble_system(mg_dof_handlers[finest_level],
                             mg_fe_poisson[finest_level],
                             mg_mesh_classifiers[finest_level],
@@ -303,19 +313,22 @@ namespace Step85
   MGSolver<dim>::setup_multigrid()
   {
     std::cout << "Setting up multigrid" << std::endl;
-    
+
     const unsigned int n_levels = mg_dof_handlers.size();
-    
+
     // Resize MG level objects for all levels
     mg_sparsity_patterns.resize(0, n_levels - 1);
     mg_matrices.resize(0, n_levels - 1);
-    
+
     std::cout << "  Number of MG levels: " << n_levels << std::endl;
-    std::cout << "  Using " << mg_params.smoother_type << " smoother" << std::endl;
+    std::cout << "  Using " << mg_params.smoother_type << " smoother"
+              << std::endl;
     std::cout << "  Omega: " << mg_params.omega << std::endl;
     std::cout << "  Shyness: " << mg_params.shyness << std::endl;
-    std::cout << "  Mode: " << (mg_params.multiplicative ? "multiplicative" : "additive") << std::endl;
-    
+    std::cout << "  Mode: "
+              << (mg_params.multiplicative ? "multiplicative" : "additive")
+              << std::endl;
+
     // Initialize sparsity patterns and matrices for each level
     for (unsigned int level = 0; level < n_levels; ++level)
       {
@@ -324,13 +337,14 @@ namespace Step85
         DoFTools::make_sparsity_pattern(mg_dof_handlers[level], dsp);
         mg_sparsity_patterns[level].copy_from(dsp);
         mg_matrices[level].reinit(mg_sparsity_patterns[level]);
-        
-        std::cout << "  Level " << level << ": " 
-                  << mg_dof_handlers[level].n_dofs() << " x " 
+
+        std::cout << "  Level " << level << ": "
+                  << mg_dof_handlers[level].n_dofs() << " x "
                   << mg_dof_handlers[level].n_dofs() << " matrix" << std::endl;
       }
-    
-    std::cout << "  MG matrices initialized for " << n_levels << " levels" << std::endl;
+
+    std::cout << "  MG matrices initialized for " << n_levels << " levels"
+              << std::endl;
   }
 
   template <int dim>
@@ -341,14 +355,14 @@ namespace Step85
 
     // For now, use simple CG solver
     // TODO: Replace with MG-preconditioned solver
-    SolverControl solver_control(mg_params.max_iterations, 
-                                   mg_params.solver_tolerance);
-    SolverCG<> solver(solver_control);
+    SolverControl solver_control(mg_params.max_iterations,
+                                 mg_params.solver_tolerance);
+    SolverCG<>    solver(solver_control);
 
     try
       {
         solver.solve(stiffness_matrix, solution, rhs, PreconditionIdentity());
-        std::cout << "  Converged in " << solver_control.last_step() 
+        std::cout << "  Converged in " << solver_control.last_step()
                   << " iterations" << std::endl;
       }
     catch (std::exception &e)
@@ -362,13 +376,16 @@ namespace Step85
   MGSolver<dim>::output_results() const
   {
     std::cout << "Writing vtu file" << std::endl;
-    
+
     const unsigned int finest_level = mg_dof_handlers.size() - 1;
 
     DataOut<dim> data_out;
-    data_out.add_data_vector(mg_dof_handlers[finest_level], solution, "solution");
-    data_out.add_data_vector(mg_level_set_dof_handlers[finest_level], 
-                             mg_level_sets[finest_level], "level_set");
+    data_out.add_data_vector(mg_dof_handlers[finest_level],
+                             solution,
+                             "solution");
+    data_out.add_data_vector(mg_level_set_dof_handlers[finest_level],
+                             mg_level_sets[finest_level],
+                             "level_set");
 
     data_out.build_patches();
     std::ofstream output("mg_solver.vtu");
@@ -380,7 +397,7 @@ namespace Step85
   MGSolver<dim>::compute_L2_error() const
   {
     std::cout << "Computing L2 error" << std::endl;
-    
+
     const unsigned int finest_level = mg_dof_handlers.size() - 1;
 
     const QGauss<dim> quadrature_formula(fe_degree + 1);
@@ -394,8 +411,8 @@ namespace Step85
     double                  error_L2_squared = 0;
 
     for (const auto &cell :
-         mg_dof_handlers[finest_level].active_cell_iterators() | 
-         IteratorFilters::UserFlagSet())
+         mg_dof_handlers[finest_level].active_cell_iterators() |
+           IteratorFilters::UserFlagSet())
       {
         cell_fe_values.reinit(cell);
 
@@ -421,13 +438,13 @@ namespace Step85
   {
     make_grid();
     setup_discrete_level_set();
-    
+
     std::cout << "Classifying cells for all levels" << std::endl;
     for (unsigned int level = 0; level < mg_mesh_classifiers.size(); ++level)
       {
         mg_mesh_classifiers[level].reclassify();
       }
-    
+
     distribute_dofs();
     initialize_matrices();
     assemble_system();
@@ -438,7 +455,7 @@ namespace Step85
     const double error_L2 = compute_L2_error();
     std::cout << "\nL2 Error: " << error_L2 << std::endl;
   }
-  }
+}
 
 } // namespace Step85
 
@@ -447,7 +464,7 @@ main(int argc, char **argv)
 {
   const int dim = 2;
 
-  Step85::MGParameters params;
+  Step85::MGParameters     params;
   dealii::ParameterHandler prm;
   params.declare_parameters(prm);
 
@@ -460,13 +477,15 @@ main(int argc, char **argv)
         }
       catch (std::exception &e)
         {
-          std::cout << "Failed to parse parameter file: " << e.what() << std::endl;
+          std::cout << "Failed to parse parameter file: " << e.what()
+                    << std::endl;
           return 1;
         }
     }
   else
     {
-      std::cout << "Using default parameters (no parameter file provided)" << std::endl;
+      std::cout << "Using default parameters (no parameter file provided)"
+                << std::endl;
     }
 
   params.parse_parameters(prm);
