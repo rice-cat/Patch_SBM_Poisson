@@ -204,7 +204,10 @@ namespace Step85
 
             object_dofs.clear();
             for (unsigned int j = 0; j < n_dof_quad; j++)
-              object_dofs.push_back(cell->mg_dof_index(level, j));
+              if (is_active)
+                object_dofs.push_back(cell->dof_index(j));
+              else
+                object_dofs.push_back(cell->mg_dof_index(level, j));
             for (const auto vertex : GeometryInfo<dim>::vertex_indices())
               {
                 unsigned int vertex_global_index = cell->vertex_index(vertex);
@@ -214,14 +217,19 @@ namespace Step85
                   patches_indices[vertex_patch_index].insert(dof);
                 for (unsigned int j = 0; j < n_dof_vertex; j++)
                   {
-                    patches_indices[vertex_patch_index].insert(
-                      cell->mg_vertex_dof_index(level, vertex, j, fe_index));
+                    if (is_active)
+                      patches_indices[vertex_patch_index].insert(
+                        cell->vertex_dof_index(vertex, j, fe_index));
+                    else
+                      patches_indices[vertex_patch_index].insert(
+                        cell->mg_vertex_dof_index(level, vertex, j, fe_index));
                   }
               }
           }
 
         block_list.reinit(patches_indices.size(),
-                          dof_handler.n_dofs(level),
+                          is_active ? dof_handler.n_dofs() :
+                                      dof_handler.n_dofs(level),
                           dof_handler.get_fe().n_dofs_per_cell() *
                             std::pow(2, dim));
         for (i = 0; i < patches_indices.size(); i++)
@@ -249,7 +257,7 @@ namespace Step85
     const unsigned int               level,
     const std::function<
       bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
-      &cell_is_in_domain,
+      &          cell_is_in_domain,
     unsigned int shyness)
   {
     AssertDimension(dim, 2);
@@ -319,12 +327,12 @@ namespace Step85
       {
         types::global_vertex_index      vertex_index = vertex_cells_pair.first;
         const std::set<dealii::CellId> &vertex_cells = vertex_cells_pair.second;
-        
+
         // Skip vertices that didn't pass the shyness filter
-        if (vertex_to_patch_index.find(vertex_index) == 
+        if (vertex_to_patch_index.find(vertex_index) ==
             vertex_to_patch_index.end())
           continue;
-        
+
         patch_index_type patch_idx = vertex_to_patch_index[vertex_index];
 
         // Collect all DoFs from cells touching this vertex
@@ -386,7 +394,7 @@ namespace Step85
     const DoFHandler<2, 2> &dof_handler,
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
-      &cell_is_in_domain,
+      &          cell_is_in_domain,
     unsigned int shyness);
 
 
@@ -396,7 +404,7 @@ namespace Step85
     const DoFHandler<3, 3> &dof_handler,
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<3, 3>::cell_iterator &)>
-      &cell_is_in_domain,
+      &          cell_is_in_domain,
     unsigned int shyness);
 
   template <int dim, int spacedim>

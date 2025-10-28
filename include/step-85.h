@@ -164,6 +164,19 @@ namespace Step85
           const unsigned int component = 0) const override;
   };
 
+  // Standalone assembly function for reuse in smoother testing and MG solver
+  template <int dim>
+  void
+  assemble_system(const DoFHandler<dim>                     &dof_handler,
+                  const FE_Q<dim>                           &fe_poisson,
+                  const NonMatching::MeshClassifier<dim>    &mesh_classifier,
+                  const unsigned int                         fe_degree,
+                  const Functions::ConstantFunction<dim>    &rhs_function,
+                  const Functions::ConstantFunction<dim>    &boundary_condition,
+                  SparseMatrix<double>                      &stiffness_matrix,
+                  Vector<double>                            &rhs,
+                  std::vector<bool>                         &active_dofs);
+
 } // namespace Step85
 
 #endif // STEP_85_H
