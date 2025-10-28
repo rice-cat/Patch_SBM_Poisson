@@ -358,22 +358,21 @@ namespace Step85
   MGSolver<dim>::solve()
   {
     std::cout << "Solving system with multigrid" << std::endl;
-    
+
     const unsigned int min_level = mg_matrices.min_level();
     const unsigned int max_level = mg_matrices.max_level();
-    
+
     // Create MG matrix wrapper
     mg::Matrix<VectorType> mg_matrix(mg_matrices);
 
     // Setup coarse solver
-    using CoarseDirectSolver =
-      MGCoarseGridApplySmoother<VectorType>;
+    using CoarseDirectSolver = MGCoarseGridApplySmoother<VectorType>;
     CoarseDirectSolver coarse_direct;
-    
+
     PreconditionIdentity coarse_preconditioner;
-    SolverControl coarse_control(1000, 1e-12);
+    SolverControl        coarse_control(1000, 1e-12);
     SolverCG<VectorType> coarse_solver(coarse_control);
-    
+
     MGCoarseGridIterativeSolver<VectorType,
                                 SolverCG<VectorType>,
                                 SparseMatrixType,
@@ -389,16 +388,20 @@ namespace Step85
 
     MGSmootherPrecondition<SparseMatrixType, SmootherType, VectorType>
       mg_smoother;
-    
-    MGLevelObject<SmootherAdditionalDataType> smoother_data(min_level, max_level);
-    
+
+    MGLevelObject<SmootherAdditionalDataType> smoother_data(min_level,
+                                                            max_level);
+
     for (unsigned int level = min_level; level <= max_level; ++level)
       {
         // Create patches for each level
-        make_shy_vertex_patches(smoother_data[level].block_list,
-                               mg_dof_handlers[level],
-                               0, // level within the DoFHandler (use 0 for active)
-                               mg_params.shyness);
+        make_shy_vertex_patches(
+          smoother_data[level].block_list,
+          mg_dof_handlers[level],
+          numbers::invalid_unsigned_int, // level within the DoFHandler (use
+                                         // numbers::invalid_unsigned_int for
+                                         // active)
+          mg_params.shyness);
         smoother_data[level].relaxation = mg_params.omega;
         smoother_data[level].inversion  = PreconditionBlockBase<double>::svd;
       }
@@ -406,9 +409,10 @@ namespace Step85
     mg_smoother.initialize(mg_matrices, smoother_data);
     mg_smoother.set_steps(1); // Number of smoothing steps
 
-    // Setup transfer between levels - need to build from a single DoFHandler with MG levels
-    // For now, use a simplified transfer that requires all levels in one DoFHandler
-    // Since we have separate DoFHandlers, we'll use the finest one and rely on geometric transfer
+    // Setup transfer between levels - need to build from a single DoFHandler
+    // with MG levels For now, use a simplified transfer that requires all
+    // levels in one DoFHandler Since we have separate DoFHandlers, we'll use
+    // the finest one and rely on geometric transfer
     MGTransferPrebuilt<VectorType> mg_transfer;
     mg_transfer.build(mg_dof_handlers[max_level]);
 
@@ -426,16 +430,16 @@ namespace Step85
       preconditioner(mg_dof_handlers[max_level], mg, mg_transfer);
 
     // Solve with GMRES
-    SolverControl solver_control(mg_params.max_iterations, 
-                                  mg_params.solver_tolerance);
+    SolverControl           solver_control(mg_params.max_iterations,
+                                 mg_params.solver_tolerance);
     SolverGMRES<VectorType> solver(solver_control);
-    
+
     try
       {
         solver.solve(stiffness_matrix, solution, rhs, preconditioner);
         std::cout << "  Solved in " << solver_control.last_step()
-                  << " iterations, final residual " << solver_control.last_value()
-                  << std::endl;
+                  << " iterations, final residual "
+                  << solver_control.last_value() << std::endl;
       }
     catch (std::exception &e)
       {
