@@ -13,6 +13,7 @@
 #include <deal.II/multigrid/mg_tools.h>
 #include <deal.II/multigrid/mg_transfer_matrix_free.h>
 #include <deal.II/multigrid/multigrid.h>
+#include <deal.II/multigrid/mg_base.h>
 
 #include <fstream>
 #include <iostream>
@@ -154,6 +155,11 @@ namespace Step85
     SparsityPattern      sparsity_pattern;
     SparseMatrix<double> stiffness_matrix;
     Vector<double>       rhs;
+
+    // Multigrid level objects
+    MGLevelObject<SparsityPattern>      mg_sparsity_patterns;
+    MGLevelObject<SparseMatrix<double>> mg_matrices;
+    MGLevelObject<Vector<double>>       mg_rhs;
 
     const MGParameters mg_params;
   };
@@ -299,12 +305,32 @@ namespace Step85
   MGSolver<dim>::setup_multigrid()
   {
     std::cout << "Setting up multigrid" << std::endl;
-    // TODO: Implement full multigrid setup
-    // This is a placeholder for the MG infrastructure
+    
+    const unsigned int n_levels = triangulation.n_levels();
+    
+    // Resize MG level objects for all levels
+    mg_sparsity_patterns.resize(0, n_levels - 1);
+    mg_matrices.resize(0, n_levels - 1);
+    mg_rhs.resize(0, n_levels - 1);
+    
+    std::cout << "  Number of MG levels: " << n_levels << std::endl;
     std::cout << "  Using " << mg_params.smoother_type << " smoother" << std::endl;
     std::cout << "  Omega: " << mg_params.omega << std::endl;
     std::cout << "  Shyness: " << mg_params.shyness << std::endl;
     std::cout << "  Mode: " << (mg_params.multiplicative ? "multiplicative" : "additive") << std::endl;
+    
+    // Initialize sparsity patterns and matrices for each level
+    for (unsigned int level = 0; level < n_levels; ++level)
+      {
+        DynamicSparsityPattern dsp(dof_handler.n_dofs(level),
+                                   dof_handler.n_dofs(level));
+        MGTools::make_sparsity_pattern(dof_handler, dsp, level);
+        mg_sparsity_patterns[level].copy_from(dsp);
+        mg_matrices[level].reinit(mg_sparsity_patterns[level]);
+        mg_rhs[level].reinit(dof_handler.n_dofs(level));
+      }
+    
+    std::cout << "  MG matrices initialized for " << n_levels << " levels" << std::endl;
   }
 
   template <int dim>
