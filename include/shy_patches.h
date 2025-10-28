@@ -13,10 +13,13 @@ namespace Step85
 
   template <int dim, int spacedim>
   void
-  make_shy_vertex_patches(SparsityPattern                 &block_list,
-                          const DoFHandler<dim, spacedim> &dof_handler,
-                          const unsigned int               level,
-                          unsigned int                     shyness = 3);
+  make_shy_vertex_patches(
+    SparsityPattern                 &block_list,
+    const DoFHandler<dim, spacedim> &dof_handler,
+    const unsigned int               level,
+    const std::function<bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
+      &cell_is_in_domain,
+    unsigned int                     shyness = 3);
 
   template <int dim, int spacedim>
   void

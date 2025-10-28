@@ -176,7 +176,14 @@ namespace Step85
   LaplaceSolver<dim>::setup_smoother()
   {
     unsigned int level = triangulation.n_levels() - 1;
-    make_shy_vertex_patches(smoother_data.block_list, dof_handler, level);
+    
+    // Create a predicate function that uses user flags to determine if a cell is in the domain
+    auto cell_is_in_domain =
+      [](const typename DoFHandler<dim>::cell_iterator &cell) -> bool {
+      return cell->user_flag_set();
+    };
+
+    make_shy_vertex_patches(smoother_data.block_list, dof_handler, level, cell_is_in_domain);
     smoother_data.relaxation = 1.;
     smoother_data.inversion  = PreconditionBlockBase<double>::svd;
     auto smoother            = std::make_unique<SmootherType>();

@@ -48,6 +48,12 @@ main()
         cell->clear_user_flag();
     }
 
+  // Create a predicate function that uses user flags
+  auto cell_is_in_domain =
+    [](const typename DoFHandler<dim>::cell_iterator &cell) -> bool {
+    return cell->user_flag_set();
+  };
+
   // Create shy patches
   SparsityPattern    block_list;
   const unsigned int level   = triangulation.n_levels() - 1;
@@ -62,7 +68,7 @@ main()
   deallog << "Number of DoFs at level " << level << ": "
           << dof_handler.n_dofs(level) << std::endl;
 
-  Step85::make_shy_vertex_patches(block_list, dof_handler, level, shyness);
+  Step85::make_shy_vertex_patches(block_list, dof_handler, level, cell_is_in_domain, shyness);
 
   // Output patches to VTK file for visualization
   Step85::output_patches_vtk(block_list, dof_handler, level, "shy_patches.vtk");

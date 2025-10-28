@@ -394,6 +394,12 @@ namespace Step85
 
     for (unsigned int level = min_level; level <= max_level; ++level)
       {
+        // Create a predicate function that uses user flags to determine if a cell is in the domain
+        auto cell_is_in_domain =
+          [](const typename DoFHandler<dim>::cell_iterator &cell) -> bool {
+          return cell->user_flag_set();
+        };
+
         // Create patches for each level
         make_shy_vertex_patches(
           smoother_data[level].block_list,
@@ -401,6 +407,7 @@ namespace Step85
           numbers::invalid_unsigned_int, // level within the DoFHandler (use
                                          // numbers::invalid_unsigned_int for
                                          // active)
+          cell_is_in_domain,
           mg_params.shyness);
         smoother_data[level].relaxation = mg_params.omega;
         smoother_data[level].inversion  = PreconditionBlockBase<double>::svd;
