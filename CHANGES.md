@@ -35,7 +35,7 @@ This update refactors the code to better reflect its purpose and adds a new mult
   - Configurable parameters:
     - `omega`: Relaxation parameter for smoother
     - `shyness`: Shyness parameter for patch construction
-    - `multiplicative`: Additive/multiplicative switch
+    - `multiplicative`: Use multiplicative (true) or additive (false) smoother
     - `smoother_type`: Choice between "shy_patches" and "full_residual"
     - `fe_degree`, `n_refinements`, `max_iterations`, `solver_tolerance`
   
