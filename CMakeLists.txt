@@ -1,39 +1,73 @@
-##
-#  CMake script for the step-85 tutorial program:
-##
+# CMake script for step-85 project
+# Based on bare-dealii-app template
 
-# Set the name of the project and target:
-set(TARGET "step-85")
+# Set the name of the project and target
+SET(_library_target step-85-lib)
 
-# Declare all source files the target consists of. Here, this is only
-# the one step-X.cc file, but as you expand your project you may wish
-# to add other source files as well. If your project becomes much larger,
-# you may want to either replace the following statement by something like
-#    file(GLOB_RECURSE TARGET_SRC  "source/*.cc")
-#    file(GLOB_RECURSE TARGET_INC  "include/*.h")
-#    set(TARGET_SRC ${TARGET_SRC}  ${TARGET_INC})
-# or switch altogether to the large project CMakeLists.txt file discussed
-# in the "CMake in user projects" page accessible from the "User info"
-# page of the documentation.
-set(TARGET_SRC
-  ${TARGET}.cc
-  )
+# Declare all source files the target consists of:
+file(GLOB _files source/*.cc include/*.h)
+file(GLOB _execs execs/*.cc)
 
-# Usually, you will not need to modify anything beyond this point...
+INCLUDE_DIRECTORIES(include)
 
-cmake_minimum_required(VERSION 3.13.4)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.13.4)
 
-find_package(deal.II 9.5.0
-  HINTS ${deal.II_DIR} ${DEAL_II_DIR} ../ ../../ $ENV{DEAL_II_DIR}
-  )
-if(NOT ${deal.II_FOUND})
-  message(FATAL_ERROR "\n"
+FIND_PACKAGE(deal.II 9.5 REQUIRED
+  HINTS ${deal.II_DIR} ${DEAL_II_DIR} ../ ../../ $ENV{DEAL_II_DIR})
+
+IF(NOT ${deal.II_FOUND})
+  MESSAGE(FATAL_ERROR "\n"
     "*** Could not locate a (sufficiently recent) version of deal.II. ***\n\n"
     "You may want to either pass a flag -DDEAL_II_DIR=/path/to/deal.II to cmake\n"
     "or set an environment variable \"DEAL_II_DIR\" that contains this path."
     )
-endif()
+ENDIF()
 
-deal_ii_initialize_cached_variables()
-project(${TARGET})
-deal_ii_invoke_autopilot()
+DEAL_II_INITIALIZE_CACHED_VARIABLES()
+
+PROJECT(${_library_target})
+
+# Enable testing
+ENABLE_TESTING()
+
+# We add one library and one target for each type of deal.II library
+# we found. If you compiled deal.II with both Release and Debug
+# mode, this will generate both Release and Debug programs for you.
+SET(_d2_build_types "Release;Debug")
+SET(Release_postfix "")
+SET(Debug_postfix ".g")
+
+FOREACH(_build_type ${_d2_build_types})
+  # Postfix to use everywhere
+  SET(_p "${${_build_type}_postfix}")
+
+  # Only build this type, if deal.II was compiled with it.
+  IF(CMAKE_BUILD_TYPE MATCHES "${_build_type}" AND
+    DEAL_II_BUILD_TYPE MATCHES "${_build_type}")
+    MESSAGE("-- Found ${_build_type} version of deal.II.")
+
+    STRING(TOUPPER "${_build_type}" _BUILD_TYPE)
+
+    # Setup library
+    SET(_lib "${_library_target}${_p}")
+    MESSAGE("-- Configuring library ${_lib}")
+
+    ADD_LIBRARY(${_lib} SHARED ${_files})
+    DEAL_II_SETUP_TARGET(${_lib} ${_BUILD_TYPE})
+
+    # Setup executables
+    FOREACH(__exec ${_execs})
+      get_filename_component(exec_name ${__exec} NAME_WE)
+      SET(_exe "${exec_name}${_p}")
+      MESSAGE("-- Configuring executable ${_exe}")
+      ADD_EXECUTABLE(${_exe} ${__exec})
+      TARGET_LINK_LIBRARIES(${_exe} ${_lib})
+      DEAL_II_SETUP_TARGET(${_exe} ${_BUILD_TYPE})
+    ENDFOREACH()
+  ENDIF()
+ENDFOREACH()
+
+# Deal.II style testing
+IF(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+  ADD_SUBDIRECTORY(tests)
+ENDIF()

@@ -1,0 +1,51 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+step-85
+step-85.g
+
+# CMake garbage
+CMakeFiles
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+compile_commands.json
+
+# Doxygen stuff
+deal.tag
+doc/html
+
+# Vscode local configuration
+.vscode
+
+# Build directory
+build/
+
+# Output files
+*.vtu
+*.vtk
