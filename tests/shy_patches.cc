@@ -81,9 +81,9 @@ main()
   data_out.add_data_vector(user_flags, "user_flags");
   data_out.build_patches();
 
+  std::ofstream output("user_flags.vtk");
   data_out.write_vtk(output);
 
-  std::ofstream output("user_flags.vtk");
   deallog << "Shy patches created successfully" << std::endl;
 
   {
