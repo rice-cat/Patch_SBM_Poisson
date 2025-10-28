@@ -125,7 +125,7 @@ namespace Step85
     while (true)
       {
         modified_vertices.clear();
-        
+
         auto expand_patches = [&](const auto &cell_range) {
           for (const auto &cell : cell_range)
             {
@@ -187,7 +187,7 @@ namespace Step85
       }
 
     bool all_vertices_on_patch = true;
-    
+
     auto check_all_vertices = [&](const auto &cell_range) {
       for (const auto &cell : cell_range)
         {
@@ -227,7 +227,7 @@ namespace Step85
         unsigned int n_dof_quad   = dof_handler.get_fe().n_dofs_per_quad();
         unsigned int n_dof_line   = dof_handler.get_fe().n_dofs_per_line();
         unsigned int n_dof_vertex = dof_handler.get_fe().n_dofs_per_vertex();
-        
+
         auto collect_dofs = [&](const auto &cell_range) {
           for (const auto &cell : cell_range)
             {
