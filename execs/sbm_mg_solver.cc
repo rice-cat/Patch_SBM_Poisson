@@ -9,7 +9,7 @@
 #include <deal.II/multigrid/mg_matrix.h>
 #include <deal.II/multigrid/mg_smoother.h>
 #include <deal.II/multigrid/mg_tools.h>
-#include <deal.II/multigrid/mg_transfer_matrix_free.h>
+#include <deal.II/multigrid/mg_transfer_global_coarsening.h>
 #include <deal.II/multigrid/multigrid.h>
 
 #include <fstream>
@@ -394,14 +394,15 @@ namespace Step85
 
     for (unsigned int level = min_level; level <= max_level; ++level)
       {
-        // Create a predicate function that uses user flags to determine if a cell is in the domain
+        // Create a predicate function that uses user flags to determine if a
+        // cell is in the domain
         auto cell_is_in_domain =
           [](const typename DoFHandler<dim>::cell_iterator &cell) -> bool {
           return cell->user_flag_set();
         };
 
         // Create patches for each level
-        make_shy_vertex_patches(
+        make_full_residual_vertex_patches(
           smoother_data[level].block_list,
           mg_dof_handlers[level],
           numbers::invalid_unsigned_int, // level within the DoFHandler (use
@@ -416,12 +417,24 @@ namespace Step85
     mg_smoother.initialize(mg_matrices, smoother_data);
     mg_smoother.set_steps(1); // Number of smoothing steps
 
-    // Setup transfer between levels - need to build from a single DoFHandler
-    // with MG levels For now, use a simplified transfer that requires all
-    // levels in one DoFHandler Since we have separate DoFHandlers, we'll use
-    // the finest one and rely on geometric transfer
-    MGTransferPrebuilt<VectorType> mg_transfer;
-    mg_transfer.build(mg_dof_handlers[max_level]);
+    using TwoLevelTransfer = MGTwoLevelTransfer<dim, VectorType>;
+    MGLevelObject<TwoLevelTransfer> transfers;
+    AffineConstraints<double>       constraints_dummy;
+    transfers.resize(0, max_level);
+    for (unsigned int level = 0; level < max_level; ++level)
+      transfers[level + 1].reinit(mg_dof_handlers[level + 1],
+                                  mg_dof_handlers[level],
+                                  constraints_dummy,
+                                  constraints_dummy);
+
+
+    using MGTransferType = MGTransferGlobalCoarsening<dim, VectorType>;
+    MGTransferType mg_transfer(transfers, [&](const auto l, auto &vec) {
+      // if (l == max_level + 1)
+      //   vec.reinit(dof_handlers[l].n_dofs());
+      // else
+      vec.reinit(mg_dof_handlers[l].n_dofs());
+    });
 
     // Create multigrid object
     Multigrid<VectorType> mg(mg_matrix,
@@ -433,8 +446,8 @@ namespace Step85
                              max_level);
 
     // Create MG preconditioner
-    PreconditionMG<dim, VectorType, MGTransferPrebuilt<VectorType>>
-      preconditioner(mg_dof_handlers[max_level], mg, mg_transfer);
+    PreconditionMG<dim, VectorType, MGTransferType> preconditioner(
+      mg_dof_handlers[max_level], mg, mg_transfer);
 
     // Solve with GMRES
     SolverControl           solver_control(mg_params.max_iterations,
