@@ -1,0 +1,7 @@
+
+DEAL::Creating full residual patches for level 3
+DEAL::Number of cells: 85
+DEAL::Number of active cells: 64
+DEAL::Number of DoFs: 289
+DEAL::Number of DoFs at level 3: 289
+DEAL::Full residual patches created successfully

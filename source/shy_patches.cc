@@ -248,6 +248,137 @@ namespace Step85
 
   template <int dim, int spacedim>
   void
+  make_full_residual_vertex_patches(
+    SparsityPattern                 &block_list,
+    const DoFHandler<dim, spacedim> &dof_handler,
+    const unsigned int               level,
+    const std::function<bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
+      &cell_is_in_domain)
+  {
+    AssertDimension(dim, 2);
+
+    using patch_index_type = unsigned int;
+    using cell_iterator = typename DoFHandler<dim, spacedim>::cell_iterator;
+
+    // Step 1: Build mapping from DoF indices to cells that use them
+    std::map<types::global_dof_index, std::set<dealii::CellId>> cells_of_dof;
+    
+    // Step 2: Build mapping from vertices to cells that use them
+    std::map<types::global_vertex_index, std::set<dealii::CellId>> cells_of_vertex;
+    
+    const FiniteElement<dim> &fe = dof_handler.get_fe(0);
+    std::vector<types::global_dof_index> local_dof_indices(fe.n_dofs_per_cell());
+
+    // Iterate over all cells on the level that are in the domain
+    for (const auto &cell : dof_handler.cell_iterators_on_level(level))
+      {
+        if (!cell_is_in_domain(cell))
+          continue;
+          
+        // Add this cell to the vertex mapping
+        for (const auto vertex : GeometryInfo<dim>::vertex_indices())
+          {
+            cells_of_vertex[cell->vertex_index(vertex)].insert(cell->id());
+          }
+        
+        // Add this cell to the DoF mapping
+        cell->get_mg_dof_indices(local_dof_indices);
+        for (const auto dof_index : local_dof_indices)
+          {
+            cells_of_dof[dof_index].insert(cell->id());
+          }
+      }
+
+    // Step 3: Create patches - one patch per vertex
+    std::map<types::global_vertex_index, patch_index_type> vertex_to_patch_index;
+    patch_index_type patch_count = 0;
+    
+    // Assign a patch index to each vertex that has cells
+    for (const auto &vertex_cells_pair : cells_of_vertex)
+      {
+        vertex_to_patch_index[vertex_cells_pair.first] = patch_count++;
+      }
+
+    // Step 4: For each vertex patch, collect DoFs where all using cells are in the patch
+    std::vector<std::set<types::global_dof_index>> patches_dofs(patch_count);
+    
+    for (const auto &vertex_cells_pair : cells_of_vertex)
+      {
+        types::global_vertex_index vertex_index = vertex_cells_pair.first;
+        const std::set<dealii::CellId> &vertex_cells = vertex_cells_pair.second;
+        patch_index_type patch_idx = vertex_to_patch_index[vertex_index];
+        
+        // Collect all DoFs from cells touching this vertex
+        std::set<types::global_dof_index> candidate_dofs;
+        for (const auto &cell_id : vertex_cells)
+          {
+            // Find the cell with this ID
+            for (const auto &cell : dof_handler.cell_iterators_on_level(level))
+              {
+                if (cell->id() == cell_id)
+                  {
+                    cell->get_mg_dof_indices(local_dof_indices);
+                    for (const auto dof_index : local_dof_indices)
+                      {
+                        candidate_dofs.insert(dof_index);
+                      }
+                    break;
+                  }
+              }
+          }
+        
+        // For each candidate DoF, check if all cells using it are in the vertex patch
+        for (const auto dof_index : candidate_dofs)
+          {
+            const std::set<dealii::CellId> &dof_cells = cells_of_dof[dof_index];
+            
+            // Check if all cells using this DoF are in the vertex patch
+            bool all_cells_in_patch = true;
+            for (const auto &cell_id : dof_cells)
+              {
+                if (vertex_cells.find(cell_id) == vertex_cells.end())
+                  {
+                    all_cells_in_patch = false;
+                    break;
+                  }
+              }
+            
+            if (all_cells_in_patch)
+              {
+                patches_dofs[patch_idx].insert(dof_index);
+              }
+          }
+      }
+
+    // Step 5: Build the sparsity pattern
+    block_list.reinit(patch_count,
+                      dof_handler.n_dofs(level),
+                      fe.n_dofs_per_cell() * std::pow(2, dim));
+    
+    for (patch_index_type i = 0; i < patch_count; i++)
+      {
+        for (const auto dof_index : patches_dofs[i])
+          {
+            block_list.add(i, dof_index);
+          }
+      }
+
+    std::cout << "Displaying Block_list for full residual patches: \n";
+    block_list.print(std::cout);
+    std::cout << "\nEnd Block_list \n\n";
+    block_list.compress();
+  }
+
+  template void
+  make_full_residual_vertex_patches<2, 2>(
+    SparsityPattern          &block_list,
+    const DoFHandler<2, 2> &dof_handler,
+    const unsigned int       level,
+    const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
+      &cell_is_in_domain);
+
+  template <int dim, int spacedim>
+  void
   output_patches_vtk(const SparsityPattern               &block_list,
                      const DoFHandler<dim, spacedim>     &dof_handler,
                      const unsigned int                   level,

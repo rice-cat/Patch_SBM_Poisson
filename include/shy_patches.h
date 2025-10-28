@@ -4,6 +4,7 @@
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/lac/sparsity_pattern.h>
 
+#include <functional>
 #include <string>
 
 namespace Step85
@@ -23,6 +24,15 @@ namespace Step85
                      const DoFHandler<dim, spacedim>     &dof_handler,
                      const unsigned int                   level,
                      const std::string                   &filename);
+
+  template <int dim, int spacedim>
+  void
+  make_full_residual_vertex_patches(
+    SparsityPattern                 &block_list,
+    const DoFHandler<dim, spacedim> &dof_handler,
+    const unsigned int               level,
+    const std::function<bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
+      &cell_is_in_domain);
 
 } // namespace Step85
 
