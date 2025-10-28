@@ -1,0 +1,27 @@
+# Parameter file for MG solver
+
+subsection Multigrid parameters
+  # Relaxation parameter for smoother
+  set omega = 1.0
+
+  # Shyness parameter for patch construction
+  set shyness = 3
+
+  # Use multiplicative (true) or additive (false) smoother
+  set multiplicative = true
+
+  # Type of patch smoother to use (shy_patches or full_residual)
+  set smoother_type = shy_patches
+
+  # Finite element polynomial degree
+  set fe_degree = 2
+
+  # Number of global refinements
+  set n_refinements = 2
+
+  # Maximum solver iterations
+  set max_iterations = 100
+
+  # Solver tolerance
+  set solver_tolerance = 1e-10
+end
