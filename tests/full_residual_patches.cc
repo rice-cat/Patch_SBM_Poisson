@@ -1,8 +1,7 @@
 // Test for full_residual_patches functionality
-// Creates a simple triangulation, distributes dofs, and creates full residual patches
-// This is analogous to shy_patches.cc but uses user flags to determine cell activity
-
-#include "shy_patches.h"
+// Creates a simple triangulation, distributes dofs, and creates full residual
+// patches This is analogous to shy_patches.cc but uses user flags to determine
+// cell activity
 
 #include <deal.II/dofs/dof_handler.h>
 
@@ -17,6 +16,7 @@
 
 #include <sstream>
 
+#include "shy_patches.h"
 #include "tests.h"
 
 using namespace dealii;
@@ -53,13 +53,13 @@ main()
     }
 
   // Create a predicate function that uses user flags
-  auto cell_is_in_domain = 
+  auto cell_is_in_domain =
     [](const typename DoFHandler<dim>::cell_iterator &cell) -> bool {
-      return cell->user_flag_set();
-    };
+    return cell->user_flag_set();
+  };
 
   // Create full residual patches
-  SparsityPattern    block_list;
+  SparsityPattern block_list;
 
   deallog << "Creating full residual patches for level " << level << std::endl;
   deallog << "Number of cells: " << triangulation.n_cells() << std::endl;
@@ -69,11 +69,15 @@ main()
   deallog << "Number of DoFs at level " << level << ": "
           << dof_handler.n_dofs(level) << std::endl;
 
-  Step85::make_full_residual_vertex_patches(block_list, dof_handler, level, 
-                                             cell_is_in_domain);
+  Step85::make_full_residual_vertex_patches(block_list,
+                                            dof_handler,
+                                            level,
+                                            cell_is_in_domain);
 
   // Output patches to VTK file for visualization
-  Step85::output_patches_vtk(block_list, dof_handler, level, 
+  Step85::output_patches_vtk(block_list,
+                             dof_handler,
+                             level,
                              "full_residual_patches.vtk");
 
   // Output mesh with user flags for visualization
@@ -91,6 +95,7 @@ main()
   data_out.build_patches();
 
   std::ofstream output("user_flags_full_residual.vtk");
+  data_out.write_vtk(output);
   deallog << "Full residual patches created successfully" << std::endl;
 
   {
