@@ -369,12 +369,12 @@ namespace Step85
     using CoarseDirectSolver = MGCoarseGridApplySmoother<VectorType>;
     CoarseDirectSolver coarse_direct;
 
-    PreconditionIdentity coarse_preconditioner;
-    SolverControl        coarse_control(1000, 1e-12);
-    SolverCG<VectorType> coarse_solver(coarse_control);
+    PreconditionIdentity    coarse_preconditioner;
+    SolverControl           coarse_control(1000, 1e-12);
+    SolverGMRES<VectorType> coarse_solver(coarse_control);
 
     MGCoarseGridIterativeSolver<VectorType,
-                                SolverCG<VectorType>,
+                                SolverGMRES<VectorType>,
                                 SparseMatrixType,
                                 PreconditionIdentity>
       mg_coarse_solver(coarse_solver,
