@@ -42,6 +42,9 @@ namespace Step85
    * @param cell_is_in_domain A predicate function that returns true if a cell
    *        should be considered part of the domain. Only cells for which this
    *        returns true are included in the patches.
+   * @param shyness Minimum number of cells a vertex must have to form a patch.
+   *        If set to numbers::invalid_unsigned_int (default), all vertices
+   *        with at least one cell can form patches.
    */
   template <int dim, int spacedim>
   void
@@ -50,7 +53,8 @@ namespace Step85
     const DoFHandler<dim, spacedim> &dof_handler,
     const unsigned int               level,
     const std::function<bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
-      &cell_is_in_domain);
+      &cell_is_in_domain,
+    unsigned int shyness = numbers::invalid_unsigned_int);
 
 } // namespace Step85
 

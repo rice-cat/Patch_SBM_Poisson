@@ -161,9 +161,6 @@ namespace Step85
             break;
           }
 
-    std::cout << "All vertices on patch  = " << all_vertices_on_patch
-              << std::endl;
-
     if (all_vertices_on_patch == false)
       {
         throw std::runtime_error(" Not all vertices have a patch :( ");
@@ -235,9 +232,6 @@ namespace Step85
               }
           }
       }
-    std::cout << "Displaying Block_list : \n";
-    block_list.print(std::cout);
-    std::cout << "\nEnd Block_list \n\n";
     block_list.compress();
   }
 
@@ -255,7 +249,8 @@ namespace Step85
     const unsigned int               level,
     const std::function<
       bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
-      &cell_is_in_domain)
+      &cell_is_in_domain,
+    unsigned int shyness)
   {
     AssertDimension(dim, 2);
 
@@ -299,15 +294,21 @@ namespace Step85
           }
       }
 
-    // Step 4: Create patches - one patch per vertex
+    // Step 4: Create patches - one patch per vertex (filtered by shyness)
     std::map<types::global_vertex_index, patch_index_type>
                      vertex_to_patch_index;
     patch_index_type patch_count = 0;
 
-    // Assign a patch index to each vertex that has cells
+    // Assign a patch index to each vertex that has enough cells (shyness check)
     for (const auto &vertex_cells_pair : cells_of_vertex)
       {
-        vertex_to_patch_index[vertex_cells_pair.first] = patch_count++;
+        // If shyness is invalid_unsigned_int, accept all vertices
+        // Otherwise, only accept vertices with at least 'shyness' cells
+        if (shyness == numbers::invalid_unsigned_int ||
+            vertex_cells_pair.second.size() >= shyness)
+          {
+            vertex_to_patch_index[vertex_cells_pair.first] = patch_count++;
+          }
       }
 
     // Step 5: For each vertex patch, collect DoFs where all using cells are in
@@ -318,6 +319,12 @@ namespace Step85
       {
         types::global_vertex_index      vertex_index = vertex_cells_pair.first;
         const std::set<dealii::CellId> &vertex_cells = vertex_cells_pair.second;
+        
+        // Skip vertices that didn't pass the shyness filter
+        if (vertex_to_patch_index.find(vertex_index) == 
+            vertex_to_patch_index.end())
+          continue;
+        
         patch_index_type patch_idx = vertex_to_patch_index[vertex_index];
 
         // Collect all DoFs from cells touching this vertex
@@ -370,9 +377,6 @@ namespace Step85
           }
       }
 
-    std::cout << "Displaying Block_list for full residual patches: \n";
-    block_list.print(std::cout);
-    std::cout << "\nEnd Block_list \n\n";
     block_list.compress();
   }
 
@@ -382,7 +386,8 @@ namespace Step85
     const DoFHandler<2, 2> &dof_handler,
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
-      &cell_is_in_domain);
+      &cell_is_in_domain,
+    unsigned int shyness);
 
 
   template void
@@ -391,7 +396,8 @@ namespace Step85
     const DoFHandler<3, 3> &dof_handler,
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<3, 3>::cell_iterator &)>
-      &cell_is_in_domain);
+      &cell_is_in_domain,
+    unsigned int shyness);
 
   template <int dim, int spacedim>
   void
