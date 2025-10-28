@@ -266,6 +266,9 @@ namespace Step85
     // Step 2: Build mapping from vertices to cells that use them
     std::map<types::global_vertex_index, std::set<dealii::CellId>> cells_of_vertex;
     
+    // Step 3: Build mapping from CellId to cell iterator for efficient lookup
+    std::map<dealii::CellId, cell_iterator> cell_map;
+    
     const FiniteElement<dim> &fe = dof_handler.get_fe(0);
     std::vector<types::global_dof_index> local_dof_indices(fe.n_dofs_per_cell());
 
@@ -274,6 +277,9 @@ namespace Step85
       {
         if (!cell_is_in_domain(cell))
           continue;
+        
+        // Store the cell iterator for later use
+        cell_map[cell->id()] = cell;
           
         // Add this cell to the vertex mapping
         for (const auto vertex : GeometryInfo<dim>::vertex_indices())
@@ -289,7 +295,7 @@ namespace Step85
           }
       }
 
-    // Step 3: Create patches - one patch per vertex
+    // Step 4: Create patches - one patch per vertex
     std::map<types::global_vertex_index, patch_index_type> vertex_to_patch_index;
     patch_index_type patch_count = 0;
     
@@ -299,7 +305,7 @@ namespace Step85
         vertex_to_patch_index[vertex_cells_pair.first] = patch_count++;
       }
 
-    // Step 4: For each vertex patch, collect DoFs where all using cells are in the patch
+    // Step 5: For each vertex patch, collect DoFs where all using cells are in the patch
     std::vector<std::set<types::global_dof_index>> patches_dofs(patch_count);
     
     for (const auto &vertex_cells_pair : cells_of_vertex)
@@ -312,18 +318,12 @@ namespace Step85
         std::set<types::global_dof_index> candidate_dofs;
         for (const auto &cell_id : vertex_cells)
           {
-            // Find the cell with this ID
-            for (const auto &cell : dof_handler.cell_iterators_on_level(level))
+            // Use the cell_map for O(log n) lookup instead of O(n) search
+            const auto &cell = cell_map[cell_id];
+            cell->get_mg_dof_indices(local_dof_indices);
+            for (const auto dof_index : local_dof_indices)
               {
-                if (cell->id() == cell_id)
-                  {
-                    cell->get_mg_dof_indices(local_dof_indices);
-                    for (const auto dof_index : local_dof_indices)
-                      {
-                        candidate_dofs.insert(dof_index);
-                      }
-                    break;
-                  }
+                candidate_dofs.insert(dof_index);
               }
           }
         
@@ -350,7 +350,7 @@ namespace Step85
           }
       }
 
-    // Step 5: Build the sparsity pattern
+    // Step 6: Build the sparsity pattern
     block_list.reinit(patch_count,
                       dof_handler.n_dofs(level),
                       fe.n_dofs_per_cell() * std::pow(2, dim));

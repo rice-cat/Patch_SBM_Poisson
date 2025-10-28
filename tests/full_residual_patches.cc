@@ -40,45 +40,16 @@ main()
   dof_handler.distribute_dofs(fe);
   dof_handler.distribute_mg_dofs();
 
-  // Mark cells with user flag based on distance to origin
+  const unsigned int level = triangulation.n_levels() - 1;
+
+  // Mark cells on the target level with user flag based on distance to origin
   // Only cells within a certain radius are considered "in the domain"
-  for (const auto &cell : dof_handler.active_cell_iterators())
+  for (const auto &cell : dof_handler.cell_iterators_on_level(level))
     {
       if (cell->center().norm() < 0.75)
         cell->set_user_flag();
       else
         cell->clear_user_flag();
-    }
-
-  // Propagate user flags to all levels
-  for (unsigned int level = 0; level < triangulation.n_levels(); ++level)
-    {
-      for (const auto &cell : dof_handler.cell_iterators_on_level(level))
-        {
-          // A cell on a coarser level has user flag if any of its children has it
-          bool has_active_descendant = false;
-          if (cell->has_children())
-            {
-              for (unsigned int child = 0; child < cell->n_children(); ++child)
-                {
-                  if (cell->child(child)->user_flag_set())
-                    {
-                      has_active_descendant = true;
-                      break;
-                    }
-                }
-            }
-          else
-            {
-              // Leaf cell - check if it's marked
-              has_active_descendant = cell->user_flag_set();
-            }
-          
-          if (has_active_descendant)
-            cell->set_user_flag();
-          else
-            cell->clear_user_flag();
-        }
     }
 
   // Create a predicate function that uses user flags
@@ -89,7 +60,6 @@ main()
 
   // Create full residual patches
   SparsityPattern    block_list;
-  const unsigned int level = triangulation.n_levels() - 1;
 
   deallog << "Creating full residual patches for level " << level << std::endl;
   deallog << "Number of cells: " << triangulation.n_cells() << std::endl;
