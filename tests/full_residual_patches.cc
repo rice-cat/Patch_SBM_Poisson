@@ -1,7 +1,7 @@
-// Test for shy_patches functionality
-// Creates a simple triangulation, distributes dofs, and creates shy patches
-
-#include "shy_patches.h"
+// Test for full_residual_patches functionality
+// Creates a simple triangulation, distributes dofs, and creates full residual
+// patches This is analogous to shy_patches.cc but uses user flags to determine
+// cell activity
 
 #include <deal.II/dofs/dof_handler.h>
 
@@ -16,6 +16,7 @@
 
 #include <sstream>
 
+#include "shy_patches.h"
 #include "tests.h"
 
 using namespace dealii;
@@ -39,8 +40,11 @@ main()
   dof_handler.distribute_dofs(fe);
   dof_handler.distribute_mg_dofs();
 
-  // Mark cells with user flag based on distance to origin
-  for (const auto &cell : dof_handler.active_cell_iterators())
+  const unsigned int level = triangulation.n_levels() - 1;
+
+  // Mark cells on the target level with user flag based on distance to origin
+  // Only cells within a certain radius are considered "in the domain"
+  for (const auto &cell : dof_handler.cell_iterators_on_level(level))
     {
       if (cell->center().norm() < 0.75)
         cell->set_user_flag();
@@ -48,13 +52,16 @@ main()
         cell->clear_user_flag();
     }
 
-  // Create shy patches
-  SparsityPattern    block_list;
-  const unsigned int level   = triangulation.n_levels() - 1;
-  const unsigned int shyness = 3;
+  // Create a predicate function that uses user flags
+  auto cell_is_in_domain =
+    [](const typename DoFHandler<dim>::cell_iterator &cell) -> bool {
+    return cell->user_flag_set();
+  };
 
-  deallog << "Creating shy patches for level " << level << " with shyness "
-          << shyness << std::endl;
+  // Create full residual patches
+  SparsityPattern block_list;
+
+  deallog << "Creating full residual patches for level " << level << std::endl;
   deallog << "Number of cells: " << triangulation.n_cells() << std::endl;
   deallog << "Number of active cells: " << triangulation.n_active_cells()
           << std::endl;
@@ -62,10 +69,16 @@ main()
   deallog << "Number of DoFs at level " << level << ": "
           << dof_handler.n_dofs(level) << std::endl;
 
-  Step85::make_shy_vertex_patches(block_list, dof_handler, level, shyness);
+  Step85::make_full_residual_vertex_patches(block_list,
+                                            dof_handler,
+                                            level,
+                                            cell_is_in_domain);
 
   // Output patches to VTK file for visualization
-  Step85::output_patches_vtk(block_list, dof_handler, level, "shy_patches.vtk");
+  Step85::output_patches_vtk(block_list,
+                             dof_handler,
+                             level,
+                             "full_residual_patches.vtk");
 
   // Output mesh with user flags for visualization
   Vector<float> user_flags(triangulation.n_active_cells());
@@ -81,10 +94,9 @@ main()
   data_out.add_data_vector(user_flags, "user_flags");
   data_out.build_patches();
 
-  std::ofstream output("user_flags.vtk");
+  std::ofstream output("user_flags_full_residual.vtk");
   data_out.write_vtk(output);
-
-  deallog << "Shy patches created successfully" << std::endl;
+  deallog << "Full residual patches created successfully" << std::endl;
 
   {
     std::ostringstream oss;
@@ -92,7 +104,6 @@ main()
     deallog << oss.str();
     deallog << std::endl;
   }
-
 
   return 0;
 }
