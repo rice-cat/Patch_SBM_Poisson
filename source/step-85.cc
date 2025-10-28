@@ -84,7 +84,8 @@ namespace Step85
 
         // only langrage elements are inside
         if (cell_location != NonMatching::LocationToLevelSet::inside)
-          {}
+          {
+          }
         else
           cell->set_user_flag();
       }
@@ -99,7 +100,7 @@ namespace Step85
   {
     std::cout << "Initializing matrices" << std::endl;
 
-    const auto face_has_flux_coupling = [&](const auto &       cell,
+    const auto face_has_flux_coupling = [&](const auto        &cell,
                                             const unsigned int face_index) {
       return this->face_has_ghost_penalty(cell, face_index);
     };
@@ -176,7 +177,17 @@ namespace Step85
   LaplaceSolver<dim>::setup_smoother()
   {
     unsigned int level = triangulation.n_levels() - 1;
-    make_shy_vertex_patches(smoother_data.block_list, dof_handler, level);
+
+    // TODO:  Create a predicate function that DOESNT use user flags
+    auto cell_is_in_domain =
+      [](const typename DoFHandler<dim>::cell_iterator &cell) -> bool {
+      return cell->user_flag_set();
+    };
+
+    make_shy_vertex_patches(smoother_data.block_list,
+                            dof_handler,
+                            level,
+                            cell_is_in_domain);
     smoother_data.relaxation = 1.;
     smoother_data.inversion  = PreconditionBlockBase<double>::svd;
     auto smoother            = std::make_unique<SmootherType>();
@@ -267,7 +278,7 @@ namespace Step85
 
   template <int dim>
   double
-  AnalyticalSolution<dim>::value(const Point<dim> & point,
+  AnalyticalSolution<dim>::value(const Point<dim>  &point,
                                  const unsigned int component) const
   {
     AssertIndexRange(component, this->n_components);
@@ -366,15 +377,15 @@ namespace Step85
   // Standalone assembly function for reuse in smoother testing and MG solver
   template <int dim>
   void
-  assemble_system(const DoFHandler<dim>                     &dof_handler,
-                  const FE_Q<dim>                           &fe_poisson,
-                  const NonMatching::MeshClassifier<dim>    &mesh_classifier,
-                  const unsigned int                         fe_degree,
-                  const Functions::ConstantFunction<dim>    &rhs_function,
-                  const Functions::ConstantFunction<dim>    &boundary_condition,
-                  SparseMatrix<double>                      &stiffness_matrix,
-                  Vector<double>                            &rhs,
-                  std::vector<bool>                         &active_dofs)
+  assemble_system(const DoFHandler<dim>                  &dof_handler,
+                  const FE_Q<dim>                        &fe_poisson,
+                  const NonMatching::MeshClassifier<dim> &mesh_classifier,
+                  const unsigned int                      fe_degree,
+                  const Functions::ConstantFunction<dim> &rhs_function,
+                  const Functions::ConstantFunction<dim> &boundary_condition,
+                  SparseMatrix<double>                   &stiffness_matrix,
+                  Vector<double>                         &rhs,
+                  std::vector<bool>                      &active_dofs)
   {
     std::cout << "Assembling" << std::endl;
 
@@ -524,14 +535,15 @@ namespace Step85
   // Explicit template instantiations
   template class LaplaceSolver<2>;
   template class AnalyticalSolution<2>;
-  template void assemble_system<2>(const DoFHandler<2>                     &,
-                                   const FE_Q<2>                           &,
-                                   const NonMatching::MeshClassifier<2>    &,
-                                   const unsigned int                       ,
-                                   const Functions::ConstantFunction<2>    &,
-                                   const Functions::ConstantFunction<2>    &,
-                                   SparseMatrix<double>                    &,
-                                   Vector<double>                          &,
-                                   std::vector<bool>                       &);
+  template void
+  assemble_system<2>(const DoFHandler<2> &,
+                     const FE_Q<2> &,
+                     const NonMatching::MeshClassifier<2> &,
+                     const unsigned int,
+                     const Functions::ConstantFunction<2> &,
+                     const Functions::ConstantFunction<2> &,
+                     SparseMatrix<double> &,
+                     Vector<double> &,
+                     std::vector<bool> &);
 
 } // namespace Step85

@@ -23,10 +23,14 @@ namespace Step85
 
   template <int dim, int spacedim>
   void
-  make_shy_vertex_patches(SparsityPattern &                block_list,
-                          const DoFHandler<dim, spacedim> &dof_handler,
-                          const unsigned int               level,
-                          unsigned int                     shyness)
+  make_shy_vertex_patches(
+    SparsityPattern                 &block_list,
+    const DoFHandler<dim, spacedim> &dof_handler,
+    const unsigned int               level,
+    const std::function<
+      bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
+                &cell_is_in_domain,
+    unsigned int shyness)
   {
     AssertDimension(dim, 2);
 
@@ -53,14 +57,21 @@ namespace Step85
         vertex_cell_count[ii] = 0;
       }
 
-    for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
-                              IteratorFilters::UserFlagSet())
+    // Q: How to make filtered iterator like this work ????
+
+    // FilteredIterator<typename DoFHandler<dim,
+    // spacedim>::active_cell_iterator>
+    //   filter_cell_is_in_domain(cell_is_in_domain);
+
+    for (const auto &cell : dof_handler.cell_iterators_on_level(level))
       {
-        for (const auto vertex : GeometryInfo<dim>::vertex_indices())
-          {
-            vertex_cell_count[cell->vertex_index(vertex)]++;
-            cells_of_vertex[cell->vertex_index(vertex)].insert(cell->id());
-          }
+        if (cell_is_in_domain(
+              cell)) /// here using the filtered iterator would look much nicer
+          for (const auto vertex : GeometryInfo<dim>::vertex_indices())
+            {
+              vertex_cell_count[cell->vertex_index(vertex)]++;
+              cells_of_vertex[cell->vertex_index(vertex)].insert(cell->id());
+            }
       }
 
     for (unsigned int ii = 0; ii < vertex_is_sheltered.size(); ii++)
@@ -71,27 +82,27 @@ namespace Step85
           vertex_is_sheltered[ii] = false;
       }
 
-    for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
-                              IteratorFilters::UserFlagSet())
+    for (const auto &cell : dof_handler.cell_iterators_on_level(level))
       {
-        for (const auto &face : cell->face_iterators())
-          {
-            for (const auto vertex : GeometryInfo<dim - 1>::vertex_indices())
-              {
-                types::global_vertex_index global_vertex_index =
-                  face->vertex_index(vertex);
-                if (vertex_is_sheltered[global_vertex_index] == true)
-                  {
-                    if (vertex_on_patch[global_vertex_index] == false)
-                      {
-                        vertex_on_patch[global_vertex_index] = true;
-                        index_from_global_vertex_to_patch.emplace(
-                          global_vertex_index, i);
-                        i++;
-                      }
-                  }
-              }
-          }
+        if (cell_is_in_domain(cell))
+          for (const auto &face : cell->face_iterators())
+            {
+              for (const auto vertex : GeometryInfo<dim - 1>::vertex_indices())
+                {
+                  types::global_vertex_index global_vertex_index =
+                    face->vertex_index(vertex);
+                  if (vertex_is_sheltered[global_vertex_index] == true)
+                    {
+                      if (vertex_on_patch[global_vertex_index] == false)
+                        {
+                          vertex_on_patch[global_vertex_index] = true;
+                          index_from_global_vertex_to_patch.emplace(
+                            global_vertex_index, i);
+                          i++;
+                        }
+                    }
+                }
+            }
       }
 
 
@@ -101,65 +112,66 @@ namespace Step85
     while (true)
       {
         modified_vertices.clear();
-        for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
-                                  IteratorFilters::UserFlagSet())
+        for (const auto &cell : dof_handler.cell_iterators_on_level(level))
           {
-            for (const auto &face : cell->face_iterators())
-              {
-                for (const auto vertex : GeometryInfo<1>::vertex_indices())
-                  {
-                    types::global_vertex_index global_vertex_index =
-                      face->vertex_index(vertex);
-                    if (vertex_on_patch[global_vertex_index] == false)
-                      {
-                        types::global_vertex_index other_vertex =
-                          face->vertex_index((vertex + 1) % 2);
-                        if (vertex_on_patch[other_vertex])
-                          {
-                            if (modified_vertices.count(other_vertex) == 0)
-                              {
-                                bool patch_contains_all_cells = true;
-                                for (dealii::CellId cell_index :
-                                     cells_of_vertex[global_vertex_index])
-                                  {
-                                    if (cells_of_vertex[other_vertex].find(
-                                          cell_index) ==
-                                        cells_of_vertex[other_vertex].end())
-                                      {
-                                        patch_contains_all_cells = false;
-                                        break;
-                                      }
-                                  }
+            if (cell_is_in_domain(cell))
+              for (const auto &face : cell->face_iterators())
+                {
+                  for (const auto vertex : GeometryInfo<1>::vertex_indices())
+                    {
+                      types::global_vertex_index global_vertex_index =
+                        face->vertex_index(vertex);
+                      if (vertex_on_patch[global_vertex_index] == false)
+                        {
+                          types::global_vertex_index other_vertex =
+                            face->vertex_index((vertex + 1) % 2);
+                          if (vertex_on_patch[other_vertex])
+                            {
+                              if (modified_vertices.count(other_vertex) == 0)
+                                {
+                                  bool patch_contains_all_cells = true;
+                                  for (dealii::CellId cell_index :
+                                       cells_of_vertex[global_vertex_index])
+                                    {
+                                      if (cells_of_vertex[other_vertex].find(
+                                            cell_index) ==
+                                          cells_of_vertex[other_vertex].end())
+                                        {
+                                          patch_contains_all_cells = false;
+                                          break;
+                                        }
+                                    }
 
-                                if (patch_contains_all_cells)
-                                  {
-                                    vertex_on_patch[global_vertex_index] = true;
-                                    modified_vertices.insert(
-                                      global_vertex_index);
-                                    index_from_global_vertex_to_patch.emplace(
-                                      global_vertex_index,
-                                      index_from_global_vertex_to_patch
-                                        [other_vertex]);
-                                  }
-                              }
-                          }
-                      }
-                  }
-              }
+                                  if (patch_contains_all_cells)
+                                    {
+                                      vertex_on_patch[global_vertex_index] =
+                                        true;
+                                      modified_vertices.insert(
+                                        global_vertex_index);
+                                      index_from_global_vertex_to_patch.emplace(
+                                        global_vertex_index,
+                                        index_from_global_vertex_to_patch
+                                          [other_vertex]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
           }
         if (modified_vertices.empty())
           break;
       }
 
     bool all_vertices_on_patch = true;
-    for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
-                              IteratorFilters::UserFlagSet())
-      for (const auto vertex : GeometryInfo<dim>::vertex_indices())
-        if (vertex_on_patch[cell->vertex_index(vertex)] == false)
-          {
-            all_vertices_on_patch = false;
-            break;
-          }
+    for (const auto &cell : dof_handler.cell_iterators_on_level(level))
+      if (cell_is_in_domain(cell))
+        for (const auto vertex : GeometryInfo<dim>::vertex_indices())
+          if (vertex_on_patch[cell->vertex_index(vertex)] == false)
+            {
+              all_vertices_on_patch = false;
+              break;
+            }
 
     if (all_vertices_on_patch == false)
       {
@@ -168,7 +180,7 @@ namespace Step85
 
     std::vector<std::set<types::global_dof_index>> patches_indices(i);
     std::vector<types::global_dof_index>           object_dofs;
-    const FiniteElement<dim> &                     fe = dof_handler.get_fe(0);
+    const FiniteElement<dim>                      &fe = dof_handler.get_fe(0);
     types::fe_index                                fe_index;
 
     object_dofs.reserve(fe.n_dofs_per_cell());
@@ -178,44 +190,49 @@ namespace Step85
         unsigned int n_dof_quad   = dof_handler.get_fe().n_dofs_per_quad();
         unsigned int n_dof_line   = dof_handler.get_fe().n_dofs_per_line();
         unsigned int n_dof_vertex = dof_handler.get_fe().n_dofs_per_vertex();
-        for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
-                                  IteratorFilters::UserFlagSet())
+        for (const auto &cell : dof_handler.cell_iterators_on_level(level))
           {
-            fe_index = cell->active_fe_index();
-            for (const auto &face : cell->face_iterators())
+            if (cell_is_in_domain(cell))
               {
+                fe_index = cell->active_fe_index();
+                for (const auto &face : cell->face_iterators())
+                  {
+                    object_dofs.clear();
+                    for (unsigned int j = 0; j < n_dof_line; j++)
+                      if (is_active)
+                        object_dofs.push_back(face->dof_index(j));
+                      else
+                        object_dofs.push_back(face->mg_dof_index(level, j));
+                    for (const auto vertex :
+                         GeometryInfo<dim - 1>::vertex_indices())
+                      {
+                        unsigned int vertex_global_index =
+                          face->vertex_index(vertex);
+                        unsigned int vertex_patch_index =
+                          index_from_global_vertex_to_patch
+                            [vertex_global_index];
+                        patches_indices[vertex_patch_index].insert(
+                          object_dofs.begin(), object_dofs.end());
+                      }
+                  }
+
                 object_dofs.clear();
-                for (unsigned int j = 0; j < n_dof_line; j++)
-                  if (is_active)
-                    object_dofs.push_back(face->dof_index(j));
-                  else
-                    object_dofs.push_back(face->mg_dof_index(level, j));
-                for (const auto vertex :
-                     GeometryInfo<dim - 1>::vertex_indices())
+                for (unsigned int j = 0; j < n_dof_quad; j++)
+                  object_dofs.push_back(cell->mg_dof_index(level, j));
+                for (const auto vertex : GeometryInfo<dim>::vertex_indices())
                   {
                     unsigned int vertex_global_index =
-                      face->vertex_index(vertex);
+                      cell->vertex_index(vertex);
                     unsigned int vertex_patch_index =
                       index_from_global_vertex_to_patch[vertex_global_index];
-                    patches_indices[vertex_patch_index].insert(
-                      object_dofs.begin(), object_dofs.end());
-                  }
-              }
-
-            object_dofs.clear();
-            for (unsigned int j = 0; j < n_dof_quad; j++)
-              object_dofs.push_back(cell->mg_dof_index(level, j));
-            for (const auto vertex : GeometryInfo<dim>::vertex_indices())
-              {
-                unsigned int vertex_global_index = cell->vertex_index(vertex);
-                unsigned int vertex_patch_index =
-                  index_from_global_vertex_to_patch[vertex_global_index];
-                for (const auto dof : object_dofs)
-                  patches_indices[vertex_patch_index].insert(dof);
-                for (unsigned int j = 0; j < n_dof_vertex; j++)
-                  {
-                    patches_indices[vertex_patch_index].insert(
-                      cell->mg_vertex_dof_index(level, vertex, j, fe_index));
+                    for (const auto dof : object_dofs)
+                      patches_indices[vertex_patch_index].insert(dof);
+                    for (unsigned int j = 0; j < n_dof_vertex; j++)
+                      {
+                        patches_indices[vertex_patch_index].insert(
+                          cell->mg_vertex_dof_index(
+                            level, vertex, j, fe_index));
+                      }
                   }
               }
           }
@@ -236,20 +253,23 @@ namespace Step85
   }
 
   template void
-  make_shy_vertex_patches<2, 2>(SparsityPattern &       block_list,
-                                const DoFHandler<2, 2> &dof_handler,
-                                const unsigned int      level,
-                                unsigned int            shyness);
+  make_shy_vertex_patches<2, 2>(
+    SparsityPattern        &block_list,
+    const DoFHandler<2, 2> &dof_handler,
+    const unsigned int      level,
+    const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
+                &cell_is_in_domain,
+    unsigned int shyness);
 
   template <int dim, int spacedim>
   void
   make_full_residual_vertex_patches(
-    SparsityPattern &                block_list,
+    SparsityPattern                 &block_list,
     const DoFHandler<dim, spacedim> &dof_handler,
     const unsigned int               level,
     const std::function<
       bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
-      &cell_is_in_domain,
+                &cell_is_in_domain,
     unsigned int shyness)
   {
     AssertDimension(dim, 2);
@@ -267,7 +287,7 @@ namespace Step85
     // Step 3: Build mapping from CellId to cell iterator for efficient lookup
     std::map<dealii::CellId, cell_iterator> cell_map;
 
-    const FiniteElement<dim> &           fe = dof_handler.get_fe(0);
+    const FiniteElement<dim>            &fe = dof_handler.get_fe(0);
     std::vector<types::global_dof_index> local_dof_indices(
       fe.n_dofs_per_cell());
 
@@ -319,12 +339,12 @@ namespace Step85
       {
         types::global_vertex_index      vertex_index = vertex_cells_pair.first;
         const std::set<dealii::CellId> &vertex_cells = vertex_cells_pair.second;
-        
+
         // Skip vertices that didn't pass the shyness filter
-        if (vertex_to_patch_index.find(vertex_index) == 
+        if (vertex_to_patch_index.find(vertex_index) ==
             vertex_to_patch_index.end())
           continue;
-        
+
         patch_index_type patch_idx = vertex_to_patch_index[vertex_index];
 
         // Collect all DoFs from cells touching this vertex
@@ -382,29 +402,29 @@ namespace Step85
 
   template void
   make_full_residual_vertex_patches<2, 2>(
-    SparsityPattern &       block_list,
+    SparsityPattern        &block_list,
     const DoFHandler<2, 2> &dof_handler,
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
-      &cell_is_in_domain,
+                &cell_is_in_domain,
     unsigned int shyness);
 
 
   template void
   make_full_residual_vertex_patches<3, 3>(
-    SparsityPattern &       block_list,
+    SparsityPattern        &block_list,
     const DoFHandler<3, 3> &dof_handler,
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<3, 3>::cell_iterator &)>
-      &cell_is_in_domain,
+                &cell_is_in_domain,
     unsigned int shyness);
 
   template <int dim, int spacedim>
   void
-  output_patches_vtk(const SparsityPattern &          block_list,
+  output_patches_vtk(const SparsityPattern           &block_list,
                      const DoFHandler<dim, spacedim> &dof_handler,
                      const unsigned int               level,
-                     const std::string &              filename)
+                     const std::string               &filename)
   {
     // Get support points for DoFs on the given level
     const MappingQ1<dim, spacedim>                     mapping;
@@ -460,7 +480,7 @@ namespace Step85
              ++it)
           {
             const types::global_dof_index dof_index = it->column();
-            const Point<spacedim> &       point = dof_location_map[dof_index];
+            const Point<spacedim>        &point = dof_location_map[dof_index];
 
             vtk_file << point[0] << " " << point[1];
             if (spacedim == 3)
@@ -515,9 +535,9 @@ namespace Step85
   }
 
   template void
-  output_patches_vtk<2, 2>(const SparsityPattern & block_list,
+  output_patches_vtk<2, 2>(const SparsityPattern  &block_list,
                            const DoFHandler<2, 2> &dof_handler,
                            const unsigned int      level,
-                           const std::string &     filename);
+                           const std::string      &filename);
 
 } // namespace Step85

@@ -2,6 +2,7 @@
 #define SHY_PATCHES_H
 
 #include <deal.II/dofs/dof_handler.h>
+
 #include <deal.II/lac/sparsity_pattern.h>
 
 #include <functional>
@@ -13,17 +14,21 @@ namespace Step85
 
   template <int dim, int spacedim>
   void
-  make_shy_vertex_patches(SparsityPattern                 &block_list,
-                          const DoFHandler<dim, spacedim> &dof_handler,
-                          const unsigned int               level,
-                          unsigned int                     shyness = 3);
+  make_shy_vertex_patches(
+    SparsityPattern                 &block_list,
+    const DoFHandler<dim, spacedim> &dof_handler,
+    const unsigned int               level,
+    const std::function<
+      bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
+                &cell_is_in_domain,
+    unsigned int shyness = 3);
 
   template <int dim, int spacedim>
   void
-  output_patches_vtk(const SparsityPattern               &block_list,
-                     const DoFHandler<dim, spacedim>     &dof_handler,
-                     const unsigned int                   level,
-                     const std::string                   &filename);
+  output_patches_vtk(const SparsityPattern           &block_list,
+                     const DoFHandler<dim, spacedim> &dof_handler,
+                     const unsigned int               level,
+                     const std::string               &filename);
 
   /**
    * Create vertex patches where each patch includes all DoFs for which the
@@ -52,8 +57,9 @@ namespace Step85
     SparsityPattern                 &block_list,
     const DoFHandler<dim, spacedim> &dof_handler,
     const unsigned int               level,
-    const std::function<bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
-      &cell_is_in_domain,
+    const std::function<
+      bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
+                &cell_is_in_domain,
     unsigned int shyness = numbers::invalid_unsigned_int);
 
 } // namespace Step85

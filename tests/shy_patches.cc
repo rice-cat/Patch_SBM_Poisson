@@ -62,6 +62,7 @@ main()
   deallog << "Number of DoFs at level " << level << ": "
           << dof_handler.n_dofs(level) << std::endl;
 
+  // TODO : adjust to new function signature
   Step85::make_shy_vertex_patches(block_list, dof_handler, level, shyness);
 
   // Output patches to VTK file for visualization
