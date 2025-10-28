@@ -455,7 +455,7 @@ namespace Step85
     const double error_L2 = compute_L2_error();
     std::cout << "\nL2 Error: " << error_L2 << std::endl;
   }
-}
+
 
 } // namespace Step85
 
