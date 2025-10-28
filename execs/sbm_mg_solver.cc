@@ -14,6 +14,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <memory>
 
 #include "shy_patches.h"
 #include "step-85.h"
@@ -137,13 +138,14 @@ namespace Step85
 
     // Multigrid level objects - separate triangulation and DoFHandler per level
     MGLevelObject<Triangulation<dim>> mg_triangulations;
-    MGLevelObject<FE_Q<dim>>          mg_fe_level_set;
+    FE_Q<dim>                         fe_level_set;
     MGLevelObject<DoFHandler<dim>>    mg_level_set_dof_handlers;
     MGLevelObject<Vector<double>>     mg_level_sets;
 
-    MGLevelObject<FE_Q<dim>>                        mg_fe_poisson;
-    MGLevelObject<DoFHandler<dim>>                  mg_dof_handlers;
-    MGLevelObject<NonMatching::MeshClassifier<dim>> mg_mesh_classifiers;
+    MGLevelObject<std::unique_ptr<FE_Q<dim>>> mg_fe_poisson;
+    MGLevelObject<DoFHandler<dim>>            mg_dof_handlers;
+    MGLevelObject<std::unique_ptr<NonMatching::MeshClassifier<dim>>>
+      mg_mesh_classifiers;
 
     // Fine level solution and RHS
     Vector<double>    solution;
@@ -165,6 +167,7 @@ namespace Step85
     : fe_degree(params.fe_degree)
     , rhs_function(0)
     , boundary_condition(0.0)
+    , fe_level_set(params.fe_degree + 1)
     , mg_params(params)
   {}
 
@@ -178,7 +181,6 @@ namespace Step85
 
     // Resize all level objects
     mg_triangulations.resize(0, n_levels - 1);
-    mg_fe_level_set.resize(0, n_levels - 1);
     mg_level_set_dof_handlers.resize(0, n_levels - 1);
     mg_level_sets.resize(0, n_levels - 1);
     mg_fe_poisson.resize(0, n_levels - 1);
@@ -194,8 +196,7 @@ namespace Step85
         mg_triangulations[level].refine_global(level);
 
         // Initialize FE objects for this level
-        mg_fe_level_set[level] = FE_Q<dim>(fe_degree);
-        mg_fe_poisson[level]   = FE_Q<dim>(fe_degree);
+        mg_fe_poisson[level] = std::make_unique<FE_Q<dim>>(fe_degree);
 
         std::cout << "  Level " << level << ": "
                   << mg_triangulations[level].n_active_cells() << " cells"
@@ -210,23 +211,24 @@ namespace Step85
     std::cout << "Setting up discrete level set functions for all levels"
               << std::endl;
 
-    const unsigned int n_levels = mg_triangulations.size();
+    const unsigned int n_levels = mg_triangulations.n_levels();
     const Functions::SignedDistance::Sphere<dim> signed_distance_sphere;
 
     for (unsigned int level = 0; level < n_levels; ++level)
       {
         mg_level_set_dof_handlers[level].reinit(mg_triangulations[level]);
-        mg_level_set_dof_handlers[level].distribute_dofs(
-          mg_fe_level_set[level]);
+        mg_level_set_dof_handlers[level].distribute_dofs(fe_level_set);
         mg_level_sets[level].reinit(mg_level_set_dof_handlers[level].n_dofs());
 
         VectorTools::interpolate(mg_level_set_dof_handlers[level],
                                  signed_distance_sphere,
                                  mg_level_sets[level]);
 
-        // Initialize mesh classifier for this level
-        mg_mesh_classifiers[level].reinit(mg_level_set_dof_handlers[level],
-                                          mg_level_sets[level]);
+        // Initialize mesh classifier for this level (construct with dof handler
+        // and level set vector; MeshClassifier has no default ctor)
+        mg_mesh_classifiers[level] =
+          std::make_unique<NonMatching::MeshClassifier<dim>>(
+            mg_level_set_dof_handlers[level], mg_level_sets[level]);
 
         std::cout << "  Level " << level << ": "
                   << mg_level_set_dof_handlers[level].n_dofs()
@@ -240,7 +242,7 @@ namespace Step85
   {
     std::cout << "Distributing degrees of freedom for all levels" << std::endl;
 
-    const unsigned int n_levels = mg_triangulations.size();
+    const unsigned int n_levels = mg_triangulations.n_levels();
 
     for (unsigned int level = 0; level < n_levels; ++level)
       {
@@ -253,13 +255,13 @@ namespace Step85
         for (const auto &cell : mg_dof_handlers[level].active_cell_iterators())
           {
             const NonMatching::LocationToLevelSet cell_location =
-              mg_mesh_classifiers[level].location_to_level_set(cell);
+              mg_mesh_classifiers[level]->location_to_level_set(cell);
 
             if (cell_location == NonMatching::LocationToLevelSet::inside)
               cell->set_user_flag();
           }
 
-        mg_dof_handlers[level].distribute_dofs(mg_fe_poisson[level]);
+        mg_dof_handlers[level].distribute_dofs(*mg_fe_poisson[level]);
 
         std::cout << "  Level " << level << ": "
                   << mg_dof_handlers[level].n_dofs() << " DoFs" << std::endl;
@@ -274,7 +276,7 @@ namespace Step85
 
 
     // Initialize fine level matrix and vectors
-    for (unsigned int level = 0; level < mg_dof_handlers.size(); ++level)
+    for (unsigned int level = 0; level < mg_dof_handlers.n_levels(); ++level)
       {
         DynamicSparsityPattern dsp(mg_dof_handlers[level].n_dofs(),
                                    mg_dof_handlers[level].n_dofs());
@@ -285,7 +287,7 @@ namespace Step85
         stiffness_matrix.reinit(sparsity_pattern);
       }
 
-    const unsigned int finest_level = mg_dof_handlers.size() - 1;
+    const unsigned int finest_level = mg_dof_handlers.n_levels() - 1;
 
     solution.reinit(mg_dof_handlers[finest_level].n_dofs());
     rhs.reinit(mg_dof_handlers[finest_level].n_dofs());
@@ -295,11 +297,11 @@ namespace Step85
   void
   MGSolver<dim>::assemble_system()
   {
-    const unsigned int finest_level = mg_dof_handlers.size() - 1;
+    const unsigned int finest_level = mg_dof_handlers.n_levels() - 1;
 
     Step85::assemble_system(mg_dof_handlers[finest_level],
-                            mg_fe_poisson[finest_level],
-                            mg_mesh_classifiers[finest_level],
+                            *mg_fe_poisson[finest_level],
+                            *mg_mesh_classifiers[finest_level],
                             fe_degree,
                             rhs_function,
                             boundary_condition,
@@ -314,7 +316,7 @@ namespace Step85
   {
     std::cout << "Setting up multigrid" << std::endl;
 
-    const unsigned int n_levels = mg_dof_handlers.size();
+    const unsigned int n_levels = mg_dof_handlers.n_levels();
 
     // Resize MG level objects for all levels
     mg_sparsity_patterns.resize(0, n_levels - 1);
@@ -377,7 +379,7 @@ namespace Step85
   {
     std::cout << "Writing vtu file" << std::endl;
 
-    const unsigned int finest_level = mg_dof_handlers.size() - 1;
+    const unsigned int finest_level = mg_dof_handlers.n_levels() - 1;
 
     DataOut<dim> data_out;
     data_out.add_data_vector(mg_dof_handlers[finest_level],
@@ -398,11 +400,11 @@ namespace Step85
   {
     std::cout << "Computing L2 error" << std::endl;
 
-    const unsigned int finest_level = mg_dof_handlers.size() - 1;
+    const unsigned int finest_level = mg_dof_handlers.n_levels() - 1;
 
     const QGauss<dim> quadrature_formula(fe_degree + 1);
 
-    FEValues<dim> cell_fe_values(mg_fe_poisson[finest_level],
+    FEValues<dim> cell_fe_values(*mg_fe_poisson[finest_level],
                                  quadrature_formula,
                                  update_values | update_JxW_values |
                                    update_quadrature_points);
@@ -440,9 +442,11 @@ namespace Step85
     setup_discrete_level_set();
 
     std::cout << "Classifying cells for all levels" << std::endl;
-    for (unsigned int level = 0; level < mg_mesh_classifiers.size(); ++level)
+    const unsigned int n_levels = mg_triangulations.n_levels();
+    for (unsigned int level = 0; level < n_levels; ++level)
       {
-        mg_mesh_classifiers[level].reclassify();
+        if (mg_mesh_classifiers[level])
+          mg_mesh_classifiers[level]->reclassify();
       }
 
     distribute_dofs();
