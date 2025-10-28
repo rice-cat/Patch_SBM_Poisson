@@ -1,9 +1,12 @@
 #include "shy_patches.h"
 
 #include <deal.II/base/geometry_info.h>
+
 #include <deal.II/dofs/dof_tools.h>
+
 #include <deal.II/fe/fe.h>
 #include <deal.II/fe/mapping_q1.h>
+
 #include <deal.II/grid/filtered_iterator.h>
 #include <deal.II/grid/tria.h>
 
@@ -20,12 +23,10 @@ namespace Step85
 
   template <int dim, int spacedim>
   void
-  make_shy_vertex_patches(
-    SparsityPattern                 &block_list,
-    const DoFHandler<dim, spacedim> &dof_handler,
-    const unsigned int               level,
-    unsigned int shyness
-  )
+  make_shy_vertex_patches(SparsityPattern &                block_list,
+                          const DoFHandler<dim, spacedim> &dof_handler,
+                          const unsigned int               level,
+                          unsigned int                     shyness)
   {
     AssertDimension(dim, 2);
 
@@ -170,14 +171,14 @@ namespace Step85
 
     std::vector<std::set<types::global_dof_index>> patches_indices(i);
     std::vector<types::global_dof_index>           object_dofs;
-    const FiniteElement<dim>                      &fe = dof_handler.get_fe(0);
+    const FiniteElement<dim> &                     fe = dof_handler.get_fe(0);
     types::fe_index                                fe_index;
 
     object_dofs.reserve(fe.n_dofs_per_cell());
 
     if (dim == 2)
       {
-        unsigned int n_dof_quad = dof_handler.get_fe().n_dofs_per_quad();
+        unsigned int n_dof_quad   = dof_handler.get_fe().n_dofs_per_quad();
         unsigned int n_dof_line   = dof_handler.get_fe().n_dofs_per_line();
         unsigned int n_dof_vertex = dof_handler.get_fe().n_dofs_per_vertex();
         for (const auto &cell : dof_handler.cell_iterators_on_level(level) |
@@ -241,52 +242,55 @@ namespace Step85
   }
 
   template void
-  make_shy_vertex_patches<2, 2>(SparsityPattern          &block_list,
-                                 const DoFHandler<2, 2> &dof_handler,
-                                 const unsigned int       level,
-                                 unsigned int             shyness);
+  make_shy_vertex_patches<2, 2>(SparsityPattern &       block_list,
+                                const DoFHandler<2, 2> &dof_handler,
+                                const unsigned int      level,
+                                unsigned int            shyness);
 
   template <int dim, int spacedim>
   void
   make_full_residual_vertex_patches(
-    SparsityPattern                 &block_list,
+    SparsityPattern &                block_list,
     const DoFHandler<dim, spacedim> &dof_handler,
     const unsigned int               level,
-    const std::function<bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
+    const std::function<
+      bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
       &cell_is_in_domain)
   {
     AssertDimension(dim, 2);
 
     using patch_index_type = unsigned int;
-    using cell_iterator = typename DoFHandler<dim, spacedim>::cell_iterator;
+    using cell_iterator    = typename DoFHandler<dim, spacedim>::cell_iterator;
 
     // Step 1: Build mapping from DoF indices to cells that use them
     std::map<types::global_dof_index, std::set<dealii::CellId>> cells_of_dof;
-    
+
     // Step 2: Build mapping from vertices to cells that use them
-    std::map<types::global_vertex_index, std::set<dealii::CellId>> cells_of_vertex;
-    
+    std::map<types::global_vertex_index, std::set<dealii::CellId>>
+      cells_of_vertex;
+
     // Step 3: Build mapping from CellId to cell iterator for efficient lookup
     std::map<dealii::CellId, cell_iterator> cell_map;
-    
-    const FiniteElement<dim> &fe = dof_handler.get_fe(0);
-    std::vector<types::global_dof_index> local_dof_indices(fe.n_dofs_per_cell());
+
+    const FiniteElement<dim> &           fe = dof_handler.get_fe(0);
+    std::vector<types::global_dof_index> local_dof_indices(
+      fe.n_dofs_per_cell());
 
     // Iterate over all cells on the level that are in the domain
     for (const auto &cell : dof_handler.cell_iterators_on_level(level))
       {
         if (!cell_is_in_domain(cell))
           continue;
-        
+
         // Store the cell iterator for later use
         cell_map[cell->id()] = cell;
-          
+
         // Add this cell to the vertex mapping
         for (const auto vertex : GeometryInfo<dim>::vertex_indices())
           {
             cells_of_vertex[cell->vertex_index(vertex)].insert(cell->id());
           }
-        
+
         // Add this cell to the DoF mapping
         cell->get_mg_dof_indices(local_dof_indices);
         for (const auto dof_index : local_dof_indices)
@@ -296,24 +300,26 @@ namespace Step85
       }
 
     // Step 4: Create patches - one patch per vertex
-    std::map<types::global_vertex_index, patch_index_type> vertex_to_patch_index;
+    std::map<types::global_vertex_index, patch_index_type>
+                     vertex_to_patch_index;
     patch_index_type patch_count = 0;
-    
+
     // Assign a patch index to each vertex that has cells
     for (const auto &vertex_cells_pair : cells_of_vertex)
       {
         vertex_to_patch_index[vertex_cells_pair.first] = patch_count++;
       }
 
-    // Step 5: For each vertex patch, collect DoFs where all using cells are in the patch
+    // Step 5: For each vertex patch, collect DoFs where all using cells are in
+    // the patch
     std::vector<std::set<types::global_dof_index>> patches_dofs(patch_count);
-    
+
     for (const auto &vertex_cells_pair : cells_of_vertex)
       {
-        types::global_vertex_index vertex_index = vertex_cells_pair.first;
+        types::global_vertex_index      vertex_index = vertex_cells_pair.first;
         const std::set<dealii::CellId> &vertex_cells = vertex_cells_pair.second;
         patch_index_type patch_idx = vertex_to_patch_index[vertex_index];
-        
+
         // Collect all DoFs from cells touching this vertex
         std::set<types::global_dof_index> candidate_dofs;
         for (const auto &cell_id : vertex_cells)
@@ -326,12 +332,13 @@ namespace Step85
                 candidate_dofs.insert(dof_index);
               }
           }
-        
-        // For each candidate DoF, check if all cells using it are in the vertex patch
+
+        // For each candidate DoF, check if all cells using it are in the vertex
+        // patch
         for (const auto dof_index : candidate_dofs)
           {
             const std::set<dealii::CellId> &dof_cells = cells_of_dof[dof_index];
-            
+
             // Check if all cells using this DoF are in the vertex patch
             bool all_cells_in_patch = true;
             for (const auto &cell_id : dof_cells)
@@ -342,7 +349,7 @@ namespace Step85
                     break;
                   }
               }
-            
+
             if (all_cells_in_patch)
               {
                 patches_dofs[patch_idx].insert(dof_index);
@@ -354,7 +361,7 @@ namespace Step85
     block_list.reinit(patch_count,
                       dof_handler.n_dofs(level),
                       fe.n_dofs_per_cell() * std::pow(2, dim));
-    
+
     for (patch_index_type i = 0; i < patch_count; i++)
       {
         for (const auto dof_index : patches_dofs[i])
@@ -371,46 +378,55 @@ namespace Step85
 
   template void
   make_full_residual_vertex_patches<2, 2>(
-    SparsityPattern          &block_list,
+    SparsityPattern &       block_list,
     const DoFHandler<2, 2> &dof_handler,
-    const unsigned int       level,
+    const unsigned int      level,
     const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
+      &cell_is_in_domain);
+
+
+  template void
+  make_full_residual_vertex_patches<3, 3>(
+    SparsityPattern &       block_list,
+    const DoFHandler<3, 3> &dof_handler,
+    const unsigned int      level,
+    const std::function<bool(const typename DoFHandler<3, 3>::cell_iterator &)>
       &cell_is_in_domain);
 
   template <int dim, int spacedim>
   void
-  output_patches_vtk(const SparsityPattern               &block_list,
-                     const DoFHandler<dim, spacedim>     &dof_handler,
-                     const unsigned int                   level,
-                     const std::string                   &filename)
+  output_patches_vtk(const SparsityPattern &          block_list,
+                     const DoFHandler<dim, spacedim> &dof_handler,
+                     const unsigned int               level,
+                     const std::string &              filename)
   {
     // Get support points for DoFs on the given level
-    const MappingQ1<dim, spacedim> mapping;
+    const MappingQ1<dim, spacedim>                     mapping;
     std::map<types::global_dof_index, Point<spacedim>> dof_location_map;
-    
+
     // Manually get support points for the multigrid level
-    const FiniteElement<dim, spacedim> &fe = dof_handler.get_fe();
-    const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
-    
+    const FiniteElement<dim, spacedim> &fe            = dof_handler.get_fe();
+    const unsigned int                  dofs_per_cell = fe.n_dofs_per_cell();
+
     std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
-    
+
     for (const auto &cell : dof_handler.cell_iterators_on_level(level))
       {
         cell->get_mg_dof_indices(local_dof_indices);
-        
-        const std::vector<Point<dim>> &unit_support_points = 
+
+        const std::vector<Point<dim>> &unit_support_points =
           fe.get_unit_support_points();
-          
+
         for (unsigned int i = 0; i < dofs_per_cell; ++i)
           {
-            const Point<spacedim> support_point = 
+            const Point<spacedim> support_point =
               mapping.transform_unit_to_real_cell(cell, unit_support_points[i]);
             dof_location_map[local_dof_indices[i]] = support_point;
           }
       }
 
     std::ofstream vtk_file(filename);
-    
+
     // Write VTK header
     vtk_file << "# vtk DataFile Version 3.0\n";
     vtk_file << "Shy Patches Visualization\n";
@@ -422,7 +438,8 @@ namespace Step85
     for (unsigned int patch = 0; patch < block_list.n_rows(); ++patch)
       {
         for (SparsityPattern::iterator it = block_list.begin(patch);
-             it != block_list.end(patch); ++it)
+             it != block_list.end(patch);
+             ++it)
           {
             ++total_points;
           }
@@ -433,11 +450,12 @@ namespace Step85
     for (unsigned int patch = 0; patch < block_list.n_rows(); ++patch)
       {
         for (SparsityPattern::iterator it = block_list.begin(patch);
-             it != block_list.end(patch); ++it)
+             it != block_list.end(patch);
+             ++it)
           {
             const types::global_dof_index dof_index = it->column();
-            const Point<spacedim> &point = dof_location_map[dof_index];
-            
+            const Point<spacedim> &       point = dof_location_map[dof_index];
+
             vtk_file << point[0] << " " << point[1];
             if (spacedim == 3)
               vtk_file << " " << point[2];
@@ -459,14 +477,15 @@ namespace Step85
 
     // Write point data
     vtk_file << "\nPOINT_DATA " << total_points << "\n";
-    
+
     // DoF indices as scalar data
     vtk_file << "SCALARS dof_index int 1\n";
     vtk_file << "LOOKUP_TABLE default\n";
     for (unsigned int patch = 0; patch < block_list.n_rows(); ++patch)
       {
         for (SparsityPattern::iterator it = block_list.begin(patch);
-             it != block_list.end(patch); ++it)
+             it != block_list.end(patch);
+             ++it)
           {
             vtk_file << it->column() << "\n";
           }
@@ -478,7 +497,8 @@ namespace Step85
     for (unsigned int patch = 0; patch < block_list.n_rows(); ++patch)
       {
         for (SparsityPattern::iterator it = block_list.begin(patch);
-             it != block_list.end(patch); ++it)
+             it != block_list.end(patch);
+             ++it)
           {
             vtk_file << patch << "\n";
           }
@@ -489,9 +509,9 @@ namespace Step85
   }
 
   template void
-  output_patches_vtk<2, 2>(const SparsityPattern     &block_list,
-                           const DoFHandler<2, 2>   &dof_handler,
-                           const unsigned int         level,
-                           const std::string         &filename);
+  output_patches_vtk<2, 2>(const SparsityPattern & block_list,
+                           const DoFHandler<2, 2> &dof_handler,
+                           const unsigned int      level,
+                           const std::string &     filename);
 
 } // namespace Step85
