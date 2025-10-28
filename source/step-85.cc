@@ -160,164 +160,15 @@ namespace Step85
   void
   LaplaceSolver<dim>::assemble_system()
   {
-    std::cout << "Assembling" << std::endl;
-
-    active_dofs.clear();
-    active_dofs.resize(dof_handler.n_dofs(), false);
-
-    const unsigned int n_dofs_per_cell = fe_poisson.dofs_per_cell;
-    FullMatrix<double> local_stiffness(n_dofs_per_cell, n_dofs_per_cell);
-    Vector<double>     local_rhs(n_dofs_per_cell);
-    std::vector<types::global_dof_index> local_dof_indices(n_dofs_per_cell);
-
-    const double nitsche_parameter = 5 * (fe_degree + 1) * fe_degree;
-
-    const QGauss<dim - 1> face_quadrature(fe_degree + 1);
-
-    FEFaceValues<dim> face_fe_values(fe_poisson,
-                                     face_quadrature,
-                                     update_values | update_gradients |
-                                       update_normal_vectors |
-                                       update_JxW_values |
-                                       update_quadrature_points);
-
-    const QGauss<dim> quadrature_formula(fe_degree + 1);
-
-    FEValues<dim> cell_fe_values(fe_poisson,
-                                 quadrature_formula,
-                                 update_values | update_gradients |
-                                   update_JxW_values |
-                                   update_quadrature_points);
-
-
-    for (const auto &cell :
-         dof_handler.active_cell_iterators() | IteratorFilters::UserFlagSet())
-      {
-        local_stiffness = 0;
-        local_rhs       = 0;
-
-        const double cell_side_length = cell->minimum_vertex_distance();
-        const double alpha            = nitsche_parameter / cell_side_length;
-        cell_fe_values.reinit(cell);
-
-        for (const unsigned int q : cell_fe_values.quadrature_point_indices())
-          {
-            const Point<dim> &point = cell_fe_values.quadrature_point(q);
-            for (const unsigned int i : cell_fe_values.dof_indices())
-              {
-                for (const unsigned int j : cell_fe_values.dof_indices())
-                  {
-                    local_stiffness(i, j) += cell_fe_values.shape_grad(i, q) *
-                                             cell_fe_values.shape_grad(j, q) *
-                                             cell_fe_values.JxW(q);
-                  }
-                local_rhs(i) += rhs_function.value(point) *
-                                cell_fe_values.shape_value(i, q) *
-                                cell_fe_values.JxW(q);
-              }
-          }
-
-        for (size_t face_index = 0; face_index < cell->n_faces(); face_index++)
-          {
-            bool face_on_boundary = false;
-            if (cell->neighbor_index(face_index) != -1)
-              {
-                const NonMatching::LocationToLevelSet neighbor_location =
-                  mesh_classifier.location_to_level_set(
-                    cell->neighbor(face_index));
-                if (neighbor_location ==
-                    NonMatching::LocationToLevelSet::intersected)
-                  face_on_boundary = true;
-              }
-            else
-              {
-                face_on_boundary = true;
-              }
-            if (face_on_boundary) // face is on the shifted boundary
-              {
-                cell->face(face_index)->set_user_flag();
-                //      vertex_index < cell->face(face_index)->n_vertices();
-                //      vertex_index++)
-                //   cell->face(face_index)
-                //     ->vertex_iterator(vertex_index)
-                //     ->set_user_flag();
-                // named ‘set_user_flag’
-                face_fe_values.reinit(cell, face_index);
-                for (const unsigned int q :
-                     face_fe_values.quadrature_point_indices())
-                  {
-                    const Point<dim> &point =
-                      face_fe_values.quadrature_point(q);
-                    const Point<dim> unit_point =
-                      cell_fe_values.get_mapping().transform_real_to_unit_cell(
-                        cell, point);
-                    const Point<dim> closest_boundary_point =
-                      point / point.norm();
-                    const Point<dim> unit_boundary_point =
-                      cell_fe_values.get_mapping().transform_real_to_unit_cell(
-                        cell, closest_boundary_point);
-
-                    std::vector<double> shifted_shape_values(n_dofs_per_cell);
-                    std::vector<double> shape_values(n_dofs_per_cell);
-                    std::vector<Tensor<1, dim>> shape_grad(n_dofs_per_cell);
-
-                    const FiniteElement<dim> &fe_lagrange = fe_poisson;
-                    for (size_t i = 0; i < n_dofs_per_cell; i++)
-                      {
-                        shifted_shape_values[i] =
-                          fe_lagrange.shape_value(i, unit_boundary_point);
-                        shape_values[i] =
-                          fe_lagrange.shape_value(i, unit_point);
-                        shape_grad[i] = fe_lagrange.shape_grad(i, unit_point);
-                      }
-
-                    // Q : does the dof indices on a face, include all dofs from
-                    // the cell? or is it just the face endpoint dofs?
-                    //   because if its only the face endpoint dofs we have a
-                    //   problem
-
-                    for (size_t i = 0; i < n_dofs_per_cell; i++)
-                      {
-                        for (size_t j = 0; j < n_dofs_per_cell; j++)
-                          {
-                            // Q: assuming j is for u and i is fo v, is this
-                            // right ?
-                            local_stiffness(i, j) -=
-                              face_fe_values.normal_vector(q) *
-                              face_fe_values.shape_grad(i, q) *
-                              shifted_shape_values[j] * face_fe_values.JxW(q);
-                            local_stiffness(i, j) -=
-                              face_fe_values.normal_vector(q) *
-                              face_fe_values.shape_grad(j, q) *
-                              shape_values[i] * face_fe_values.JxW(q);
-
-                            // alpha/nitsche_parameter term in the rhs, i
-                            // decided to shift both
-                            local_stiffness(i, j) +=
-                              alpha * shifted_shape_values[j] *
-                              shifted_shape_values[i] * face_fe_values.JxW(q);
-                          }
-                        local_rhs[i] -=
-                          boundary_condition.value(closest_boundary_point) *
-                          face_fe_values.normal_vector(q) *
-                          face_fe_values.shape_grad(i, q) *
-                          face_fe_values.JxW(q);
-                        local_rhs[i] +=
-                          alpha *
-                          boundary_condition.value(closest_boundary_point) *
-                          shifted_shape_values[i] * face_fe_values.JxW(q);
-                      }
-                  }
-              }
-          }
-
-        cell->get_dof_indices(local_dof_indices);
-        for (const auto index : local_dof_indices)
-          active_dofs[index] = true;
-
-        stiffness_matrix.add(local_dof_indices, local_stiffness);
-        rhs.add(local_dof_indices, local_rhs);
-      }
+    Step85::assemble_system(dof_handler,
+                            fe_poisson,
+                            mesh_classifier,
+                            fe_degree,
+                            rhs_function,
+                            boundary_condition,
+                            stiffness_matrix,
+                            rhs,
+                            active_dofs);
   }
 
   template <int dim>
@@ -512,8 +363,175 @@ namespace Step85
       }
   }
 
+  // Standalone assembly function for reuse in smoother testing and MG solver
+  template <int dim>
+  void
+  assemble_system(const DoFHandler<dim>                     &dof_handler,
+                  const FE_Q<dim>                           &fe_poisson,
+                  const NonMatching::MeshClassifier<dim>    &mesh_classifier,
+                  const unsigned int                         fe_degree,
+                  const Functions::ConstantFunction<dim>    &rhs_function,
+                  const Functions::ConstantFunction<dim>    &boundary_condition,
+                  SparseMatrix<double>                      &stiffness_matrix,
+                  Vector<double>                            &rhs,
+                  std::vector<bool>                         &active_dofs)
+  {
+    std::cout << "Assembling" << std::endl;
+
+    active_dofs.clear();
+    active_dofs.resize(dof_handler.n_dofs(), false);
+
+    const unsigned int n_dofs_per_cell = fe_poisson.dofs_per_cell;
+    FullMatrix<double> local_stiffness(n_dofs_per_cell, n_dofs_per_cell);
+    Vector<double>     local_rhs(n_dofs_per_cell);
+    std::vector<types::global_dof_index> local_dof_indices(n_dofs_per_cell);
+
+    const double nitsche_parameter = 5 * (fe_degree + 1) * fe_degree;
+
+    const QGauss<dim - 1> face_quadrature(fe_degree + 1);
+
+    FEFaceValues<dim> face_fe_values(fe_poisson,
+                                     face_quadrature,
+                                     update_values | update_gradients |
+                                       update_normal_vectors |
+                                       update_JxW_values |
+                                       update_quadrature_points);
+
+    const QGauss<dim> quadrature_formula(fe_degree + 1);
+
+    FEValues<dim> cell_fe_values(fe_poisson,
+                                 quadrature_formula,
+                                 update_values | update_gradients |
+                                   update_JxW_values |
+                                   update_quadrature_points);
+
+
+    for (const auto &cell :
+         dof_handler.active_cell_iterators() | IteratorFilters::UserFlagSet())
+      {
+        local_stiffness = 0;
+        local_rhs       = 0;
+
+        const double cell_side_length = cell->minimum_vertex_distance();
+        const double alpha            = nitsche_parameter / cell_side_length;
+        cell_fe_values.reinit(cell);
+
+        for (const unsigned int q : cell_fe_values.quadrature_point_indices())
+          {
+            const Point<dim> &point = cell_fe_values.quadrature_point(q);
+            for (const unsigned int i : cell_fe_values.dof_indices())
+              {
+                for (const unsigned int j : cell_fe_values.dof_indices())
+                  {
+                    local_stiffness(i, j) += cell_fe_values.shape_grad(i, q) *
+                                             cell_fe_values.shape_grad(j, q) *
+                                             cell_fe_values.JxW(q);
+                  }
+                local_rhs(i) += rhs_function.value(point) *
+                                cell_fe_values.shape_value(i, q) *
+                                cell_fe_values.JxW(q);
+              }
+          }
+
+        for (size_t face_index = 0; face_index < cell->n_faces(); face_index++)
+          {
+            bool face_on_boundary = false;
+            if (cell->neighbor_index(face_index) != -1)
+              {
+                const NonMatching::LocationToLevelSet neighbor_location =
+                  mesh_classifier.location_to_level_set(
+                    cell->neighbor(face_index));
+                if (neighbor_location ==
+                    NonMatching::LocationToLevelSet::intersected)
+                  face_on_boundary = true;
+              }
+            else
+              {
+                face_on_boundary = true;
+              }
+            if (face_on_boundary) // face is on the shifted boundary
+              {
+                cell->face(face_index)->set_user_flag();
+                face_fe_values.reinit(cell, face_index);
+                for (const unsigned int q :
+                     face_fe_values.quadrature_point_indices())
+                  {
+                    const Point<dim> &point =
+                      face_fe_values.quadrature_point(q);
+                    const Point<dim> unit_point =
+                      cell_fe_values.get_mapping().transform_real_to_unit_cell(
+                        cell, point);
+                    const Point<dim> closest_boundary_point =
+                      point / point.norm();
+                    const Point<dim> unit_boundary_point =
+                      cell_fe_values.get_mapping().transform_real_to_unit_cell(
+                        cell, closest_boundary_point);
+
+                    std::vector<double> shifted_shape_values(n_dofs_per_cell);
+                    std::vector<double> shape_values(n_dofs_per_cell);
+                    std::vector<Tensor<1, dim>> shape_grad(n_dofs_per_cell);
+
+                    const FiniteElement<dim> &fe_lagrange = fe_poisson;
+                    for (size_t i = 0; i < n_dofs_per_cell; i++)
+                      {
+                        shifted_shape_values[i] =
+                          fe_lagrange.shape_value(i, unit_boundary_point);
+                        shape_values[i] =
+                          fe_lagrange.shape_value(i, unit_point);
+                        shape_grad[i] = fe_lagrange.shape_grad(i, unit_point);
+                      }
+
+                    for (size_t i = 0; i < n_dofs_per_cell; i++)
+                      {
+                        for (size_t j = 0; j < n_dofs_per_cell; j++)
+                          {
+                            local_stiffness(i, j) -=
+                              face_fe_values.normal_vector(q) *
+                              face_fe_values.shape_grad(i, q) *
+                              shifted_shape_values[j] * face_fe_values.JxW(q);
+                            local_stiffness(i, j) -=
+                              face_fe_values.normal_vector(q) *
+                              face_fe_values.shape_grad(j, q) *
+                              shape_values[i] * face_fe_values.JxW(q);
+
+                            local_stiffness(i, j) +=
+                              alpha * shifted_shape_values[j] *
+                              shifted_shape_values[i] * face_fe_values.JxW(q);
+                          }
+                        local_rhs[i] -=
+                          boundary_condition.value(closest_boundary_point) *
+                          face_fe_values.normal_vector(q) *
+                          face_fe_values.shape_grad(i, q) *
+                          face_fe_values.JxW(q);
+                        local_rhs[i] +=
+                          alpha *
+                          boundary_condition.value(closest_boundary_point) *
+                          shifted_shape_values[i] * face_fe_values.JxW(q);
+                      }
+                  }
+              }
+          }
+
+        cell->get_dof_indices(local_dof_indices);
+        for (const auto index : local_dof_indices)
+          active_dofs[index] = true;
+
+        stiffness_matrix.add(local_dof_indices, local_stiffness);
+        rhs.add(local_dof_indices, local_rhs);
+      }
+  }
+
   // Explicit template instantiations
   template class LaplaceSolver<2>;
   template class AnalyticalSolution<2>;
+  template void assemble_system<2>(const DoFHandler<2>                     &,
+                                   const FE_Q<2>                           &,
+                                   const NonMatching::MeshClassifier<2>    &,
+                                   const unsigned int                       ,
+                                   const Functions::ConstantFunction<2>    &,
+                                   const Functions::ConstantFunction<2>    &,
+                                   SparseMatrix<double>                    &,
+                                   Vector<double>                          &,
+                                   std::vector<bool>                       &);
 
 } // namespace Step85
