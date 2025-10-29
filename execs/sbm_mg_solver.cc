@@ -417,6 +417,17 @@ namespace Step85
   {
     const unsigned int finest_level = mg_dof_handlers.n_levels() - 1;
 
+    Step85::assemble_system(mg_dof_handlers[finest_level],
+                            *mg_fe_poisson[finest_level],
+                            *mg_mesh_classifiers[finest_level],
+                            fe_degree,
+                            rhs_function,
+                            boundary_condition,
+                            stiffness_matrix,
+                            rhs,
+                            true,
+                            active_dofs);
+
     for (unsigned int level = 0; level <= finest_level; ++level)
       Step85::assemble_system(mg_dof_handlers[level],
                               *mg_fe_poisson[level],
@@ -424,9 +435,9 @@ namespace Step85
                               fe_degree,
                               rhs_function,
                               boundary_condition,
-                              stiffness_matrix,
+                              mg_matrices[level],
                               rhs,
-                              level == finest_level,
+                              false,
                               active_dofs);
   }
 
@@ -624,8 +635,8 @@ namespace Step85
 
     distribute_dofs();
     initialize_matrices();
-    assemble_system();
     setup_multigrid();
+    assemble_system();
     solve();
     output_results();
 
