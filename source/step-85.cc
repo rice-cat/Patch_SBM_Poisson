@@ -371,7 +371,7 @@ namespace Step85
   }
 
   // Standalone assembly function for reuse in smoother testing and MG solver
-  template <int dim>
+  template <int dim, typename VectorType>
   void
   assemble_system(const DoFHandler<dim>                     &dof_handler,
                   const FE_Q<dim>                           &fe_poisson,
@@ -380,7 +380,7 @@ namespace Step85
                   const Functions::ConstantFunction<dim>    &rhs_function,
                   const Functions::ConstantFunction<dim>    &boundary_condition,
                   SparseMatrix<double>                      &stiffness_matrix,
-                  Vector<double>                            &rhs,
+                  VectorType                                &rhs,
                   std::vector<bool>                         &active_dofs)
   {
     std::cout << "Assembling" << std::endl;
@@ -531,14 +531,24 @@ namespace Step85
   // Explicit template instantiations
   template class LaplaceSolver<2>;
   template class AnalyticalSolution<2>;
-  template void assemble_system<2>(const DoFHandler<2>                     &,
-                                   const FE_Q<2>                           &,
-                                   const NonMatching::MeshClassifier<2>    &,
-                                   const unsigned int                       ,
-                                   const Functions::ConstantFunction<2>    &,
-                                   const Functions::ConstantFunction<2>    &,
-                                   SparseMatrix<double>                    &,
-                                   Vector<double>                          &,
-                                   std::vector<bool>                       &);
+  template void assemble_system<2, Vector<double>>(const DoFHandler<2>                     &,
+                                                   const FE_Q<2>                           &,
+                                                   const NonMatching::MeshClassifier<2>    &,
+                                                   const unsigned int                       ,
+                                                   const Functions::ConstantFunction<2>    &,
+                                                   const Functions::ConstantFunction<2>    &,
+                                                   SparseMatrix<double>                    &,
+                                                   Vector<double>                          &,
+                                                   std::vector<bool>                       &);
+  template void assemble_system<2, LinearAlgebra::distributed::Vector<double>>(
+    const DoFHandler<2>                     &,
+    const FE_Q<2>                           &,
+    const NonMatching::MeshClassifier<2>    &,
+    const unsigned int                       ,
+    const Functions::ConstantFunction<2>    &,
+    const Functions::ConstantFunction<2>    &,
+    SparseMatrix<double>                    &,
+    LinearAlgebra::distributed::Vector<double> &,
+    std::vector<bool>                       &);
 
 } // namespace Step85

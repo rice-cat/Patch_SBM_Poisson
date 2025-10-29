@@ -1,5 +1,6 @@
 #include <deal.II/base/parameter_handler.h>
 
+#include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_control.h>
@@ -152,8 +153,8 @@ namespace Step85
       mg_mesh_classifiers;
 
     // Fine level solution and RHS
-    Vector<double>    solution;
-    Vector<double>    rhs;
+    VectorType        solution;
+    VectorType        rhs;
     std::vector<bool> active_dofs;
 
     SparsityPattern      sparsity_pattern;
