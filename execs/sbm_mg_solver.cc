@@ -24,6 +24,71 @@ namespace Step85
 {
   using namespace dealii;
 
+  // Proxy class to wrap block smoothers for use with distributed vectors
+  // This allows RelaxationBlockSOR (which only works with Vector<double>)
+  // to be used with LinearAlgebra::distributed::Vector<double>
+  template <typename SmootherType>
+  class BlockSmootherProxy
+  {
+  public:
+    using VectorType = LinearAlgebra::distributed::Vector<double>;
+    using AdditionalData = typename SmootherType::AdditionalData;
+
+    BlockSmootherProxy() = default;
+
+    void
+    initialize(const SparseMatrix<double> &matrix,
+               const AdditionalData &data)
+    {
+      smoother.initialize(matrix, data);
+    }
+
+    void
+    vmult(VectorType &dst, const VectorType &src) const
+    {
+      // Copy distributed vector to regular vector
+      Vector<double> dst_serial(dst.size());
+      Vector<double> src_serial(src.size());
+      
+      for (unsigned int i = 0; i < src.size(); ++i)
+        src_serial(i) = src(i);
+
+      // Apply the smoother
+      smoother.vmult(dst_serial, src_serial);
+
+      // Copy back to distributed vector
+      for (unsigned int i = 0; i < dst.size(); ++i)
+        dst(i) = dst_serial(i);
+    }
+
+    void
+    Tvmult(VectorType &dst, const VectorType &src) const
+    {
+      // Copy distributed vector to regular vector
+      Vector<double> dst_serial(dst.size());
+      Vector<double> src_serial(src.size());
+      
+      for (unsigned int i = 0; i < src.size(); ++i)
+        src_serial(i) = src(i);
+
+      // Apply the smoother
+      smoother.Tvmult(dst_serial, src_serial);
+
+      // Copy back to distributed vector
+      for (unsigned int i = 0; i < dst.size(); ++i)
+        dst(i) = dst_serial(i);
+    }
+
+    void
+    clear()
+    {
+      smoother.clear();
+    }
+
+  private:
+    SmootherType smoother;
+  };
+
   struct MGParameters
   {
     double       omega            = 1.0;
@@ -138,7 +203,7 @@ namespace Step85
     const Functions::ConstantFunction<dim> boundary_condition;
 
     // Type aliases for MG
-    using VectorType       = Vector<double>;
+    using VectorType       = LinearAlgebra::distributed::Vector<double>;
     using SparseMatrixType = SparseMatrix<double>;
 
     // Multigrid level objects - separate triangulation and DoFHandler per level
@@ -382,10 +447,10 @@ namespace Step85
                        mg_matrices[min_level],
                        coarse_preconditioner);
 
-    // Setup smoother using RelaxationBlock
-    using SmootherType =
-      RelaxationBlockSOR<SparseMatrix<double>, double, VectorType>;
-    using SmootherAdditionalDataType = SmootherType::AdditionalData;
+    // Setup smoother using RelaxationBlock with proxy wrapper
+    using BaseSmootherType = RelaxationBlockSOR<SparseMatrix<double>, double, Vector<double>>;
+    using SmootherType = BlockSmootherProxy<BaseSmootherType>;
+    using SmootherAdditionalDataType = BaseSmootherType::AdditionalData;
 
     MGSmootherPrecondition<SparseMatrixType, SmootherType, VectorType>
       mg_smoother;
