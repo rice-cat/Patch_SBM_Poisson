@@ -1,5 +1,6 @@
 #include <deal.II/base/parameter_handler.h>
 
+#include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_control.h>
@@ -9,7 +10,7 @@
 #include <deal.II/multigrid/mg_matrix.h>
 #include <deal.II/multigrid/mg_smoother.h>
 #include <deal.II/multigrid/mg_tools.h>
-#include <deal.II/multigrid/mg_transfer_matrix_free.h>
+#include <deal.II/multigrid/mg_transfer_global_coarsening.h>
 #include <deal.II/multigrid/multigrid.h>
 
 #include <fstream>
@@ -22,6 +23,71 @@
 namespace Step85
 {
   using namespace dealii;
+
+  // Proxy class to wrap block smoothers for use with distributed vectors
+  // This allows RelaxationBlockSOR (which only works with Vector<double>)
+  // to be used with LinearAlgebra::distributed::Vector<double>
+  template <typename SmootherType>
+  class BlockSmootherProxy
+  {
+  public:
+    using VectorType = LinearAlgebra::distributed::Vector<double>;
+    using AdditionalData = typename SmootherType::AdditionalData;
+
+    BlockSmootherProxy() = default;
+
+    void
+    initialize(const SparseMatrix<double> &matrix,
+               const AdditionalData &data)
+    {
+      smoother.initialize(matrix, data);
+    }
+
+    void
+    vmult(VectorType &dst, const VectorType &src) const
+    {
+      // Copy distributed vector to regular vector
+      Vector<double> dst_serial(dst.size());
+      Vector<double> src_serial(src.size());
+      
+      for (unsigned int i = 0; i < src.size(); ++i)
+        src_serial(i) = src(i);
+
+      // Apply the smoother
+      smoother.vmult(dst_serial, src_serial);
+
+      // Copy back to distributed vector
+      for (unsigned int i = 0; i < dst.size(); ++i)
+        dst(i) = dst_serial(i);
+    }
+
+    void
+    Tvmult(VectorType &dst, const VectorType &src) const
+    {
+      // Copy distributed vector to regular vector
+      Vector<double> dst_serial(dst.size());
+      Vector<double> src_serial(src.size());
+      
+      for (unsigned int i = 0; i < src.size(); ++i)
+        src_serial(i) = src(i);
+
+      // Apply the smoother
+      smoother.Tvmult(dst_serial, src_serial);
+
+      // Copy back to distributed vector
+      for (unsigned int i = 0; i < dst.size(); ++i)
+        dst(i) = dst_serial(i);
+    }
+
+    void
+    clear()
+    {
+      smoother.clear();
+    }
+
+  private:
+    SmootherType smoother;
+  };
 
   struct MGParameters
   {
@@ -137,7 +203,7 @@ namespace Step85
     const Functions::ConstantFunction<dim> boundary_condition;
 
     // Type aliases for MG
-    using VectorType       = Vector<double>;
+    using VectorType       = LinearAlgebra::distributed::Vector<double>;
     using SparseMatrixType = SparseMatrix<double>;
 
     // Multigrid level objects - separate triangulation and DoFHandler per level
@@ -152,8 +218,8 @@ namespace Step85
       mg_mesh_classifiers;
 
     // Fine level solution and RHS
-    Vector<double>    solution;
-    Vector<double>    rhs;
+    VectorType        solution;
+    VectorType        rhs;
     std::vector<bool> active_dofs;
 
     SparsityPattern      sparsity_pattern;
@@ -381,10 +447,10 @@ namespace Step85
                        mg_matrices[min_level],
                        coarse_preconditioner);
 
-    // Setup smoother using RelaxationBlock
-    using SmootherType =
-      RelaxationBlockSOR<SparseMatrix<double>, double, VectorType>;
-    using SmootherAdditionalDataType = SmootherType::AdditionalData;
+    // Setup smoother using RelaxationBlock with proxy wrapper
+    using BaseSmootherType = RelaxationBlockSOR<SparseMatrix<double>, double, Vector<double>>;
+    using SmootherType = BlockSmootherProxy<BaseSmootherType>;
+    using SmootherAdditionalDataType = BaseSmootherType::AdditionalData;
 
     MGSmootherPrecondition<SparseMatrixType, SmootherType, VectorType>
       mg_smoother;
@@ -394,13 +460,21 @@ namespace Step85
 
     for (unsigned int level = min_level; level <= max_level; ++level)
       {
+        // Create a predicate function that uses user flags to determine if a
+        // cell is in the domain
+        auto cell_is_in_domain =
+          [](const typename DoFHandler<dim>::cell_iterator &cell) -> bool {
+          return cell->user_flag_set();
+        };
+
         // Create patches for each level
-        make_shy_vertex_patches(
+        make_full_residual_vertex_patches(
           smoother_data[level].block_list,
           mg_dof_handlers[level],
           numbers::invalid_unsigned_int, // level within the DoFHandler (use
                                          // numbers::invalid_unsigned_int for
                                          // active)
+          cell_is_in_domain,
           mg_params.shyness);
         smoother_data[level].relaxation = mg_params.omega;
         smoother_data[level].inversion  = PreconditionBlockBase<double>::svd;
@@ -409,12 +483,24 @@ namespace Step85
     mg_smoother.initialize(mg_matrices, smoother_data);
     mg_smoother.set_steps(1); // Number of smoothing steps
 
-    // Setup transfer between levels - need to build from a single DoFHandler
-    // with MG levels For now, use a simplified transfer that requires all
-    // levels in one DoFHandler Since we have separate DoFHandlers, we'll use
-    // the finest one and rely on geometric transfer
-    MGTransferPrebuilt<VectorType> mg_transfer;
-    mg_transfer.build(mg_dof_handlers[max_level]);
+    using TwoLevelTransfer = MGTwoLevelTransfer<dim, VectorType>;
+    MGLevelObject<TwoLevelTransfer> transfers;
+    AffineConstraints<double>       constraints_dummy;
+    transfers.resize(0, max_level);
+    for (unsigned int level = 0; level < max_level; ++level)
+      transfers[level + 1].reinit(mg_dof_handlers[level + 1],
+                                  mg_dof_handlers[level],
+                                  constraints_dummy,
+                                  constraints_dummy);
+
+
+    using MGTransferType = MGTransferGlobalCoarsening<dim, VectorType>;
+    MGTransferType mg_transfer(transfers, [&](const auto l, auto &vec) {
+      // if (l == max_level + 1)
+      //   vec.reinit(dof_handlers[l].n_dofs());
+      // else
+      vec.reinit(mg_dof_handlers[l].n_dofs());
+    });
 
     // Create multigrid object
     Multigrid<VectorType> mg(mg_matrix,
@@ -426,8 +512,8 @@ namespace Step85
                              max_level);
 
     // Create MG preconditioner
-    PreconditionMG<dim, VectorType, MGTransferPrebuilt<VectorType>>
-      preconditioner(mg_dof_handlers[max_level], mg, mg_transfer);
+    PreconditionMG<dim, VectorType, MGTransferType> preconditioner(
+      mg_dof_handlers[max_level], mg, mg_transfer);
 
     // Solve with GMRES
     SolverControl           solver_control(mg_params.max_iterations,

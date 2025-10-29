@@ -165,7 +165,7 @@ namespace Step85
   };
 
   // Standalone assembly function for reuse in smoother testing and MG solver
-  template <int dim>
+  template <int dim, typename VectorType = Vector<double>>
   void
   assemble_system(const DoFHandler<dim>                     &dof_handler,
                   const FE_Q<dim>                           &fe_poisson,
@@ -174,7 +174,7 @@ namespace Step85
                   const Functions::ConstantFunction<dim>    &rhs_function,
                   const Functions::ConstantFunction<dim>    &boundary_condition,
                   SparseMatrix<double>                      &stiffness_matrix,
-                  Vector<double>                            &rhs,
+                  VectorType                                &rhs,
                   std::vector<bool>                         &active_dofs);
 
 } // namespace Step85
