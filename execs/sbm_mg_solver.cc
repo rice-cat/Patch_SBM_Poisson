@@ -31,14 +31,13 @@ namespace Step85
   class BlockSmootherProxy
   {
   public:
-    using VectorType = LinearAlgebra::distributed::Vector<double>;
+    using VectorType     = LinearAlgebra::distributed::Vector<double>;
     using AdditionalData = typename SmootherType::AdditionalData;
 
     BlockSmootherProxy() = default;
 
     void
-    initialize(const SparseMatrix<double> &matrix,
-               const AdditionalData &data)
+    initialize(const SparseMatrix<double> &matrix, const AdditionalData &data)
     {
       smoother.initialize(matrix, data);
     }
@@ -49,7 +48,7 @@ namespace Step85
       // Copy distributed vector to regular vector
       Vector<double> dst_serial(dst.size());
       Vector<double> src_serial(src.size());
-      
+
       for (unsigned int i = 0; i < src.size(); ++i)
         src_serial(i) = src(i);
 
@@ -67,7 +66,7 @@ namespace Step85
       // Copy distributed vector to regular vector
       Vector<double> dst_serial(dst.size());
       Vector<double> src_serial(src.size());
-      
+
       for (unsigned int i = 0; i < src.size(); ++i)
         src_serial(i) = src(i);
 
@@ -97,6 +96,7 @@ namespace Step85
     std::string  smoother_type    = "shy_patches";
     unsigned int fe_degree        = 2;
     unsigned int n_refinements    = 2;
+    unsigned int base_refinements = 0;
     unsigned int max_iterations   = 100;
     double       solver_tolerance = 1e-10;
 
@@ -126,10 +126,16 @@ namespace Step85
                           "2",
                           Patterns::Integer(1),
                           "Finite element polynomial degree");
-        prm.declare_entry("n_refinements",
-                          "2",
-                          Patterns::Integer(0),
-                          "Number of global refinements");
+        prm.declare_entry(
+          "n_refinements",
+          "2",
+          Patterns::Integer(0),
+          "Number of global refinements (levels = n_refinements + 1)");
+        prm.declare_entry(
+          "base_refinements",
+          "0",
+          Patterns::Integer(0),
+          "Number of base global refinements applied to the base mesh before creating MG levels");
         prm.declare_entry("max_iterations",
                           "100",
                           Patterns::Integer(1),
@@ -153,6 +159,7 @@ namespace Step85
         smoother_type    = prm.get("smoother_type");
         fe_degree        = prm.get_integer("fe_degree");
         n_refinements    = prm.get_integer("n_refinements");
+        base_refinements = prm.get_integer("base_refinements");
         max_iterations   = prm.get_integer("max_iterations");
         solver_tolerance = prm.get_double("solver_tolerance");
       }
@@ -235,7 +242,7 @@ namespace Step85
   template <int dim>
   MGSolver<dim>::MGSolver(const MGParameters &params)
     : fe_degree(params.fe_degree)
-    , rhs_function(0)
+    , rhs_function(1)
     , boundary_condition(0.0)
     , fe_level_set(params.fe_degree + 1)
     , mg_params(params)
@@ -263,7 +270,9 @@ namespace Step85
         mg_triangulations[level].set_mesh_smoothing(
           Triangulation<dim>::limit_level_difference_at_vertices);
         GridGenerator::hyper_cube(mg_triangulations[level], -1.21, 1.21);
-        mg_triangulations[level].refine_global(level);
+        // Apply base refinements first, then additional refinements per level
+        mg_triangulations[level].refine_global(mg_params.base_refinements +
+                                               level);
 
         // Initialize FE objects for this level
         mg_fe_poisson[level] = std::make_unique<FE_Q<dim>>(fe_degree);
@@ -365,23 +374,6 @@ namespace Step85
 
   template <int dim>
   void
-  MGSolver<dim>::assemble_system()
-  {
-    const unsigned int finest_level = mg_dof_handlers.n_levels() - 1;
-
-    Step85::assemble_system(mg_dof_handlers[finest_level],
-                            *mg_fe_poisson[finest_level],
-                            *mg_mesh_classifiers[finest_level],
-                            fe_degree,
-                            rhs_function,
-                            boundary_condition,
-                            stiffness_matrix,
-                            rhs,
-                            active_dofs);
-  }
-
-  template <int dim>
-  void
   MGSolver<dim>::setup_multigrid()
   {
     std::cout << "Setting up multigrid" << std::endl;
@@ -421,6 +413,26 @@ namespace Step85
 
   template <int dim>
   void
+  MGSolver<dim>::assemble_system()
+  {
+    const unsigned int finest_level = mg_dof_handlers.n_levels() - 1;
+
+    for (unsigned int level = 0; level <= finest_level; ++level)
+      Step85::assemble_system(mg_dof_handlers[level],
+                              *mg_fe_poisson[level],
+                              *mg_mesh_classifiers[level],
+                              fe_degree,
+                              rhs_function,
+                              boundary_condition,
+                              stiffness_matrix,
+                              rhs,
+                              level == finest_level,
+                              active_dofs);
+  }
+
+
+  template <int dim>
+  void
   MGSolver<dim>::solve()
   {
     std::cout << "Solving system with multigrid" << std::endl;
@@ -448,8 +460,9 @@ namespace Step85
                        coarse_preconditioner);
 
     // Setup smoother using RelaxationBlock with proxy wrapper
-    using BaseSmootherType = RelaxationBlockSOR<SparseMatrix<double>, double, Vector<double>>;
-    using SmootherType = BlockSmootherProxy<BaseSmootherType>;
+    using BaseSmootherType =
+      RelaxationBlockSOR<SparseMatrix<double>, double, Vector<double>>;
+    using SmootherType               = BlockSmootherProxy<BaseSmootherType>;
     using SmootherAdditionalDataType = BaseSmootherType::AdditionalData;
 
     MGSmootherPrecondition<SparseMatrixType, SmootherType, VectorType>
@@ -468,7 +481,7 @@ namespace Step85
         };
 
         // Create patches for each level
-        make_full_residual_vertex_patches(
+        make_shy_vertex_patches(
           smoother_data[level].block_list,
           mg_dof_handlers[level],
           numbers::invalid_unsigned_int, // level within the DoFHandler (use
@@ -516,8 +529,8 @@ namespace Step85
       mg_dof_handlers[max_level], mg, mg_transfer);
 
     // Solve with GMRES
-    SolverControl           solver_control(mg_params.max_iterations,
-                                 mg_params.solver_tolerance);
+    IterationNumberControl  solver_control(mg_params.max_iterations,
+                                          mg_params.solver_tolerance);
     SolverGMRES<VectorType> solver(solver_control);
 
     try

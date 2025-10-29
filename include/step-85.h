@@ -160,22 +160,23 @@ namespace Step85
   {
   public:
     double
-    value(const Point<dim>  &point,
+    value(const Point<dim> & point,
           const unsigned int component = 0) const override;
   };
 
   // Standalone assembly function for reuse in smoother testing and MG solver
   template <int dim, typename VectorType = Vector<double>>
   void
-  assemble_system(const DoFHandler<dim>                     &dof_handler,
-                  const FE_Q<dim>                           &fe_poisson,
-                  const NonMatching::MeshClassifier<dim>    &mesh_classifier,
-                  const unsigned int                         fe_degree,
-                  const Functions::ConstantFunction<dim>    &rhs_function,
-                  const Functions::ConstantFunction<dim>    &boundary_condition,
-                  SparseMatrix<double>                      &stiffness_matrix,
-                  VectorType                                &rhs,
-                  std::vector<bool>                         &active_dofs);
+  assemble_system(const DoFHandler<dim> &                 dof_handler,
+                  const FE_Q<dim> &                       fe_poisson,
+                  const NonMatching::MeshClassifier<dim> &mesh_classifier,
+                  const unsigned int                      fe_degree,
+                  const Functions::ConstantFunction<dim> &rhs_function,
+                  const Functions::ConstantFunction<dim> &boundary_condition,
+                  SparseMatrix<double> &                  stiffness_matrix,
+                  VectorType &                            rhs,
+                  bool                                    assemble_rhs,
+                  std::vector<bool> &                     active_dofs);
 
 } // namespace Step85
 

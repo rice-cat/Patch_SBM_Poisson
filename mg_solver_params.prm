@@ -16,6 +16,9 @@ subsection Multigrid parameters
   # Finite element polynomial degree
   set fe_degree = 2
 
+  # Number of base global refinements applied to the base mesh
+  set base_refinements = 0
+
   # Number of global refinements
   set n_refinements = 2
 

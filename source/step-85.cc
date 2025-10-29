@@ -168,6 +168,7 @@ namespace Step85
                             boundary_condition,
                             stiffness_matrix,
                             rhs,
+                            true,
                             active_dofs);
   }
 
@@ -176,14 +177,18 @@ namespace Step85
   LaplaceSolver<dim>::setup_smoother()
   {
     unsigned int level = triangulation.n_levels() - 1;
-    
-    // Create a predicate function that uses user flags to determine if a cell is in the domain
+
+    // Create a predicate function that uses user flags to determine if a cell
+    // is in the domain
     auto cell_is_in_domain =
       [](const typename DoFHandler<dim>::cell_iterator &cell) -> bool {
       return cell->user_flag_set();
     };
 
-    make_shy_vertex_patches(smoother_data.block_list, dof_handler, level, cell_is_in_domain);
+    make_shy_vertex_patches(smoother_data.block_list,
+                            dof_handler,
+                            level,
+                            cell_is_in_domain);
     smoother_data.relaxation = 1.;
     smoother_data.inversion  = PreconditionBlockBase<double>::svd;
     auto smoother            = std::make_unique<SmootherType>();
@@ -373,15 +378,16 @@ namespace Step85
   // Standalone assembly function for reuse in smoother testing and MG solver
   template <int dim, typename VectorType>
   void
-  assemble_system(const DoFHandler<dim>                     &dof_handler,
-                  const FE_Q<dim>                           &fe_poisson,
-                  const NonMatching::MeshClassifier<dim>    &mesh_classifier,
-                  const unsigned int                         fe_degree,
-                  const Functions::ConstantFunction<dim>    &rhs_function,
-                  const Functions::ConstantFunction<dim>    &boundary_condition,
-                  SparseMatrix<double>                      &stiffness_matrix,
-                  VectorType                                &rhs,
-                  std::vector<bool>                         &active_dofs)
+  assemble_system(const DoFHandler<dim> &                 dof_handler,
+                  const FE_Q<dim> &                       fe_poisson,
+                  const NonMatching::MeshClassifier<dim> &mesh_classifier,
+                  const unsigned int                      fe_degree,
+                  const Functions::ConstantFunction<dim> &rhs_function,
+                  const Functions::ConstantFunction<dim> &boundary_condition,
+                  SparseMatrix<double> &                  stiffness_matrix,
+                  VectorType &                            rhs,
+                  bool                                    assemble_rhs,
+                  std::vector<bool> &                     active_dofs)
   {
     std::cout << "Assembling" << std::endl;
 
@@ -434,9 +440,10 @@ namespace Step85
                                              cell_fe_values.shape_grad(j, q) *
                                              cell_fe_values.JxW(q);
                   }
-                local_rhs(i) += rhs_function.value(point) *
-                                cell_fe_values.shape_value(i, q) *
-                                cell_fe_values.JxW(q);
+                if (assemble_rhs)
+                  local_rhs(i) += rhs_function.value(point) *
+                                  cell_fe_values.shape_value(i, q) *
+                                  cell_fe_values.JxW(q);
               }
           }
 
@@ -505,15 +512,18 @@ namespace Step85
                               alpha * shifted_shape_values[j] *
                               shifted_shape_values[i] * face_fe_values.JxW(q);
                           }
-                        local_rhs[i] -=
-                          boundary_condition.value(closest_boundary_point) *
-                          face_fe_values.normal_vector(q) *
-                          face_fe_values.shape_grad(i, q) *
-                          face_fe_values.JxW(q);
-                        local_rhs[i] +=
-                          alpha *
-                          boundary_condition.value(closest_boundary_point) *
-                          shifted_shape_values[i] * face_fe_values.JxW(q);
+                        if (assemble_rhs)
+                          {
+                            local_rhs[i] -=
+                              boundary_condition.value(closest_boundary_point) *
+                              face_fe_values.normal_vector(q) *
+                              face_fe_values.shape_grad(i, q) *
+                              face_fe_values.JxW(q);
+                            local_rhs[i] +=
+                              alpha *
+                              boundary_condition.value(closest_boundary_point) *
+                              shifted_shape_values[i] * face_fe_values.JxW(q);
+                          }
                       }
                   }
               }
@@ -524,31 +534,36 @@ namespace Step85
           active_dofs[index] = true;
 
         stiffness_matrix.add(local_dof_indices, local_stiffness);
-        rhs.add(local_dof_indices, local_rhs);
+        if (assemble_rhs)
+          rhs.add(local_dof_indices, local_rhs);
       }
   }
 
   // Explicit template instantiations
   template class LaplaceSolver<2>;
   template class AnalyticalSolution<2>;
-  template void assemble_system<2, Vector<double>>(const DoFHandler<2>                     &,
-                                                   const FE_Q<2>                           &,
-                                                   const NonMatching::MeshClassifier<2>    &,
-                                                   const unsigned int                       ,
-                                                   const Functions::ConstantFunction<2>    &,
-                                                   const Functions::ConstantFunction<2>    &,
-                                                   SparseMatrix<double>                    &,
-                                                   Vector<double>                          &,
-                                                   std::vector<bool>                       &);
-  template void assemble_system<2, LinearAlgebra::distributed::Vector<double>>(
-    const DoFHandler<2>                     &,
-    const FE_Q<2>                           &,
-    const NonMatching::MeshClassifier<2>    &,
-    const unsigned int                       ,
-    const Functions::ConstantFunction<2>    &,
-    const Functions::ConstantFunction<2>    &,
-    SparseMatrix<double>                    &,
+  template void
+  assemble_system<2, Vector<double>>(const DoFHandler<2> &,
+                                     const FE_Q<2> &,
+                                     const NonMatching::MeshClassifier<2> &,
+                                     const unsigned int,
+                                     const Functions::ConstantFunction<2> &,
+                                     const Functions::ConstantFunction<2> &,
+                                     SparseMatrix<double> &,
+                                     Vector<double> &,
+                                     bool,
+                                     std::vector<bool> &);
+  template void
+  assemble_system<2, LinearAlgebra::distributed::Vector<double>>(
+    const DoFHandler<2> &,
+    const FE_Q<2> &,
+    const NonMatching::MeshClassifier<2> &,
+    const unsigned int,
+    const Functions::ConstantFunction<2> &,
+    const Functions::ConstantFunction<2> &,
+    SparseMatrix<double> &,
     LinearAlgebra::distributed::Vector<double> &,
-    std::vector<bool>                       &);
+    bool,
+    std::vector<bool> &);
 
 } // namespace Step85
