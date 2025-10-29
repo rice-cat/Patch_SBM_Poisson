@@ -17,10 +17,10 @@ subsection Multigrid parameters
   set fe_degree = 2
 
   # Number of base global refinements applied to the base mesh
-  set base_refinements = 0
+  set base_refinements = 2
 
   # Number of global refinements
-  set n_refinements = 2
+  set n_refinements = 1
 
   # Maximum solver iterations
   set max_iterations = 100

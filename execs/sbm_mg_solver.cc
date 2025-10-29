@@ -95,8 +95,8 @@ namespace Step85
     bool         multiplicative   = true;
     std::string  smoother_type    = "shy_patches";
     unsigned int fe_degree        = 2;
-    unsigned int n_refinements    = 2;
-    unsigned int base_refinements = 0;
+    unsigned int n_refinements    = 1;
+    unsigned int base_refinements = 3;
     unsigned int max_iterations   = 100;
     double       solver_tolerance = 1e-10;
 
