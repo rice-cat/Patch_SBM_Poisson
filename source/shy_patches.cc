@@ -297,17 +297,11 @@ namespace Step85
                                                       dof_handler.n_dofs(level),
                                                     false);
 
-
-            cout << " patches_indices.size() " << patches_indices.size()
-                 << std::endl;
             for (i = 0; i < patches_indices.size(); i++)
               {
-                std::cout << " patch " << i << " has "
-                          << patches_indices[i].size() << " dofs " << std::endl;
                 for (const auto dof_index : patches_indices[i])
                   {
                     dof_assigned_to_patch[dof_index] = true;
-                    std::cout << "this line executed" << std::endl;
                   }
               }
 
@@ -321,7 +315,6 @@ namespace Step85
                   }
               }
           }
-
 
         block_list.reinit(patches_indices.size(),
                           is_active ? dof_handler.n_dofs() :
