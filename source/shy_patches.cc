@@ -289,7 +289,7 @@ namespace Step85
         else
           collect_dofs(dof_handler.cell_iterators_on_level(level));
 
-        const bool force_outside_dofs_to_singleton_patches = true;
+        const bool force_outside_dofs_to_singleton_patches = false;
         if (force_outside_dofs_to_singleton_patches)
           {
             std::vector<bool> dof_assigned_to_patch(is_active ?
