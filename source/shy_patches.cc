@@ -283,6 +283,12 @@ namespace Step85
             }
         };
 
+
+        if (is_active)
+          collect_dofs(dof_handler.active_cell_iterators());
+        else
+          collect_dofs(dof_handler.cell_iterators_on_level(level));
+
         const bool force_outside_dofs_to_singleton_patches = true;
         if (force_outside_dofs_to_singleton_patches)
           {
@@ -291,11 +297,17 @@ namespace Step85
                                                       dof_handler.n_dofs(level),
                                                     false);
 
+
+            cout << " patches_indices.size() " << patches_indices.size()
+                 << std::endl;
             for (i = 0; i < patches_indices.size(); i++)
               {
+                std::cout << " patch " << i << " has "
+                          << patches_indices[i].size() << " dofs " << std::endl;
                 for (const auto dof_index : patches_indices[i])
                   {
                     dof_assigned_to_patch[dof_index] = true;
+                    std::cout << "this line executed" << std::endl;
                   }
               }
 
@@ -310,10 +322,6 @@ namespace Step85
               }
           }
 
-        if (is_active)
-          collect_dofs(dof_handler.active_cell_iterators());
-        else
-          collect_dofs(dof_handler.cell_iterators_on_level(level));
 
         block_list.reinit(patches_indices.size(),
                           is_active ? dof_handler.n_dofs() :
