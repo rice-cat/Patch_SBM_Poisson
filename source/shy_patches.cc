@@ -24,12 +24,12 @@ namespace Step85
   template <int dim, int spacedim>
   void
   make_shy_vertex_patches(
-    SparsityPattern &                block_list,
+    SparsityPattern                 &block_list,
     const DoFHandler<dim, spacedim> &dof_handler,
     const unsigned int               level,
     const std::function<
       bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
-      &          cell_is_in_domain,
+                &cell_is_in_domain,
     unsigned int shyness)
   {
     AssertDimension(dim, 2);
@@ -161,7 +161,8 @@ namespace Step85
 
                                   if (patch_contains_all_cells)
                                     {
-                                      vertex_on_patch[global_vertex_index] = true;
+                                      vertex_on_patch[global_vertex_index] =
+                                        true;
                                       modified_vertices.insert(
                                         global_vertex_index);
                                       index_from_global_vertex_to_patch.emplace(
@@ -217,7 +218,7 @@ namespace Step85
 
     std::vector<std::set<types::global_dof_index>> patches_indices(i);
     std::vector<types::global_dof_index>           object_dofs;
-    const FiniteElement<dim> &                     fe = dof_handler.get_fe(0);
+    const FiniteElement<dim>                      &fe = dof_handler.get_fe(0);
     types::fe_index                                fe_index;
 
     object_dofs.reserve(fe.n_dofs_per_cell());
@@ -275,11 +276,39 @@ namespace Step85
                           cell->vertex_dof_index(vertex, j, fe_index));
                       else
                         patches_indices[vertex_patch_index].insert(
-                          cell->mg_vertex_dof_index(level, vertex, j, fe_index));
+                          cell->mg_vertex_dof_index(
+                            level, vertex, j, fe_index));
                     }
                 }
             }
         };
+
+        const bool force_outside_dofs_to_singleton_patches = true;
+        if (force_outside_dofs_to_singleton_patches)
+          {
+            std::vector<bool> dof_assigned_to_patch(is_active ?
+                                                      dof_handler.n_dofs() :
+                                                      dof_handler.n_dofs(level),
+                                                    false);
+
+            for (i = 0; i < patches_indices.size(); i++)
+              {
+                for (const auto dof_index : patches_indices[i])
+                  {
+                    dof_assigned_to_patch[dof_index] = true;
+                  }
+              }
+
+            for (size_t i = 0; i < dof_assigned_to_patch.size(); i++)
+              {
+                if (dof_assigned_to_patch[i] == false)
+                  {
+                    patches_indices.push_back(
+                      std::set<types::global_dof_index>());
+                    patches_indices.back().insert(i);
+                  }
+              }
+          }
 
         if (is_active)
           collect_dofs(dof_handler.active_cell_iterators());
@@ -291,6 +320,8 @@ namespace Step85
                                       dof_handler.n_dofs(level),
                           dof_handler.get_fe().n_dofs_per_cell() *
                             std::pow(2, dim));
+
+
         for (i = 0; i < patches_indices.size(); i++)
           {
             for (const auto dof_index : patches_indices[i])
@@ -304,22 +335,22 @@ namespace Step85
 
   template void
   make_shy_vertex_patches<2, 2>(
-    SparsityPattern &       block_list,
+    SparsityPattern        &block_list,
     const DoFHandler<2, 2> &dof_handler,
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
-      &          cell_is_in_domain,
+                &cell_is_in_domain,
     unsigned int shyness);
 
   template <int dim, int spacedim>
   void
   make_full_residual_vertex_patches(
-    SparsityPattern &                block_list,
+    SparsityPattern                 &block_list,
     const DoFHandler<dim, spacedim> &dof_handler,
     const unsigned int               level,
     const std::function<
       bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
-      &          cell_is_in_domain,
+                &cell_is_in_domain,
     unsigned int shyness)
   {
     AssertDimension(dim, 2);
@@ -337,13 +368,14 @@ namespace Step85
     // Step 3: Build mapping from CellId to cell iterator for efficient lookup
     std::map<dealii::CellId, cell_iterator> cell_map;
 
-    const FiniteElement<dim> &           fe = dof_handler.get_fe(0);
+    const FiniteElement<dim>            &fe = dof_handler.get_fe(0);
     std::vector<types::global_dof_index> local_dof_indices(
       fe.n_dofs_per_cell());
 
     bool is_active = level == numbers::invalid_unsigned_int;
 
-    // Iterate over all cells on the level (or active cells) that are in the domain
+    // Iterate over all cells on the level (or active cells) that are in the
+    // domain
     auto process_cells = [&](const auto &cell_range) {
       for (const auto &cell : cell_range)
         {
@@ -468,29 +500,29 @@ namespace Step85
 
   template void
   make_full_residual_vertex_patches<2, 2>(
-    SparsityPattern &       block_list,
+    SparsityPattern        &block_list,
     const DoFHandler<2, 2> &dof_handler,
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
-      &          cell_is_in_domain,
+                &cell_is_in_domain,
     unsigned int shyness);
 
 
   template void
   make_full_residual_vertex_patches<3, 3>(
-    SparsityPattern &       block_list,
+    SparsityPattern        &block_list,
     const DoFHandler<3, 3> &dof_handler,
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<3, 3>::cell_iterator &)>
-      &          cell_is_in_domain,
+                &cell_is_in_domain,
     unsigned int shyness);
 
   template <int dim, int spacedim>
   void
-  output_patches_vtk(const SparsityPattern &          block_list,
+  output_patches_vtk(const SparsityPattern           &block_list,
                      const DoFHandler<dim, spacedim> &dof_handler,
                      const unsigned int               level,
-                     const std::string &              filename)
+                     const std::string               &filename)
   {
     // Get support points for DoFs on the given level
     const MappingQ1<dim, spacedim>                     mapping;
@@ -546,7 +578,7 @@ namespace Step85
              ++it)
           {
             const types::global_dof_index dof_index = it->column();
-            const Point<spacedim> &       point = dof_location_map[dof_index];
+            const Point<spacedim>        &point = dof_location_map[dof_index];
 
             vtk_file << point[0] << " " << point[1];
             if (spacedim == 3)
@@ -601,9 +633,9 @@ namespace Step85
   }
 
   template void
-  output_patches_vtk<2, 2>(const SparsityPattern & block_list,
+  output_patches_vtk<2, 2>(const SparsityPattern  &block_list,
                            const DoFHandler<2, 2> &dof_handler,
                            const unsigned int      level,
-                           const std::string &     filename);
+                           const std::string      &filename);
 
 } // namespace Step85
