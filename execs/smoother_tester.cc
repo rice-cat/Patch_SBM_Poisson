@@ -3,7 +3,7 @@
 int
 main()
 {
-  const int        dim = 2;
+  constexpr int    dim = DEAL_II_DIMENSION;
   Step85::Settings settings;
   settings.fe_degree       = 2;
   settings.smoothing_steps = 5;

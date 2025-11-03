@@ -540,27 +540,28 @@ namespace Step85
   }
 
   // Explicit template instantiations
-  template class LaplaceSolver<2>;
-  template class AnalyticalSolution<2>;
+  template class LaplaceSolver<DEAL_II_DIMENSION>;
+  template class AnalyticalSolution<DEAL_II_DIMENSION>;
   template void
-  assemble_system<2, Vector<double>>(const DoFHandler<2> &,
-                                     const FE_Q<2> &,
-                                     const NonMatching::MeshClassifier<2> &,
-                                     const unsigned int,
-                                     const Functions::ConstantFunction<2> &,
-                                     const Functions::ConstantFunction<2> &,
-                                     SparseMatrix<double> &,
-                                     Vector<double> &,
-                                     bool,
-                                     std::vector<bool> &);
-  template void
-  assemble_system<2, LinearAlgebra::distributed::Vector<double>>(
-    const DoFHandler<2> &,
-    const FE_Q<2> &,
-    const NonMatching::MeshClassifier<2> &,
+  assemble_system<DEAL_II_DIMENSION, Vector<double>>(
+    const DoFHandler<DEAL_II_DIMENSION> &,
+    const FE_Q<DEAL_II_DIMENSION> &,
+    const NonMatching::MeshClassifier<DEAL_II_DIMENSION> &,
     const unsigned int,
-    const Functions::ConstantFunction<2> &,
-    const Functions::ConstantFunction<2> &,
+    const Functions::ConstantFunction<DEAL_II_DIMENSION> &,
+    const Functions::ConstantFunction<DEAL_II_DIMENSION> &,
+    SparseMatrix<double> &,
+    Vector<double> &,
+    bool,
+    std::vector<bool> &);
+  template void
+  assemble_system<DEAL_II_DIMENSION, LinearAlgebra::distributed::Vector<double>>(
+    const DoFHandler<DEAL_II_DIMENSION> &,
+    const FE_Q<DEAL_II_DIMENSION> &,
+    const NonMatching::MeshClassifier<DEAL_II_DIMENSION> &,
+    const unsigned int,
+    const Functions::ConstantFunction<DEAL_II_DIMENSION> &,
+    const Functions::ConstantFunction<DEAL_II_DIMENSION> &,
     SparseMatrix<double> &,
     LinearAlgebra::distributed::Vector<double> &,
     bool,

@@ -709,7 +709,7 @@ namespace Step85
 int
 main(int argc, char **argv)
 {
-  const int dim = 2;
+  constexpr int dim = DEAL_II_DIMENSION;
 
   Step85::MGParameters     params;
   dealii::ParameterHandler prm;
