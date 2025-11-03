@@ -462,6 +462,40 @@ namespace Step85
   }
 
 
+
+  class CoarseDirectSolver : public ::dealii::MGCoarseGridBase<
+                               LinearAlgebra::distributed::Vector<double>>
+  {
+    using VectorType = LinearAlgebra::distributed::Vector<double>;
+
+  public:
+    void
+    operator()(const unsigned int level,
+               VectorType &       dst,
+               const VectorType & src) const override
+    {
+      (void)level;
+      Vector<double> tmp_src;
+      tmp_src.reinit(src.size());
+      for (unsigned int i = 0; i < src.size(); ++i)
+        tmp_src(i) = src(i);
+      Vector<double> tmp_dst;
+      tmp_dst.reinit(dst.size());
+      solver_direct.vmult(tmp_dst, tmp_src);
+      for (unsigned int i = 0; i < dst.size(); ++i)
+        dst(i) = tmp_dst(i);
+    }
+
+    void
+    initialize(const SparseMatrix<double> &matrix)
+    {
+      solver_direct.initialize(matrix);
+    }
+
+    SparseDirectUMFPACK solver_direct;
+  };
+
+
   template <int dim>
   void
   MGSolver<dim>::solve()
@@ -475,20 +509,8 @@ namespace Step85
     mg::Matrix<VectorType> mg_matrix(mg_matrices);
 
     // Setup coarse solver
-    using CoarseDirectSolver = MGCoarseGridApplySmoother<VectorType>;
-    CoarseDirectSolver coarse_direct;
-
-    PreconditionIdentity    coarse_preconditioner;
-    SolverControl           coarse_control(1000, 1e-12);
-    SolverGMRES<VectorType> coarse_solver(coarse_control);
-
-    MGCoarseGridIterativeSolver<VectorType,
-                                SolverGMRES<VectorType>,
-                                SparseMatrixType,
-                                PreconditionIdentity>
-      mg_coarse_solver(coarse_solver,
-                       mg_matrices[min_level],
-                       coarse_preconditioner);
+    CoarseDirectSolver mg_coarse_solver;
+    mg_coarse_solver.initialize(mg_matrices[min_level]);
 
     // Setup smoother using RelaxationBlock with proxy wrapper
     using BaseSmootherType =
