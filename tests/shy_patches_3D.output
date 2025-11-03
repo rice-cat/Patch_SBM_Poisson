@@ -1,0 +1,8 @@
+
+DEAL::Creating shy patches for level 3 with shyness 3
+DEAL::Number of cells: 585
+DEAL::Number of active cells: 512
+DEAL::Number of DoFs: 4913
+DEAL::Number of DoFs at level 3: 4913
+DEAL::Shy patches created successfully
+DEAL::[0,1,2,3,4,5,6,7,8]

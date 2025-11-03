@@ -17,6 +17,7 @@ SET(_2d_tests
 # List of 3D tests (those that should link against 3D library)
 SET(_3d_tests
   full_residual_patches_3D
+  shy_patches_3D
 )
 
 # Build 2D tests
