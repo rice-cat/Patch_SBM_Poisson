@@ -33,8 +33,6 @@ namespace Step85
     unsigned int shyness,
     unsigned int n_boundary_passes)
   {
-    AssertDimension(dim, 2);
-
     bool is_active         = level == numbers::invalid_unsigned_int;
     using patch_index_type = unsigned int;
 
@@ -385,11 +383,11 @@ namespace Step85
   }
 
   template void
-  make_shy_vertex_patches<2, 2>(
+  make_shy_vertex_patches<DEAL_II_DIMENSION, DEAL_II_DIMENSION>(
     SparsityPattern        &block_list,
-    const DoFHandler<2, 2> &dof_handler,
+    const DoFHandler<DEAL_II_DIMENSION, DEAL_II_DIMENSION> &dof_handler,
     const unsigned int      level,
-    const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
+    const std::function<bool(const typename DoFHandler<DEAL_II_DIMENSION, DEAL_II_DIMENSION>::cell_iterator &)>
                 &cell_is_in_domain,
     unsigned int shyness,
     unsigned int n_boundary_passes);
@@ -406,8 +404,6 @@ namespace Step85
     unsigned int shyness,
     unsigned int n_boundary_passes)
   {
-    AssertDimension(dim, 2);
-
     using patch_index_type = unsigned int;
     using cell_iterator    = typename DoFHandler<dim, spacedim>::cell_iterator;
 
@@ -601,22 +597,11 @@ namespace Step85
   }
 
   template void
-  make_full_residual_vertex_patches<2, 2>(
+  make_full_residual_vertex_patches<DEAL_II_DIMENSION, DEAL_II_DIMENSION>(
     SparsityPattern        &block_list,
-    const DoFHandler<2, 2> &dof_handler,
+    const DoFHandler<DEAL_II_DIMENSION, DEAL_II_DIMENSION> &dof_handler,
     const unsigned int      level,
-    const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
-                &cell_is_in_domain,
-    unsigned int shyness,
-    unsigned int n_boundary_passes);
-
-
-  template void
-  make_full_residual_vertex_patches<3, 3>(
-    SparsityPattern        &block_list,
-    const DoFHandler<3, 3> &dof_handler,
-    const unsigned int      level,
-    const std::function<bool(const typename DoFHandler<3, 3>::cell_iterator &)>
+    const std::function<bool(const typename DoFHandler<DEAL_II_DIMENSION, DEAL_II_DIMENSION>::cell_iterator &)>
                 &cell_is_in_domain,
     unsigned int shyness,
     unsigned int n_boundary_passes);
@@ -737,9 +722,10 @@ namespace Step85
   }
 
   template void
-  output_patches_vtk<2, 2>(const SparsityPattern  &block_list,
-                           const DoFHandler<2, 2> &dof_handler,
-                           const unsigned int      level,
-                           const std::string      &filename);
+  output_patches_vtk<DEAL_II_DIMENSION, DEAL_II_DIMENSION>(
+    const SparsityPattern  &block_list,
+    const DoFHandler<DEAL_II_DIMENSION, DEAL_II_DIMENSION> &dof_handler,
+    const unsigned int      level,
+    const std::string      &filename);
 
 } // namespace Step85
