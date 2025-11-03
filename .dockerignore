@@ -1,0 +1,23 @@
+# Build directories
+build/
+*.o
+*.a
+*.so
+
+# VTK output files
+*.vtk
+*.vtu
+
+# Git files
+.git/
+.gitignore
+
+# IDE files
+.vscode/
+.idea/
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store

@@ -45,6 +45,7 @@ doc/html
 
 # Build directory
 build/
+build_test/
 
 # Output files
 *.vtu

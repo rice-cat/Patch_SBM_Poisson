@@ -19,7 +19,8 @@ namespace Step85
     const unsigned int               level,
     const std::function<bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
       &cell_is_in_domain,
-    unsigned int                     shyness = 3);
+    unsigned int                     shyness = 3,
+    unsigned int                     n_boundary_passes = 1);
 
   template <int dim, int spacedim>
   void
@@ -48,6 +49,9 @@ namespace Step85
    * @param shyness Minimum number of cells a vertex must have to form a patch.
    *        If set to numbers::invalid_unsigned_int (default), all vertices
    *        with at least one cell can form patches.
+   * @param n_boundary_passes Number of times to apply boundary patches. Boundary
+   *        patches are identified by having a non-standard number of DoFs
+   *        (not equal to (2p-1)^dim where p is the polynomial degree).
    */
   template <int dim, int spacedim>
   void
@@ -57,7 +61,8 @@ namespace Step85
     const unsigned int               level,
     const std::function<bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
       &cell_is_in_domain,
-    unsigned int shyness = numbers::invalid_unsigned_int);
+    unsigned int shyness = numbers::invalid_unsigned_int,
+    unsigned int n_boundary_passes = 1);
 
 } // namespace Step85
 
