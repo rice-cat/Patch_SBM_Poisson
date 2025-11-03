@@ -520,7 +520,8 @@ namespace Step85
                                            // numbers::invalid_unsigned_int for
                                            // active)
             cell_is_in_domain,
-            mg_params.shyness);
+            mg_params.shyness,
+            mg_params.n_smoothing_steps);
         else if (mg_params.smoother_type == "full_residual")
           make_full_residual_vertex_patches(
             smoother_data[level].block_list,
@@ -529,7 +530,8 @@ namespace Step85
                                            // numbers::invalid_unsigned_int for
                                            // active)
             cell_is_in_domain,
-            mg_params.shyness);
+            mg_params.shyness,
+            mg_params.n_smoothing_steps);
         else if (true)
           AssertThrow(false,
                       ExcMessage("Unknown smoother type specified in "
@@ -540,8 +542,7 @@ namespace Step85
       }
 
     mg_smoother.initialize(mg_matrices, smoother_data);
-    mg_smoother.set_steps(
-      mg_params.n_smoothing_steps); // Number of smoothing steps
+    mg_smoother.set_steps(1); // Number of smoothing steps
 
     using TwoLevelTransfer = MGTwoLevelTransfer<dim, VectorType>;
     MGLevelObject<TwoLevelTransfer> transfers;
