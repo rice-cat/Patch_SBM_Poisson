@@ -320,9 +320,10 @@ namespace Step85
         // Identify boundary patches based on DoF count
         // Standard patches have (2*degree - 1)^dim DoFs
         const unsigned int fe_degree = fe.degree;
-        const unsigned int standard_dof_count = std::pow(2 * fe_degree - 1, dim);
+        const unsigned int base = 2 * fe_degree - 1;
+        const unsigned int standard_dof_count = (dim == 2) ? base * base : base * base * base;
         
-        std::vector<bool> is_boundary_patch(patches_indices.size(), false);
+        std::vector<char> is_boundary_patch(patches_indices.size(), false);
         for (i = 0; i < patches_indices.size(); i++)
           {
             if (patches_indices[i].size() != standard_dof_count)
@@ -332,20 +333,20 @@ namespace Step85
           }
 
         // Calculate total number of patch entries (including duplicates for boundary patches)
-        size_t total_patches = 0;
+        size_t total_patch_entries = 0;
         for (i = 0; i < patches_indices.size(); i++)
           {
             if (is_boundary_patch[i])
-              total_patches += n_boundary_passes;
+              total_patch_entries += n_boundary_passes;
             else
-              total_patches += 1;
+              total_patch_entries += 1;
           }
 
-        block_list.reinit(total_patches,
+        block_list.reinit(total_patch_entries,
                           is_active ? dof_handler.n_dofs() :
                                       dof_handler.n_dofs(level),
                           dof_handler.get_fe().n_dofs_per_cell() *
-                            std::pow(2, dim));
+                            (dim == 2 ? 4 : 8));
 
 
         // Add patches to block_list, duplicating boundary patches
@@ -519,9 +520,10 @@ namespace Step85
     // Step 6: Identify boundary patches based on DoF count
     // Standard patches have (2*degree - 1)^dim DoFs
     const unsigned int fe_degree = fe.degree;
-    const unsigned int standard_dof_count = std::pow(2 * fe_degree - 1, dim);
+    const unsigned int base = 2 * fe_degree - 1;
+    const unsigned int standard_dof_count = (dim == 2) ? base * base : base * base * base;
     
-    std::vector<bool> is_boundary_patch(patch_count, false);
+    std::vector<char> is_boundary_patch(patch_count, false);
     for (patch_index_type i = 0; i < patch_count; i++)
       {
         if (patches_dofs[i].size() != standard_dof_count)
@@ -531,20 +533,20 @@ namespace Step85
       }
 
     // Calculate total number of patch entries (including duplicates for boundary patches)
-    size_t total_patches = 0;
+    size_t total_patch_entries = 0;
     for (patch_index_type i = 0; i < patch_count; i++)
       {
         if (is_boundary_patch[i])
-          total_patches += n_boundary_passes;
+          total_patch_entries += n_boundary_passes;
         else
-          total_patches += 1;
+          total_patch_entries += 1;
       }
 
     // Step 7: Build the sparsity pattern
-    block_list.reinit(total_patches,
+    block_list.reinit(total_patch_entries,
                       is_active ? dof_handler.n_dofs() :
                                   dof_handler.n_dofs(level),
-                      fe.n_dofs_per_cell() * std::pow(2, dim));
+                      fe.n_dofs_per_cell() * (dim == 2 ? 4 : 8));
 
     // Add patches to block_list, duplicating boundary patches
     size_t row_index = 0;
