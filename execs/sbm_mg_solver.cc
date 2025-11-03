@@ -2,8 +2,10 @@
 
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/precondition.h>
+#include <deal.II/lac/solver_bicgstab.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_control.h>
+#include <deal.II/lac/solver_gmres.h>
 
 #include <deal.II/multigrid/mg_base.h>
 #include <deal.II/multigrid/mg_coarse.h>
@@ -90,15 +92,16 @@ namespace Step85
 
   struct MGParameters
   {
-    double       omega            = 1.0;
-    unsigned int shyness          = 3;
-    bool         multiplicative   = true;
-    std::string  smoother_type    = "shy_patches";
-    unsigned int fe_degree        = 2;
-    unsigned int n_refinements    = 1;
-    unsigned int base_refinements = 3;
-    unsigned int max_iterations   = 100;
-    double       solver_tolerance = 1e-10;
+    double       omega             = 1.0;
+    unsigned int shyness           = 3;
+    bool         multiplicative    = true;
+    std::string  smoother_type     = "shy_patches";
+    unsigned int fe_degree         = 2;
+    unsigned int n_refinements     = 1;
+    unsigned int base_refinements  = 3;
+    unsigned int max_iterations    = 100;
+    unsigned int n_smoothing_steps = 2;
+    double       solver_tolerance  = 1e-10;
 
     void
     declare_parameters(ParameterHandler &prm)
@@ -140,6 +143,10 @@ namespace Step85
                           "100",
                           Patterns::Integer(1),
                           "Maximum solver iterations");
+        prm.declare_entry("n_smoothing_steps",
+                          "2",
+                          Patterns::Integer(1),
+                          "Number of smoothing steps");
         prm.declare_entry("solver_tolerance",
                           "1e-10",
                           Patterns::Double(0.0),
@@ -153,15 +160,16 @@ namespace Step85
     {
       prm.enter_subsection("Multigrid parameters");
       {
-        omega            = prm.get_double("omega");
-        shyness          = prm.get_integer("shyness");
-        multiplicative   = prm.get_bool("multiplicative");
-        smoother_type    = prm.get("smoother_type");
-        fe_degree        = prm.get_integer("fe_degree");
-        n_refinements    = prm.get_integer("n_refinements");
-        base_refinements = prm.get_integer("base_refinements");
-        max_iterations   = prm.get_integer("max_iterations");
-        solver_tolerance = prm.get_double("solver_tolerance");
+        omega             = prm.get_double("omega");
+        shyness           = prm.get_integer("shyness");
+        multiplicative    = prm.get_bool("multiplicative");
+        smoother_type     = prm.get("smoother_type");
+        fe_degree         = prm.get_integer("fe_degree");
+        n_refinements     = prm.get_integer("n_refinements");
+        base_refinements  = prm.get_integer("base_refinements");
+        max_iterations    = prm.get_integer("max_iterations");
+        n_smoothing_steps = prm.get_integer("n_smoothing_steps");
+        solver_tolerance  = prm.get_double("solver_tolerance");
       }
       prm.leave_subsection();
     }
@@ -428,17 +436,29 @@ namespace Step85
                             true,
                             active_dofs);
 
+    std::vector<bool> active_dofs_on_level;
     for (unsigned int level = 0; level <= finest_level; ++level)
-      Step85::assemble_system(mg_dof_handlers[level],
-                              *mg_fe_poisson[level],
-                              *mg_mesh_classifiers[level],
-                              fe_degree,
-                              rhs_function,
-                              boundary_condition,
-                              mg_matrices[level],
-                              rhs,
-                              false,
-                              active_dofs);
+      {
+        Step85::assemble_system(mg_dof_handlers[level],
+                                *mg_fe_poisson[level],
+                                *mg_mesh_classifiers[level],
+                                fe_degree,
+                                rhs_function,
+                                boundary_condition,
+                                mg_matrices[level],
+                                rhs,
+                                false,
+                                active_dofs_on_level);
+        if (level == 0)
+          // Ensure inactive rows are well-posed by putting a unit diagonal on
+          // them.
+          for (types::global_dof_index d = 0;
+               d < static_cast<types::global_dof_index>(
+                     active_dofs_on_level.size());
+               ++d)
+            if (!active_dofs_on_level[d])
+              mg_matrices[level].set(d, d, 1.0);
+      }
   }
 
 
@@ -492,20 +512,36 @@ namespace Step85
         };
 
         // Create patches for each level
-        make_shy_vertex_patches(
-          smoother_data[level].block_list,
-          mg_dof_handlers[level],
-          numbers::invalid_unsigned_int, // level within the DoFHandler (use
-                                         // numbers::invalid_unsigned_int for
-                                         // active)
-          cell_is_in_domain,
-          mg_params.shyness);
+        if (mg_params.smoother_type == "shy_patches")
+          make_shy_vertex_patches(
+            smoother_data[level].block_list,
+            mg_dof_handlers[level],
+            numbers::invalid_unsigned_int, // level within the DoFHandler (use
+                                           // numbers::invalid_unsigned_int for
+                                           // active)
+            cell_is_in_domain,
+            mg_params.shyness);
+        else if (mg_params.smoother_type == "full_residual")
+          make_full_residual_vertex_patches(
+            smoother_data[level].block_list,
+            mg_dof_handlers[level],
+            numbers::invalid_unsigned_int, // level within the DoFHandler (use
+                                           // numbers::invalid_unsigned_int for
+                                           // active)
+            cell_is_in_domain,
+            mg_params.shyness);
+        else if (true)
+          AssertThrow(false,
+                      ExcMessage("Unknown smoother type specified in "
+                                 "parameters."));
+
         smoother_data[level].relaxation = mg_params.omega;
         smoother_data[level].inversion  = PreconditionBlockBase<double>::svd;
       }
 
     mg_smoother.initialize(mg_matrices, smoother_data);
-    mg_smoother.set_steps(1); // Number of smoothing steps
+    mg_smoother.set_steps(
+      mg_params.n_smoothing_steps); // Number of smoothing steps
 
     using TwoLevelTransfer = MGTwoLevelTransfer<dim, VectorType>;
     MGLevelObject<TwoLevelTransfer> transfers;

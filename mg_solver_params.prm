@@ -22,6 +22,9 @@ subsection Multigrid parameters
   # Number of global refinements
   set n_refinements = 1
 
+  # Number of smoothing steps
+  set n_smoothing_steps = 2
+
   # Maximum solver iterations
   set max_iterations = 100
 
