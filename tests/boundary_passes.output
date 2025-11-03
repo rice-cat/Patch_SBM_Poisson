@@ -1,0 +1,12 @@
+
+DEAL::Test 1: Creating shy patches with n_boundary_passes = 1
+DEAL::Number of patches with n_boundary_passes = 1: 9
+DEAL::Test 2: Creating shy patches with n_boundary_passes = 3
+DEAL::Number of patches with n_boundary_passes = 3: 25
+DEAL::Patches increased due to boundary duplication: YES
+DEAL::Test 3: Creating full residual patches with n_boundary_passes = 1
+DEAL::Number of full residual patches with n_boundary_passes = 1: 25
+DEAL::Test 4: Creating full residual patches with n_boundary_passes = 2
+DEAL::Number of full residual patches with n_boundary_passes = 2: 49
+DEAL::Full residual patches increased due to boundary duplication: YES
+DEAL::All tests completed successfully

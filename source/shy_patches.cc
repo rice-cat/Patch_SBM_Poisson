@@ -30,7 +30,8 @@ namespace Step85
     const std::function<
       bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
                 &cell_is_in_domain,
-    unsigned int shyness)
+    unsigned int shyness,
+    unsigned int n_boundary_passes)
   {
     AssertDimension(dim, 2);
 
@@ -316,18 +317,49 @@ namespace Step85
               }
           }
 
-        block_list.reinit(patches_indices.size(),
+        // Identify boundary patches based on DoF count
+        // Standard patches have (2*degree - 1)^dim DoFs
+        const unsigned int fe_degree = fe.degree;
+        const unsigned int standard_dof_count = std::pow(2 * fe_degree - 1, dim);
+        
+        std::vector<bool> is_boundary_patch(patches_indices.size(), false);
+        for (i = 0; i < patches_indices.size(); i++)
+          {
+            if (patches_indices[i].size() != standard_dof_count)
+              {
+                is_boundary_patch[i] = true;
+              }
+          }
+
+        // Calculate total number of patch entries (including duplicates for boundary patches)
+        size_t total_patches = 0;
+        for (i = 0; i < patches_indices.size(); i++)
+          {
+            if (is_boundary_patch[i])
+              total_patches += n_boundary_passes;
+            else
+              total_patches += 1;
+          }
+
+        block_list.reinit(total_patches,
                           is_active ? dof_handler.n_dofs() :
                                       dof_handler.n_dofs(level),
                           dof_handler.get_fe().n_dofs_per_cell() *
                             std::pow(2, dim));
 
 
+        // Add patches to block_list, duplicating boundary patches
+        size_t row_index = 0;
         for (i = 0; i < patches_indices.size(); i++)
           {
-            for (const auto dof_index : patches_indices[i])
+            unsigned int num_passes = is_boundary_patch[i] ? n_boundary_passes : 1;
+            for (unsigned int pass = 0; pass < num_passes; pass++)
               {
-                block_list.add(i, dof_index);
+                for (const auto dof_index : patches_indices[i])
+                  {
+                    block_list.add(row_index, dof_index);
+                  }
+                row_index++;
               }
           }
       }
@@ -341,7 +373,8 @@ namespace Step85
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
                 &cell_is_in_domain,
-    unsigned int shyness);
+    unsigned int shyness,
+    unsigned int n_boundary_passes);
 
   template <int dim, int spacedim>
   void
@@ -352,7 +385,8 @@ namespace Step85
     const std::function<
       bool(const typename DoFHandler<dim, spacedim>::cell_iterator &)>
                 &cell_is_in_domain,
-    unsigned int shyness)
+    unsigned int shyness,
+    unsigned int n_boundary_passes)
   {
     AssertDimension(dim, 2);
 
@@ -482,17 +516,48 @@ namespace Step85
           }
       }
 
-    // Step 6: Build the sparsity pattern
-    block_list.reinit(patch_count,
+    // Step 6: Identify boundary patches based on DoF count
+    // Standard patches have (2*degree - 1)^dim DoFs
+    const unsigned int fe_degree = fe.degree;
+    const unsigned int standard_dof_count = std::pow(2 * fe_degree - 1, dim);
+    
+    std::vector<bool> is_boundary_patch(patch_count, false);
+    for (patch_index_type i = 0; i < patch_count; i++)
+      {
+        if (patches_dofs[i].size() != standard_dof_count)
+          {
+            is_boundary_patch[i] = true;
+          }
+      }
+
+    // Calculate total number of patch entries (including duplicates for boundary patches)
+    size_t total_patches = 0;
+    for (patch_index_type i = 0; i < patch_count; i++)
+      {
+        if (is_boundary_patch[i])
+          total_patches += n_boundary_passes;
+        else
+          total_patches += 1;
+      }
+
+    // Step 7: Build the sparsity pattern
+    block_list.reinit(total_patches,
                       is_active ? dof_handler.n_dofs() :
                                   dof_handler.n_dofs(level),
                       fe.n_dofs_per_cell() * std::pow(2, dim));
 
+    // Add patches to block_list, duplicating boundary patches
+    size_t row_index = 0;
     for (patch_index_type i = 0; i < patch_count; i++)
       {
-        for (const auto dof_index : patches_dofs[i])
+        unsigned int num_passes = is_boundary_patch[i] ? n_boundary_passes : 1;
+        for (unsigned int pass = 0; pass < num_passes; pass++)
           {
-            block_list.add(i, dof_index);
+            for (const auto dof_index : patches_dofs[i])
+              {
+                block_list.add(row_index, dof_index);
+              }
+            row_index++;
           }
       }
 
@@ -506,7 +571,8 @@ namespace Step85
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<2, 2>::cell_iterator &)>
                 &cell_is_in_domain,
-    unsigned int shyness);
+    unsigned int shyness,
+    unsigned int n_boundary_passes);
 
 
   template void
@@ -516,7 +582,8 @@ namespace Step85
     const unsigned int      level,
     const std::function<bool(const typename DoFHandler<3, 3>::cell_iterator &)>
                 &cell_is_in_domain,
-    unsigned int shyness);
+    unsigned int shyness,
+    unsigned int n_boundary_passes);
 
   template <int dim, int spacedim>
   void
