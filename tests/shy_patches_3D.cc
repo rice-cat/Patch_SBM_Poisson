@@ -99,6 +99,5 @@ main()
     deallog << std::endl;
   }
 
-
   return 0;
 }
