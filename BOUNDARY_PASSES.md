@@ -18,9 +18,19 @@ A patch is identified as a boundary patch if it does not have the standard numbe
 - Standard DoF count: `(2*degree - 1)^dim`
 - Boundary patches: Any patch with DoF count ≠ standard count
 
-### Patch Duplication
+### Patch Ordering
 
-When `n_boundary_passes > 1`, boundary patches are duplicated in the block list. For example, with `n_boundary_passes = 3`, each boundary patch appears 3 times in the patch list, meaning the smoother will apply it 3 times per smoothing step.
+When `n_boundary_passes > 1`, the patches are ordered as follows:
+1. **First pass**: All patches are applied once (both interior and boundary)
+2. **Subsequent passes**: Only boundary patches are applied
+
+For example, with patches A, B, C, D where B and C are boundary patches, and `n_boundary_passes = 3`:
+- Patch order: **A, B, C, D, B, C, B, C**
+- First pass: A, B, C, D (all patches)
+- Second pass: B, C (boundary only)
+- Third pass: B, C (boundary only)
+
+This ensures that every patch is applied at least once, while boundary patches receive additional smoothing passes as specified.
 
 ## Usage
 

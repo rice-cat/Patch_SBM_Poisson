@@ -333,14 +333,15 @@ namespace Step85
           }
 
         // Calculate total number of patch entries (including duplicates for boundary patches)
-        size_t total_patch_entries = 0;
+        // First pass includes all patches, subsequent passes only include boundary patches
+        size_t num_boundary_patches = 0;
         for (i = 0; i < patches_indices.size(); i++)
           {
             if (is_boundary_patch[i])
-              total_patch_entries += n_boundary_passes;
-            else
-              total_patch_entries += 1;
+              num_boundary_patches++;
           }
+        size_t total_patch_entries = patches_indices.size() + 
+                                      num_boundary_patches * (n_boundary_passes - 1);
 
         block_list.reinit(total_patch_entries,
                           is_active ? dof_handler.n_dofs() :
@@ -349,18 +350,34 @@ namespace Step85
                             (dim == 2 ? 4 : 8));
 
 
-        // Add patches to block_list, duplicating boundary patches
+        // Add patches to block_list with correct ordering:
+        // First pass: all patches (A, B, C, D)
+        // Subsequent passes: only boundary patches (B, C, B, C, ...)
         size_t row_index = 0;
+        
+        // First pass: add all patches
         for (i = 0; i < patches_indices.size(); i++)
           {
-            unsigned int num_passes = is_boundary_patch[i] ? n_boundary_passes : 1;
-            for (unsigned int pass = 0; pass < num_passes; pass++)
+            for (const auto dof_index : patches_indices[i])
               {
-                for (const auto dof_index : patches_indices[i])
+                block_list.add(row_index, dof_index);
+              }
+            row_index++;
+          }
+        
+        // Subsequent passes: add only boundary patches
+        for (unsigned int pass = 1; pass < n_boundary_passes; pass++)
+          {
+            for (i = 0; i < patches_indices.size(); i++)
+              {
+                if (is_boundary_patch[i])
                   {
-                    block_list.add(row_index, dof_index);
+                    for (const auto dof_index : patches_indices[i])
+                      {
+                        block_list.add(row_index, dof_index);
+                      }
+                    row_index++;
                   }
-                row_index++;
               }
           }
       }
@@ -533,14 +550,15 @@ namespace Step85
       }
 
     // Calculate total number of patch entries (including duplicates for boundary patches)
-    size_t total_patch_entries = 0;
+    // First pass includes all patches, subsequent passes only include boundary patches
+    size_t num_boundary_patches = 0;
     for (patch_index_type i = 0; i < patch_count; i++)
       {
         if (is_boundary_patch[i])
-          total_patch_entries += n_boundary_passes;
-        else
-          total_patch_entries += 1;
+          num_boundary_patches++;
       }
+    size_t total_patch_entries = patch_count + 
+                                  num_boundary_patches * (n_boundary_passes - 1);
 
     // Step 7: Build the sparsity pattern
     block_list.reinit(total_patch_entries,
@@ -548,18 +566,34 @@ namespace Step85
                                   dof_handler.n_dofs(level),
                       fe.n_dofs_per_cell() * (dim == 2 ? 4 : 8));
 
-    // Add patches to block_list, duplicating boundary patches
+    // Add patches to block_list with correct ordering:
+    // First pass: all patches (A, B, C, D)
+    // Subsequent passes: only boundary patches (B, C, B, C, ...)
     size_t row_index = 0;
+    
+    // First pass: add all patches
     for (patch_index_type i = 0; i < patch_count; i++)
       {
-        unsigned int num_passes = is_boundary_patch[i] ? n_boundary_passes : 1;
-        for (unsigned int pass = 0; pass < num_passes; pass++)
+        for (const auto dof_index : patches_dofs[i])
           {
-            for (const auto dof_index : patches_dofs[i])
+            block_list.add(row_index, dof_index);
+          }
+        row_index++;
+      }
+    
+    // Subsequent passes: add only boundary patches
+    for (unsigned int pass = 1; pass < n_boundary_passes; pass++)
+      {
+        for (patch_index_type i = 0; i < patch_count; i++)
+          {
+            if (is_boundary_patch[i])
               {
-                block_list.add(row_index, dof_index);
+                for (const auto dof_index : patches_dofs[i])
+                  {
+                    block_list.add(row_index, dof_index);
+                  }
+                row_index++;
               }
-            row_index++;
           }
       }
 
