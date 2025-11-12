@@ -227,7 +227,7 @@ Viewing the smoother as a subspace correction method provides a useful framework
 depends critically on the choice of subspaces and the local problems solved on them. For continuous finite element
 methods, simple choices like one-dimensional subspaces corresponding to individual degrees of freedom (leading to
 Jacobi or Gauss-Seidel smoothers) are ineffective for SBM. These methods implicitly enforce a zero correction on the
-boundary of the single-vertex "patch", which conflicts with the non-standard boundary terms introduced by SBM, a fact
+boundary of the single-vertex \emph{patch}, which conflicts with the non-standard boundary terms introduced by SBM, a fact
 confirmed by our preliminary experiments.
 
 This suggests that the subspaces must be large enough to capture the local behavior of the SBM formulation. We
@@ -290,30 +290,24 @@ boundary-adjacent patches are identified once during the construction of the smo
 \subsection{Transfer Operators}
 \label{sec:transfer_operators}
 \mwerror{shorten and rewrite that part}
-We use the standard $L^2$ projection operators provided by \texttt{deal.II} for the prolongation ($I_{\ell-1}^\ell$)
-and restriction ($I_\ell^{\ell-1}$) operators, transferring data between coarser and finer grid levels. The~restriction
-operator is the adjoint of the prolongation operator.
 
-\mwnote{this is from the previous paper, just refer to \cite{wichrowski2025geometric} and say that we use the same
-    here.}
-While these operators are standard in the context of multigrid methods, we note that the lack of a strict geometric
-relationship between active cells at different levels may reduce the effectiveness of transfer operators. We tried to
-reduce this potential efficiency loss by implementing a more sophisticated prolongation that would extrapolate
-the values that are not defined on the coarser mesh, and its adjoint as a restriction. However, this approach did not
-yield any significant improvements in the convergence rates. We therefore stick to the standard prolongation and
-restriction operators.
+The transfer of information between different levels of the multigrid hierarchy is handled by prolongation and
+restriction operators. The prolongation operator, $I_{\ell-1}^\ell$, maps a function from the coarse space
+$\mathbb{V}_{\ell-1}$ to the fine space $\mathbb{V}_\ell$, while the restriction operator, $I_\ell^{\ell-1}$, transfers
+a function from the fine space to the coarse space. For standard multigrid methods on nested meshes with continuous
+finite elements, prolongation is typically the natural embedding of the coarse function space into the fine one, and
+restriction is its transpose.
 
-The choice of the threshold parameter $\lambda$ directly influences the set of active cells, and thus the computational
-domain $\tilde{\Omega}_\ell$, on each multigrid level $\ell$. A lower $\lambda$ value generally results in more cells
-being classified as active, potentially leading to a surrogate domain that more closely envelops the true domain.
-However, the sets of active cells across different multigrid levels, $\tilde{\Omega}_\ell$ and
-$\tilde{\Omega}_{\ell-1}$, are not guaranteed to be nested. This lack of geometric nestedness can pose a challenge for
-standard transfer operators. For instance, a coarse cell might be active while some of its children on the finer level
-are not, or vice-versa. This mismatch can reduce the efficiency of inter-grid transfers, as information might be
-prolonged to or restricted from regions that are not consistently part of the active domain across levels. While our
-experiments with more sophisticated extrapolation-based transfer operators did not show significant gains, the
-interplay between $\lambda$, the resulting active cell configurations, and the transfer operator effectiveness remains
-an important consideration for multigrid performance in SBM.
+A significant challenge in applying multigrid to unfitted methods like SBM is the lack of geometric nestedness of the
+computational domains. The set of active cells $\tilde{\Omega}_\ell$ on a given level $\ell$ is determined
+independently based on the intersection with the true domain $\Omega$. Consequently, the active domain on the fine
+level, $\tilde{\Omega}_L$, is not necessarily a subset of the active domain on a coarser level, $\tilde{\Omega}_{\ell}$
+(when viewed on the fine grid). This can lead to inconsistencies where, for example, an active fine-grid cell
+corresponds to a non-active coarse-grid cell.
+
+This lack of nestedness can impair the effectiveness of standard transfer operators~\cite{wichrowski2025geometric}.
+Information from an active region on the fine grid might be restricted to a non-active region on the coarse grid, where
+it is essentially discarded, breaking the flow of information required for an efficient multigrid cycle.
 
 \section{Implementation details}
 \label{sec:implementation}
