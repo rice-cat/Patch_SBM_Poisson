@@ -1,0 +1,27 @@
+# LaTeX temporary files
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+*.nav
+*.snm
+*.vrb
+*.bcf
+*.run.xml
+*.lot
+*.lof
+*.idx
+*.ilg
+*.ind
+
+# latexmk
+*.synctex(busy)
+*.pdfsync
+*.cb
+*.cb2
+*.spl

@@ -1,0 +1,148 @@
+
+\usepackage{amstext}
+\usepackage{stmaryrd}
+%\usepackage{listings}
+%\lstset{language=C++}
+%\usepackage[boxed]{algorithm2e}
+\usepackage{algpseudocode}
+
+\usepackage[normalem]{ulem}
+\usepackage{graphicx}
+
+%\usepackage{authblk}
+%\usepackage{xcolor}
+\usepackage{array}
+\usepackage{verbatim}
+\usepackage{booktabs}
+\usepackage{calc}
+\usepackage{textcomp}
+\usepackage{multirow}
+%\usepackage[boxed]{algorithm2e}
+
+\usepackage[all]{xy}
+
+\usepackage{cancel}
+\usepackage{mathtools}
+\usepackage{placeins}
+\usepackage{xspace}
+
+%\input{packages}
+
+\usepackage{tikz,tikzscale}
+\usetikzlibrary{calc}
+\usetikzlibrary{shadings}
+%\usepackage[backend=biber,style=alphabetic]{biblatex}
+%\addbibresource{literature.bib}
+
+%%%%%%%%%% Packages to help editing %%%%%%%%%%
+%\usepackage[notref,notcite]{showkeys} % Show labels.
+\usepackage[mode=multiuser,status=draft]{fixme} % Provide note, warning, error, fatal.
+%\fxsetup{layout=inline}%pdfcsignote}
+\fxsetup{envlayout=color}
+\fxsetup{innerlayout=inline}
+\fxsetup{targetlayout=colorcb}
+\FXProvidesTargetLayout{color}
+
+\fxusetheme{color}
+\FXRegisterAuthor{ss}{envss}{SS}
+\FXRegisterAuthor{mr}{envmr}{MR}
+\FXRegisterAuthor{mw}{envmw}{MW}
+\FXRegisterAuthor{mk}{envmk}{MK}
+
+\usepackage{subcaption}
+\usepackage[format=plain,indention=.5cm]{caption}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{fillbetween}
+
+\begin{comment}
+
+\DontPrintSemicolon
+\SetKwComment{Comment}{$\triangleleft$ }{}
+\SetKwProg{Fn}{Function}{}{end}
+
+\providecommand{\keywords}[1]
+{
+    \small
+    \textbf{\textit{Keywords:}} #1
+}
+\end{comment}
+% \newcommand{\FigureSubst}[1]{ \fbox{ 
+% \begin{minipage} {0.7\textwidth} #1  
+% \end{minipage}  }   }
+
+\def\mesh{\mathbb M}
+\def\cell{K}
+\def\R{\mathbb R}
+\def\ncol{N_{\text{colors}}}
+\def\rest#1{I_{#1}^\downarrow}
+\def\prol#1{I_{#1}^\uparrow}
+
+\newcommand{\pluseq}{\stackrel{+}{\gets}}
+%\newcommand{\pluseq}{\stackbin{+}{=}}
+
+\newcommand{\Dd}{\text{d}}
+
+% Mohsen's setting and definitions
+%###################################%
+\usepackage{bm,upgreek}
+\newcommand\rd{{\rm{d}}}
+\newcommand{\bfm}[1]{{\rm\bf #1}}
+
+\newcommand{\greentext}[1]{{\color{darkgreen} #1}}
+\newcommand{\bluetext}[1]{{\color{blue} #1}}
+\newcommand{\redtext}[1]{{\color{red} #1}}
+
+\DeclareMathOperator{\tr}{tr}
+%###################################%
+
+% MW settings
+%###################################%
+
+\newcommand{\DG}{{\mathbb{V}_h^{\text{DG}}}}
+\newcommand{\DGell}{{\mathbb{V}_\ell^{\text{DG}}}}
+%###################################%
+%
+
+\usepackage{graphicx} % Required for inserting images
+\usepackage[linesnumbered,vlined,commentsnumbered,ruled]{algorithm2e}
+
+% \newcommand{\revOld}[1]{}
+% \newcommand{\revNew}[1]{{{#1}}}
+\newcommand{\revNew}[1]{{\color{blue}{#1}}}   % only in original submission
+\newcommand{\revOld}[1]{\sout{\protect\color{red}{#1}}}  % only in rev 1
+
+\definecolor{darkgreen}{rgb}{0.0, 0.5, 0.0}
+
+% \usepackage[marginal]{showlabels}
+
+% \documentclass{article}
+% \usepackage{graphicx} % Required for including images
+% \usepackage{subcaption} % Required for subfigures
+
+% \begin{document}
+
+% \begin{figure}[htbp] % 'h'ere, 't'op, 'b'ottom, 'p'age
+%     \centering % Center the figure
+
+%     \begin{subfigure}[b]{0.45\textwidth} % [b]ottom alignment, width relative to text width
+%         \centering
+%         \includegraphics[width=\textwidth]{example-image-a} % Replace with your image file
+%         \caption{Caption for first subfigure}
+%         \label{fig:subfig_a}
+%     \end{subfigure}
+%     \hfill % Adds horizontal space between subfigures
+%     \begin{subfigure}[b]{0.45\textwidth}
+%         \centering
+%         \includegraphics[width=\textwidth]{example-image-b} % Replace with your image file
+%         \caption{Caption for second subfigure}
+%         \label{fig:subfig_b}
+%     \end{subfigure}
+
+%     \caption{Caption for the main figure}
+%     \label{fig:main_figure}
+% \end{figure}
+
+% You can refer to the subfigures using their labels, for example, Figure~\ref{fig:subfig_a} shows the first image.
+
+% \end{document}
