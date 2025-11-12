@@ -233,7 +233,14 @@ boundary conditions, correcting the solution on each cell independently, as illu
 \ref{fig:single_patch_boundaries}.
 
 \begin{figure}[!ht]
-    \input{figures/single_patch_bc.tex}
+    \centering
+    \begin{subfigure}[b]{0.4\linewidth}
+        \input{figures/single_patch_bc.tex}
+    \end{subfigure}
+    \qquad
+    \begin{subfigure}[b]{0.4\linewidth}
+        \input{figures/shy_patches.tex}
+    \end{subfigure}
     \caption{
     Illustration of a patch. Interior faces ($\mathcal{F}_h^{\text{int}}$, green) connect to neighboring active cells.
     For cells adjacent to the domain boundary, faces can be part of the surrogate boundary $\tilde{\Gamma}$ (blue),
@@ -272,19 +279,6 @@ prolonged to or restricted from regions that are not consistently part of the ac
 experiments with more sophisticated extrapolation-based transfer operators did not show significant gains, the
 interplay between $\lambda$, the resulting active cell configurations, and the transfer operator effectiveness remains
 an important consideration for multigrid performance in SBM.
-
-\begin{figure}[!ht]
-    \input{figures/shy_patches.tex}
-    \caption{
-    Illustration of a patch. Interior faces ($\mathcal{F}_h^{\text{int}}$, green) connect to neighboring active cells.
-    For cells adjacent to the domain boundary, faces can be part of the surrogate boundary $\tilde{\Gamma}$ (blue),
-    which
-    is shifted from
-    the
-    true boundary $\Gamma$ (red). The vertex-patch smoother solves should solve the  local problem on patch $P$ ...
-    }
-    \label{fig:single_patch_boundaries}
-\end{figure}
 
 \section{Implementation details}
 \label{sec:implementation}
