@@ -127,18 +127,18 @@ $\tilde{\Gamma}$ enforced in a Nitsche-like manner; the weak formulation seeks $
         \int_{\tilde{\Omega}} \nabla u_h \cdot \nabla v_h \, dx
         - \int_{\tilde{\Gamma}} (\nabla u_h \cdot \tilde{\mathbf{n}}) v_h \, ds
         - \alpha \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) \; \mathcal{E}u_h \, ds
-        + \int_{\tilde{\Gamma}} \sigma_\Gamma \; \mathcal{E} u_h  \; v_h \, ds = \\
+        + \int_{\tilde{\Gamma}} \sigma \; \mathcal{E} u_h  \; v_h \, ds = \\
         = \int_{\tilde{\Omega}} f v_h \, dx
         - \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) g^E \, ds
-        + \int_{\tilde{\Gamma}} \sigma_\Gamma g v_h \, ds.
+        + \int_{\tilde{\Gamma}} \sigma g v_h \, ds.
     \end{split}
 \end{equation}
-where $\tilde{\mathbf{n}}$ is the outward normal to $\tilde{\Gamma}$ and $\sigma_\Gamma$ is a penalty parameter.
+where $\tilde{\mathbf{n}}$ is the outward normal to $\tilde{\Gamma}$ and $\sigma$ is a penalty parameter.
 
 The choice of the stabilization term, particularly the parameter $\alpha$, significantly influences the spectral
 properties of the resulting system matrix. As detailed in our previous work on a Discontinuous Galerkin (DG) based SBM
 multigrid preconditioner~\cite{wichrowski2025geometric}, this can be observed even in a simple 1D single-cell problem.
-For instance, a penalty-free formulation ($\sigma_\Gamma=0$, $\alpha=-1$) can lead to complex eigenvalues, especially
+For instance, a penalty-free formulation ($\sigma=0$, $\alpha=-1$) can lead to complex eigenvalues, especially
 when the true boundary lies inside the surrogate domain.
 
 In the context of DG methods, it was found that the choice of stabilization did not have a dramatic impact on the
@@ -172,29 +172,27 @@ boundary condition.
 
 \section{Multigrid Preconditioner}
 \label{sec:mg_preconditioner}
-The DG-SBM formulation described above leads to a large, sparse linear system. Due to
-the lack of symmetry and possible indefiniteness of the resulting matrix, we employ a~Krylov subspace method,
-specifically GMRES, for its solution.  The convergence of GMRES is sensitive to the condition number of the system
-matrix that grows with both the number of elements in the mesh and the polynomial degree.
-Multigrid methods~\cite{hackbusch1985multi} rely on a hierarchy of meshes with varying resolution levels. Our Cartesian
-background mesh
-naturally facilitates the construction of such a nested hierarchy. We define a sequence of
-meshes $\{\mathcal{T}_\ell\}_{\ell=0}^L$, where $\ell$ denotes the level and $L$ is the finest level. For each level,
-we identify active cells that have at least a fraction $\lambda$ of their measure (area in 2D, volume in 3D) inside the
-domain.
-On each mesh $\mathcal{T}_\ell$, we define a finite element space $\DGell$ consisting of piecewise polynomials of~
-degree $p_\ell$.  Since the  set of active cells is determined by their intersection with the domain boundary, these
-sets are not necessarily nested between levels, which can affect the efficiency of standard inter-grid transfer
-operators. While our construction ensures a nested hierarchy  of finite element
-spaces, the lack of a strict geometric relationship between active cells at different levels may reduce the
-effectiveness of transfer operators. We mitigate this potential efficiency loss by using only linear elements on
-geometrically coarser meshes and gradually increasing the polynomial degree only on the finest mesh. Hence the
-resulting total  number of levels is $L+p$.
+The SBM formulation described above leads to a large, sparse linear system. Due to
+the lack of symmetry and possible indefiniteness of the resulting matrix, we employ a Krylov subspace method,
+specifically GMRES, for its solution. The convergence of GMRES is sensitive to the condition number of the system
+matrix, which grows with both the number of elements in the mesh and the polynomial degree.
+To accelerate the solution, we employ a multigrid preconditioner~\cite{hackbusch1985multi}. Our Cartesian
+background mesh naturally facilitates the construction of a nested hierarchy of meshes
+$\{\mathcal{T}_\ell\}_{\ell=0}^L$,
+where $\ell$ denotes the level and $L$ is the finest level. On each mesh $\mathcal{T}_\ell$, we define a finite element
+space $\mathbb{V}_\ell$ consisting of continuous piecewise polynomials of a fixed degree $p$.
 
-With this hierarchy of meshes and spaces established, the multigrid method is defined through two crucial
-components: the smoothers, which reduce high-frequency error components on each level, and the transfer operators,
-which move information between different resolution levels. These components, together with a coarse-grid solver, form
-the complete multigrid algorithm. For preconditioning, we use a single multigrid V-cycle.
+This represents an important difference from the work on a Discontinuous Galerkin SBM
+preconditioner~\cite{wichrowski2025geometric}, where an hp-multigrid strategy with lower polynomial degrees on
+coarser levels was necessary to achieve good performance. In the present continuous Galerkin context, we find that a
+simpler h-multigrid approach is enough. We note that while the background meshes are nested, the sets of active
+cells on different levels (determined by the fraction $\lambda$ of their volume inside the domain) are not necessarily
+nested. This lack of geometric nestedness can affect the efficiency of standard inter-grid transfer operators.
+
+With this hierarchy of meshes and spaces established, the multigrid method is defined through three crucial
+components: a smoother, which reduces high-frequency error components on each level; transfer operators,
+which move information between different resolution levels; and a coarse-grid solver. For preconditioning, we use a
+single multigrid V-cycle.
 
 \subsection{Smoother}
 \label{sec:smoother}
@@ -225,17 +223,19 @@ If the subspaces are chosen as one-dimensional spaces spanned by the basis funct
 equivalent to either Jacobi (additive) or Gauss-Seidel (successive).
 
 \mwerror{to be rewritten with justification what we want from shy patches}
-Viewing the smoother as a subspace correction method reveals important insights into the convergence properties. The
-correction computed within a subspace $\mathbb{V}_i$ implicitly satisfies certain boundary conditions on the boundary
-of that subspace. This is particularly important in the context of the SBM, where the boundary conditions are shifted.
-A careless choice of subspace can lead to overconstraining the correction, preventing certain error components from
-being effectively smoothed. For instance, Jacobi and Gauss-Seidel smoothers for continuous finite element methods,
-which
-correspond to vertex-patch smoothing with zero correction at patch boundaries, conflict with the shifted boundary
-conditions and are not effective, as confirmed in our preliminary numerical experiments. In contrast, the cell-wise
-smoother aligns well with the DG method's element-based structure and takes into account the local nature of the SBM
-boundary conditions, correcting the solution on each cell independently, as illustrated in Figure
-\ref{fig:single_patch_boundaries}.
+Viewing the smoother as a subspace correction method provides a useful framework. The effectiveness of such a smoother
+depends critically on the choice of subspaces and the local problems solved on them. For continuous finite element
+methods, simple choices like one-dimensional subspaces corresponding to individual degrees of freedom (leading to
+Jacobi or Gauss-Seidel smoothers) are ineffective for SBM. These methods implicitly enforce a zero correction on the
+boundary of the single-vertex "patch", which conflicts with the non-standard boundary terms introduced by SBM, a fact
+confirmed by our preliminary experiments.
+
+This suggests that the subspaces must be large enough to capture the local behavior of the SBM formulation. We
+therefore construct local problems on larger subspaces, defined by patches of elements centered around a vertex, as
+illustrated in Figure~\ref{fig:single_patch_boundaries}. By solving a local problem on this patch that includes the
+relevant SBM boundary terms where applicable, we can compute a more effective correction. This approach aims to make
+the local problem on the patch a more consistent approximation of the global problem, leading to a more robust
+smoother.
 
 \begin{figure}[!ht]
     \centering
@@ -294,6 +294,8 @@ We use the standard $L^2$ projection operators provided by \texttt{deal.II} for 
 and restriction ($I_\ell^{\ell-1}$) operators, transferring data between coarser and finer grid levels. The~restriction
 operator is the adjoint of the prolongation operator.
 
+\mwnote{this is from the previous paper, just refer to \cite{wichrowski2025geometric} and say that we use the same
+    here.}
 While these operators are standard in the context of multigrid methods, we note that the lack of a strict geometric
 relationship between active cells at different levels may reduce the effectiveness of transfer operators. We tried to
 reduce this potential efficiency loss by implementing a more sophisticated prolongation that would extrapolate
@@ -377,7 +379,7 @@ decoupling their degrees of freedom from the system on that level.
 \section{Numerical results}
 \label{sec:numerical_results}
 In this section, we present numerical results to evaluate the performance of the proposed SBM multigrid
-preconditioner for the Poisson equation. We investigate its effectiveness in terms of convergence rates, iteration~
+preconditioner for the Poisson equation. We investigate its effectiveness in terms of convergence rates, iteration
 counts under mesh refinement ($h$-refinement) and polynomial degree increase ($p$-refinement). To better illustrate the
 multigrid preconditioner's performance characteristics and enable meaningful comparison of iteration counts, we solve
 the system to high accuracy with a tolerance of $10^{-12}$ for the relative residual reduction. This stringent
@@ -385,12 +387,11 @@ tolerance results in higher iteration counts, making the differences in solver p
 facilitating clearer assessment of the multigrid effectiveness. Solver failure is defined as exceeding 100 GMRES
 iterations without reaching this tolerance.
 The initial background mesh is a square (or cube in 3D) domain covering the range $[-1.01, 1.01]$ in each dimension,
-subdivided into $4$ cells in each coordinate direction. We use $\sigma_\Gamma = 5$ and $\sigma_F = 1$ for the penalty
-parameters in the SBM
-formulation. The interior penalty $\sigma_F=1$ is chosen as a minimal value to ensure coercivity while minimizing its
-impact on solver convergence, whereas the boundary penalty $\sigma_\Gamma=5$ is selected to be sufficiently large to
-ensure stability of the Nitsche coupling on the surrogate boundary.
+subdivided into $4$ cells in each coordinate direction. We use a penalty parameter $\sigma = 5$ in the SBM
+formulation. This parameter is selected to be sufficiently large to ensure stability of the Nitsche coupling on the
+surrogate boundary.
 
+\mwnote{don't touc it for now. We might want lambda here}
 The majority of our tests are conducted on a unit sphere (a unit disk in 2D, depicted on the left panel of
 Fig.~\ref{fig:shift_distribution}). While geometrically simple, the unit
 sphere serves as an insightful benchmark. Any sufficiently smooth ($C^1$) complex boundary, when viewed at a fine
@@ -411,6 +412,8 @@ to have failed. All experiments are conducted using the implementation described
 depends on the value of the threshold parameter $\lambda$, we will first explore the solver performance on 2D problems
 as they are less computationally intensive and then show some results for 3D problems with tuned $\lambda$.
 
+\mwnote{we have two metrics: estimate of max eigenvalues of Smoother applied to A and number of GMRES iterations}
+
 \section{Conclusion}
 \label{sec:conclusion}
 
@@ -418,9 +421,6 @@ as they are less computationally intensive and then show some results for 3D pro
 % Optional: Acknowledge funding sources, helpful discussions, etc.
 The author declares the use of language models (ChatGPT, Gemini, and Claude) to improve the clarity and readability of
 the manuscript. All scientific content and technical claims are solely the responsibility of the author.
-
-The author would like to thank Guglielmo Scovazzi and Guido Kanschat for insightful discussions, and Luca Heltai for
-encouraging the exploration of this method.
 
 \FloatBarrier
 \bibliographystyle{siam} % Or any other style
