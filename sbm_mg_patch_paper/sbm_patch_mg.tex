@@ -273,6 +273,19 @@ experiments with more sophisticated extrapolation-based transfer operators did n
 interplay between $\lambda$, the resulting active cell configurations, and the transfer operator effectiveness remains
 an important consideration for multigrid performance in SBM.
 
+\begin{figure}[!ht]
+    \input{figures/shy_patches.tex}
+    \caption{
+    Illustration of a patch. Interior faces ($\mathcal{F}_h^{\text{int}}$, green) connect to neighboring active cells.
+    For cells adjacent to the domain boundary, faces can be part of the surrogate boundary $\tilde{\Gamma}$ (blue),
+    which
+    is shifted from
+    the
+    true boundary $\Gamma$ (red). The vertex-patch smoother solves should solve the  local problem on patch $P$ ...
+    }
+    \label{fig:single_patch_boundaries}
+\end{figure}
+
 \section{Implementation details}
 \label{sec:implementation}
 \mwerror{refer to the previous paper, say that we follow it. Shorten.}
