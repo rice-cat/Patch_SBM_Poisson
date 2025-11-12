@@ -1,37 +1,38 @@
 \centering
-\begin{tikzpicture}[scale=1.5]
-
+\begin{tikzpicture}[scale=1.4]
     % Draw the Cartesian grid
-    \draw[step=1cm, darkgreen, very thin] (-1.2,-0.2) grid (1.,1.);
-    % Draw the cell
-    \draw[fill=green, opacity=0.6] (0,0) rectangle (1,1);
+    \draw[step=1cm, gray, very thin] (0.8,-0.2) grid (5.2,2.2);
 
-    % Mark interior boundaries (bottom and left)
-    \draw[line width=1.5pt, darkgreen] (0,0) -- (1,0); % Bottom
-    \draw[line width=1.5pt, darkgreen] (0,0) -- (0,1); % Left
+    % Highlight cells inside the domain (interior cells)
+    \foreach \x/\y in {2/1, 1/0, 1/1, 2/0, 3/0, 4/0}
+        {
+            \fill[green, opacity=0.5] (\x,\y) rectangle (\x+1,\y+1);
+        }
+    \foreach \x/\y in {1/0 }{
+            \fill[green, opacity=0.5] (\x,\y) rectangle (\x-0.2,\y+2);
+        }
 
-    \draw[line width=2pt, red] plot [smooth] coordinates {(2,-0.2) (1,1.2) (-1.2, 1.4)};
-    \node at (1.5, 1.1) {$\Gamma$};
+    \fill[green, opacity=0.5] (0.8,-0.2) rectangle (5.2,0);
+
+    \draw[line width=2pt, red, domain=51:90, samples=100, variable=\t]
+    plot ({0.8 + 7.0*cos(\t)}, {-4.4 + 7.0*sin(\t)});
+    \node at (2.6,2.5) {$\Gamma$};
 
     % Fill the area below the red line with light green to indicate the domain Omega
-    \fill[green!30, opacity=0.4] (-1.2, -0.2) -- (2,-0.2) -- plot [smooth] coordinates {(2,-0.2) (1,1.2) (-1.2,
-            1.4)}
-    -- cycle;
+    \fill[green!30, opacity=0.4] plot[domain=51:90, samples=100, variable=\t] ({0.8 + 7.0*cos(\t)}, {-4.4 +
+            7.0*sin(\t)}) -- (0.8,0) -- (5.2,0) -- cycle;
 
-    % Mark surrogate boundaries (top and right)
-    \draw[line width=1.5pt, blue] (0,1) -- (1,1); % Top
-    \draw[line width=1.5pt, blue] (1,0) -- (1,1); % Right
+    % Draw the surrogate boundary (only the top boundary of the interior cells)
+    \draw[line width=1pt, blue] (0.8,2) -- (3,2) -- (3,1) -- (4,1) -- (5,1)-- (5,0)-- (5.2,0.) ;
 
-    \draw[line width=0.6pt, blue] (-1.2,1) -- (0,1); % Top
-    \draw[line width=0.6pt, blue] (1,0) -- (1,-0.2); % Right
+    % Draw the surrogate boundary in the single patch case
+    \draw[line width=3pt, blue] (2,2) -- (3,2) -- (3,1) -- (4,1);
 
-    % Add labels for boundaries
-    % \node[below] at (0.5,0) {$ \mathcal{F}_h^{\text{int}}$};
-    \node[left] at (0,0.5) {$  \mathcal{F}_h^{\text{int}} $};
-    \node[above] at (0.5,1) {$ \tilde{\Gamma}$};
-    % \node[right] at (1,0.5) {$ \tilde{\Gamma}$};
+    % Draw the interior boundary 
+    \draw[line width=2pt, gray] (2,2) -- (2,0) -- (4,0) -- (4,1);
 
-    \node[above] at (1.3,0.1) {$ {\Omega}$};
-    \node at (0.5,0.5) {$ K$};
+    \node at (1.5,0.7) {$\tilde{\Omega}$};
+
+    \node at (1.5,2.3) {${\Omega}$};
 
 \end{tikzpicture}
