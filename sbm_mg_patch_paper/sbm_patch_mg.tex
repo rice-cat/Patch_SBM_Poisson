@@ -247,12 +247,13 @@ boundary conditions, correcting the solution on each cell independently, as illu
         \input{figures/shy_patches.tex}
     \end{subfigure}
     \caption{
-    Illustration of a patch. Interior faces ($\mathcal{F}_h^{\text{int}}$, green) connect to neighboring active cells.
-    For cells adjacent to the domain boundary, faces can be part of the surrogate boundary $\tilde{\Gamma}$ (blue),
-    which
-    is shifted from
-    the
-    true boundary $\Gamma$ (red). The vertex-patch smoother solves should solve the  local problem on patch $P$ ...
+        Left: Boundaries of a vertex patch. Interior boundaries shown in light gray, and the thick blue
+        segments
+        indicate the exterior faces where SBM boundary conditions are applied. Right: the same vertex patch with a gray
+        frame
+        highlighting which degrees of freedom form the patch subspace; three other patches are indicated with gray
+        dashed
+        outlines, and the central vertices are marked by gray squares.
     }
     \label{fig:single_patch_boundaries}
 \end{figure}
