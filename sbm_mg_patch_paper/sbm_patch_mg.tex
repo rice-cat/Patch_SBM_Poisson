@@ -211,15 +211,7 @@ This process is repeated for all subspaces $i=1, \ldots, N$.
 If the subspaces are chosen as one-dimensional spaces spanned by the basis functions, then the preconditioner is
 equivalent to either Jacobi (additive) or Gauss-Seidel (successive).
 
-\mwerror*{rewrite that part}{
-    In the context of DG, a natural choice for the subspaces $\mathbb{V}_i$ is the set of functions that are non-zero
-    only
-    on a single cell. This leads to a cell-wise smoother, where we correct the solution on each cell independently.
-    This
-    can be interpreted as a block Gauss-Seidel smoother, where each block corresponds to the degrees of freedom
-    associated
-    with a single cell.}
-
+\mwerror{to be rewritten with justification what we want from shy patches}
 Viewing the smoother as a subspace correction method reveals important insights into the convergence properties. The
 correction computed within a subspace $\mathbb{V}_i$ implicitly satisfies certain boundary conditions on the boundary
 of that subspace. This is particularly important in the context of the SBM, where the boundary conditions are shifted.
@@ -233,7 +225,14 @@ boundary conditions, correcting the solution on each cell independently, as illu
 \ref{fig:single_patch_boundaries}.
 
 \begin{figure}[!ht]
-    \input{figures/single_patch_bc.tex}
+    \centering
+    \begin{subfigure}[b]{0.4\linewidth}
+        \input{figures/single_patch_bc.tex}
+    \end{subfigure}
+    \qquad
+    \begin{subfigure}[b]{0.4\linewidth}
+        \input{figures/shy_patches.tex}
+    \end{subfigure}
     \caption{
     Illustration of a patch. Interior faces ($\mathcal{F}_h^{\text{int}}$, green) connect to neighboring active cells.
     For cells adjacent to the domain boundary, faces can be part of the surrogate boundary $\tilde{\Gamma}$ (blue),
@@ -246,6 +245,33 @@ boundary conditions, correcting the solution on each cell independently, as illu
 \end{figure}
 
 \subsection{Full-Residual Shy Patches}
+The idea behind our proposed smoother is to construct local problems on patches of cells that are consistent with
+the global problem, particularly in handling the non-standard terms introduced by the SBM. We start by constructing
+vertex patches, where a patch consists of all active cells connected to a given vertex. The subspace for the smoother
+correction is then defined by the degrees of freedom (DoFs) supported by the cells within this patch.
+
+Next we  ensure that the local problem solved on the patch is a faithful representation of
+the global problem. To achieve this, we only include DoFs for which the complete residual can be evaluated using
+information solely from the cells within the patch. This means we exclude any DoFs whose support extends to cells
+outside the current patch. By doing so, we guarantee that the local correction is computed using the true global
+residual, avoiding inconsistencies that would arise from incomplete information, especially near the surrogate
+boundary. Figure~\ref{fig:single_patch_boundaries} illustrates this concept for a few patches.
+
+We further refine this patch selection with a concept we call \emph{shyness}. Much like a shy person at a party needs a
+circle of friends to feel confident enough to join the dance, our vertices are considered shy. A vertex will only form
+the center of a patch if it is surrounded by a sufficient number of \emph{friends} --- in this case, active cells. We
+define a shyness threshold as the minimum number of active cells required around a vertex to consider it for patch
+construction. If a vertex does not meet this threshold, it is deemed too isolated, and no patch is formed around it.
+This strategy prevents the creation of small local problems, which reduces the computational cost of the smoother
+and avoids potential issues with ill-conditioning that can arise from patches with too few active cells.
+
+In~\cite{wichrowski2025geometric}, satisfactory results were obtained with 3 smoothing steps. A multi-stage smoothing
+strategy was proposed in~\cite{cui2025multigrid} for CutFEM, where an initial global smoothing pass was followed by
+additional passes restricted to patches containing cut cells. We adopt a similar strategy here. The first smoothing
+step is applied to all patches in the domain. Subsequent steps are then selectively applied only to those patches that
+contain cells adjacent to the surrogate boundary. This focuses the computational effort of the smoother on the region
+where the SBM introduces non-standard terms and where the error is often most difficult to resolve. These
+boundary-adjacent patches are identified once during the construction of the smoother.
 
 \subsection{Transfer Operators}
 \label{sec:transfer_operators}
@@ -273,33 +299,14 @@ experiments with more sophisticated extrapolation-based transfer operators did n
 interplay between $\lambda$, the resulting active cell configurations, and the transfer operator effectiveness remains
 an important consideration for multigrid performance in SBM.
 
-\begin{figure}[!ht]
-    \input{figures/shy_patches.tex}
-    \caption{
-    Illustration of a patch. Interior faces ($\mathcal{F}_h^{\text{int}}$, green) connect to neighboring active cells.
-    For cells adjacent to the domain boundary, faces can be part of the surrogate boundary $\tilde{\Gamma}$ (blue),
-    which
-    is shifted from
-    the
-    true boundary $\Gamma$ (red). The vertex-patch smoother solves should solve the  local problem on patch $P$ ...
-    }
-    \label{fig:single_patch_boundaries}
-\end{figure}
-
 \section{Implementation details}
 \label{sec:implementation}
 \mwerror{refer to the previous paper, say that we follow it. Shorten.}
-The numerical implementation of the DG-SBM multigrid solver is based on the open-source finite element library
+The numerical implementation of our multigrid solver is based on the open-source finite element library
 \texttt{deal.II}~\cite{dealii2024}. It provides a comprehensive framework for the implementation of~finite
 element methods, including mesh handling, finite element spaces, assembly of linear systems, and interfaces to various
 linear algebra solvers and preconditioners. Its flexibility and extensive capabilities make it well-suited for
 developing complex methods like the one presented here, which involves unfitted meshes and multigrid techniques.
-
-The spatial discretization of the Poisson equation using the Discontinuous Galerkin method follows the standard
-framework available within \texttt{deal.II}. This involves defining the DG finite element space on the background
-Cartesian mesh, assembling the element-wise contributions to the global stiffness matrix and right-hand side vector,
-and handling the jump and average terms across interior faces as described in Section 2.2. The library's support for
-various DG formulations simplifies the implementation of the bilinear form $a_h(u_h, v_h)$.
 
 \subsection{Background mesh and geometry handling}
 When implementing SBM on a non-body-fitted mesh, we need to handle cells intersected by the true
@@ -322,48 +329,21 @@ structure of degrees of freedom (DoF) across all cells.
 \subsection{Processing surrogate boundary and matrix assembly}
 \label{sec:sbm_assembly}
 The SBM requires computing the closest point projection from points on the surrogate boundary $\tilde{\Gamma}$ to the
-true boundary $\Gamma$. For the specific test cases, where it is possible, this projection can be computed exactly.
-For~
-general geometries, finding the closest point involves solving a local nonlinear optimization problem for each
-point on $\tilde{\Gamma}$.
-The problem is to find the point on
-the true boundary that minimizes the distance to a given point on the surrogate boundary, since the true boundary is
-given by the zero level set of the level set function $\phi(\mathbf{x})$, this can be formulated as:
-\[
-    \min_{\mathbf{x} \in \Gamma} \|\mathbf{x} - \tilde{\mathbf{x}}\|^2
-    \quad \text{s.t.} \quad \phi(\mathbf{x}) = 0.
-\]
-We introduce a Lagrange multiplier $\mu$ to enforce the constraint $\phi(\mathbf{x}) = 0$. The Lagrangian function
-is:
-\[
-    \mathcal{L}(\mathbf{x}, \mu) = \|\mathbf{x} - \tilde{\mathbf{x}}\|^2 + \mu \phi(\mathbf{x}).
-\]
-The necessary conditions for optimality are given by the stationary points of the Lagrangian, which satisfy the
-following system of equations:
-\begin{align*}
-    \nabla_{\mathbf{x}} \mathcal{L}(\mathbf{x}, \mu)           & = 2(\mathbf{x} - \tilde{\mathbf{x}}) + \mu
-    \nabla\phi(\mathbf{x}) = 0,
-    \\
-    \frac{\partial \mathcal{L}}{\partial \mu}(\mathbf{x}, \mu) & = \phi(\mathbf{x}) = 0.
-\end{align*}
-Solving this system yields the closest point $\mathbf{x}$ on the true boundary $\Gamma$ to the point
-$\tilde{\mathbf{x}}$ on the surrogate boundary $\tilde{\Gamma}$. The nonlinear system is solved
-iteratively using a Newton-Raphson method. As the Newton-Raphson method requires the evaluation of the Jacobian matrix,
-we need to compute the second derivatives of the level set function $\phi(\mathbf{x})$. To ensure sufficient smoothness
-for derivative calculations in the closest point search, the level set function is represented using finite elements of
-degree $2$ for $p=1$
-and degree $p$ for $p>1$.
-
-The search for the closest point is performed only in the interior of the cells adjacent to the surrogate
+true boundary $\Gamma$. This projection is found by solving a local nonlinear optimization problem for each quadrature
+point on $\tilde{\Gamma}$, which minimizes the distance to the true boundary defined by the zero level set of a
+function $\phi(\mathbf{x})$. The full details of the formulation, which involves a Lagrange multiplier approach solved
+with a Newton-Raphson method, are described in~\cite{wichrowski2025geometric}. To ensure sufficient
+smoothness for the derivative calculations required by the solver, the level set function $\phi(\mathbf{x})$ is
+represented using finite elements of degree 2 for $p=1$ and degree $p$ for $p>1$. The search for the closest point is
+performed only in the interior of the cells adjacent to the surrogate
 boundary. While this does not guarantee that the closest point is found inside the cell, it is expected that
 even if the closest point is outside the cell, the extrapolation will still yield a good approximation of the boundary
-condition. We will verify this assumption in the numerical results.
+condition.
 
-Finally, the extrapolation of the function values from the true boundary to the
-surrogate boundary required for the matrix assembly process is accomplished by evaluating the values of the basis
+The extrapolation of the function values from the true boundary to the surrogate boundary required for the matrix
+assembly process is accomplished by evaluating the values of the basis
 functions at the points on the surrogate boundary. The assembly of the cell contributions and interior faces to the
-system
-matrix and right-hand side vector is performed using the standard finite element assembly process provided by
+system matrix and right-hand side vector is performed using the standard finite element assembly process provided by
 \texttt{deal.II}.
 
 \subsection{Multigrid structures}
@@ -376,28 +356,13 @@ coarser and finer grid levels.
 The assembly of the system matrix $A_\ell$ on each level $\ell$ of the multigrid hierarchy follows a procedure
 analogous to that on the finest level. The level set function defining the domain geometry is interpolated onto the
 mesh $\mathcal{T}_\ell$. Based on this interpolated level set and the chosen threshold $\lambda$, active cells for
-level $\ell$ are identified. The DG-SBM bilinear form is then used to assemble the local contributions to $A_\ell$ only
-for these active cells. For cells deemed non-active on level $\ell$, their corresponding entries in $A_\ell$ are set to
-effectively decouple them from the system by contributing an identity block to the matrix and zero to the right-hand
-side.
-
-The smoother component of the multigrid V-cycle is implemented as a cell-wise Symmetric Successive Over-Relaxation
-(SSOR) method.	The SSOR iteration proceeds by visiting each cell sequentially and solving a small local linear system
-corresponding to the block of degrees of freedom within that cell, using the most recently updated values from
-previously processed cells.
-This choice is motivated by its relative ease of tuning compared to other smoothers. For instance, a Block Jacobi
-smoother typically requires a carefully chosen relaxation parameter. In contrast, SSOR-based smoothers
-often perform well with a fixed relaxation parameter, frequently $\omega=1$, reducing the need for problem-specific
-tuning. Unless stated otherwise, we use $\omega=1$.
-
-The current implementation focuses on testing the fundamental concepts and effectiveness of the multigrid
-preconditioner for the DG-SBM method. Therefore, it is based on serial computations using sparse matrices. While
-\texttt{deal.II} supports parallelization, the initial goal was to validate the multigrid algorithm's convergence
-properties and identify potential challenges in the DG-SBM context before scaling up to larger, parallel problems.
+level $\ell$ are identified. The SBM bilinear form is then used to assemble the local contributions to $A_\ell$ only
+for these active cells. The cells deemed non-active on level $\ell$ are ignored during the assembly, effectively
+decoupling their degrees of freedom from the system on that level.
 
 \section{Numerical results}
 \label{sec:numerical_results}
-In this section, we present numerical results to evaluate the performance of the proposed DG-SBM multigrid
+In this section, we present numerical results to evaluate the performance of the proposed SBM multigrid
 preconditioner for the Poisson equation. We investigate its effectiveness in terms of convergence rates, iteration~
 counts under mesh refinement ($h$-refinement) and polynomial degree increase ($p$-refinement). To better illustrate the
 multigrid preconditioner's performance characteristics and enable meaningful comparison of iteration counts, we solve
