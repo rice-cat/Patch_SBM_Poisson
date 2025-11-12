@@ -120,11 +120,9 @@ where $\mathcal{E}u^\star$ denotes the extrapolated boundary condition. The func
 in a neighborhood of $\tilde{\Gamma}$, which allows for the Taylor expansion to be valid. By substituting it into the
 weak formulation, we obtain a variational formulation for the shifted boundary problem with the extrapolated boundary
 condition on
-$\tilde{\Gamma}$ enforced in a Nitsche-like manner.
-
-The SBM weak formulation seeks $u_h \in V_h$ such that for all $v_h
+$\tilde{\Gamma}$ enforced in a Nitsche-like manner; the weak formulation seeks $u_h \in V_h$ such that for all $v_h
     \in V_h$,
-\begin{equation*}
+\begin{equation}
     \begin{split}
         \int_{\tilde{\Omega}} \nabla u_h \cdot \nabla v_h \, dx
         - \int_{\tilde{\Gamma}} (\nabla u_h \cdot \tilde{\mathbf{n}}) v_h \, ds
@@ -134,13 +132,8 @@ The SBM weak formulation seeks $u_h \in V_h$ such that for all $v_h
         - \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) g^E \, ds
         + \int_{\tilde{\Gamma}} \sigma_\Gamma g v_h \, ds.
     \end{split}
-\end{equation*}
+\end{equation}
 where $\tilde{\mathbf{n}}$ is the outward normal to $\tilde{\Gamma}$ and $\sigma_\Gamma$ is a penalty parameter.
-We notice that our discrete solution $u_h$ is a piecewise polynomial function defined on the
-background mesh $\mathcal{T}_h$, hence its Taylor expansion can be computed directly by evaluating the
-function values at the points on the true boundary $\Gamma$. This allows us to avoid computation of higher-order
-derivatives of $u_h$. Note that the resulting form is no longer symmetric due to the presence of the extrapolated
-boundary condition. We will refer to formulation with $\alpha=1$ as the \emph{quasi-symmetric} formulation.
 
 The choice of the stabilization term, particularly the parameter $\alpha$, significantly influences the spectral
 properties of the resulting system matrix. As detailed in our previous work on a Discontinuous Galerkin (DG) based SBM
@@ -156,6 +149,26 @@ larger, overlapping patches of elements (i.e. vertex or edge patches), the choic
 critical. The non-standard terms introduced by SBM are not well-contained within these patches, and an inappropriate
 stabilization can introduce spectral properties that standard smoothers cannot handle effectively, a problem that is
 exacerbated for higher-order elements.
+
+The SBM weak formulation with symmetrized stabilization seeks $u_h \in V_h$ such that for all $v_h
+    \in V_h$,
+\begin{equation}
+    \begin{split}
+        \int_{\tilde{\Omega}} \nabla u_h \cdot \nabla v_h \, dx
+        - \int_{\tilde{\Gamma}} (\nabla u_h \cdot \tilde{\mathbf{n}}) v_h \, ds
+        -  \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) \; \mathcal{E}u_h \, ds
+        + \int_{\tilde{\Gamma}} \sigma_\Gamma \; \mathcal{E} u_h  \; \mathcal{E} v_h \, ds = \\
+        = \int_{\tilde{\Omega}} f v_h \, dx
+        - \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) g^E \, ds
+        + \int_{\tilde{\Gamma}} \sigma_\Gamma g v_h \, ds.
+    \end{split}
+\end{equation}
+where $\tilde{\mathbf{n}}$ is the outward normal to $\tilde{\Gamma}$ and $\sigma_\Gamma$ is a penalty parameter.
+We notice that our discrete solution $u_h$ is a piecewise polynomial function defined on the
+background mesh $\mathcal{T}_h$, hence its Taylor expansion can be computed directly by evaluating the
+function values at the points on the true boundary $\Gamma$. This allows us to avoid computation of higher-order
+derivatives of $u_h$. Note that the resulting form is not symmetric due to the presence of the extrapolated
+boundary condition.
 
 \section{Multigrid Preconditioner}
 \label{sec:mg_preconditioner}
