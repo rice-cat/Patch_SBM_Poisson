@@ -254,12 +254,13 @@ smoother.
         dashed
         outlines, and the central vertices are marked by filled gray squares. The vertices marked with small gray
         squares may  be too shy to form their own patches, depending on the shyness threshold. Note that as long as
-        the shyness threshold is at least 3 all degrees of freedom from those patches will be include in other patches.
+        the shyness threshold is at most 3 all degrees of freedom from those patches will be include in other patches.
     }
     \label{fig:single_patch_boundaries}
 \end{figure}
 
 \subsection{Full-Residual Shy Patches}
+\label{sec:shy_patches}
 The idea behind our proposed smoother is to construct local problems on patches of cells that are consistent with
 the global problem, particularly in handling the non-standard terms introduced by the SBM. We start by constructing
 vertex patches, where a patch consists of all active cells connected to a given vertex. The subspace for the smoother
@@ -279,6 +280,19 @@ define a shyness threshold as the minimum number of active cells required around
 construction. If a vertex does not meet this threshold, it is deemed too isolated, and no patch is formed around it.
 This strategy prevents the creation of small local problems, which reduces the computational cost of the smoother
 and avoids potential issues with ill-conditioning that can arise from patches with too few active cells.
+
+This raises an important question about the maximum shyness threshold required to ensure that every degree of freedom
+is included in at least one patch. If a DoF is not part of any patch, its value will never be updated by the smoother,
+which is detrimental to convergence. In two dimensions, a vertex can be adjacent to at most four cells. As illustrated
+in Figure~\ref{fig:single_patch_boundaries}, if a vertex is adjacent to only one or two active cells, the DoFs
+associated with that vertex might not be included in any other patch if their respective central vertices are also
+\emph{shy}. To guarantee that every DoF belongs to at least one patch, the shyness threshold must be at most 3 in 2D
+(and 5 in 3D). This ensures that even if a vertex is too shy to form its own patch, its associated DoFs are guaranteed
+to be included in the patch of a sufficiently \emph{sociable} neighboring vertex.
+
+% While it is theoretically possible
+% for some DoFs to be left out with a lower threshold, which would hinder convergence, setting the minimum shyness to 3
+% provides a robust covering of all DoFs.
 
 In~\cite{wichrowski2025geometric}, satisfactory results were obtained with 3 smoothing steps. A multi-stage smoothing
 strategy was proposed in~\cite{cui2025multigrid} for CutFEM, where an initial global smoothing pass was followed by
