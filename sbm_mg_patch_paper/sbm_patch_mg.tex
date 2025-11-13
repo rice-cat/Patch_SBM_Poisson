@@ -24,6 +24,13 @@
 \section{Introduction}
 \mwerror{Introduction needs to be rewritten.}
 
+Ajay: you have command to mark errors:
+\aaerror{error mesage }{Text to be fixed}
+\aaerror*{error mesage but text is highlighted}{Another text to be fixed}
+\aawarning{warning message}{Text to be fixed but less severe}
+\aanote{note message}{Text maybe fixed or improved or just a note}
+\aanote*{note message with highlighted text}{works with highlighting too}
+
 \section{Method formulation}
 \label{sec:method}
 We consider the Poisson problem as a model problem:
@@ -341,12 +348,12 @@ classified as active if this fraction is greater than a threshold $\lambda$. Thi
 quadrature rules implemented in \texttt{deal.II}, which are based on the techniques described in~\cite{saye2015high}.
 
 In our approach, degrees of freedom are formally assigned to all cells of the background mesh,
-including those that are classified  as non-active. However, for non-active cells, the local contribution to the global
-system matrix is set to the identity matrix, and the corresponding entries in the right-hand side are set to zero. This
-effectively decouples the
-degrees of freedom in non-active cells from the system, ensuring that the solution is only computed within the
-computational domain $\tilde{\Omega}$ while simplifying the global matrix assembly process by maintaining a uniform
-structure of degrees of freedom (DoF) across all cells.
+including those that are classified  as non-active. In the matrix assembly we ignore the contributions from these
+non-active cells, effectively removing them from the system. This results in a singular global matrix; however, since
+the corresponding degrees of freedom do not influence the solution in the active domain, this does not pose a problem
+for the iterative solver. The only affected part of the multigrid is the coarse-grid solver, which we handle by using a
+direct solver. To make the coarse system invertible, we set one on the diagonal entries of zero rows corresponding to
+non-active DoFs.
 
 \subsection{Processing surrogate boundary and matrix assembly}
 \label{sec:sbm_assembly}
