@@ -31,6 +31,58 @@ Ajay: you have command to mark errors:
 \aanote{note message}{Text maybe fixed or improved or just a note}
 \aanote*{note message with highlighted text}{works with highlighting too}
 
+\mwnote{the text below is created adccidentaly, I wrote prompt for Gemini in the wrong window and pressed Enter.
+    Although it looks reasonable.}
+The numerical solution of partial differential equations (PDEs) on domains with complex or evolving geometries is a
+persistent challenge in scientific computing. Traditional finite element methods, which rely on body-fitted meshes that
+conform to the domain's boundary, often face significant hurdles in mesh generation, particularly for intricate
+three-dimensional shapes. This process can be both computationally expensive and a major bottleneck in the overall
+simulation workflow.
+
+Immersed or unfitted boundary methods offer an attractive alternative by decoupling the domain geometry from the mesh.
+These methods employ a simple, structured background mesh (e.g., a Cartesian grid) that does not conform to the
+physical boundary, thereby simplifying the meshing process immensely. The domain is simply ``immersed'' in this
+background mesh. The Shifted Boundary Method (SBM) is a prominent example of such a technique~\cite{main2018shifted}.
+In SBM, the boundary conditions are not enforced on the true, complex boundary but are instead transferred to a nearby
+surrogate boundary composed of faces from the background mesh cells. This transfer is achieved by extrapolating the
+boundary data, typically via Taylor series expansions.
+
+While SBM simplifies mesh generation, it introduces new mathematical and computational challenges. The resulting linear
+systems are often large, sparse, ill-conditioned, and non-symmetric, making them difficult to solve efficiently. The
+convergence of iterative solvers like GMRES, which are necessary for such systems, depends heavily on the availability
+of a robust and scalable preconditioner. Multigrid methods are prime candidates for this role, offering the potential
+for optimal, mesh-independent convergence rates.
+
+However, the application of standard multigrid techniques to SBM is not straightforward. Two primary difficulties
+arise. First, the non-standard boundary terms introduced by the SBM formulation can disrupt the smoothing properties of
+classical smoothers like Jacobi or Gauss-Seidel, which are not designed to handle such complexities. Second, the set of
+active cells forming the computational domain may not be nested across the multigrid hierarchy, which can compromise
+the effectiveness of standard inter-grid transfer operators.
+
+In previous work~\cite{wichrowski2025geometric}, a geometric multigrid preconditioner was developed for a Discontinuous
+Galerkin (DG) SBM formulation. While effective, the cell-based nature of the DG smoother encountered difficulties at
+higher polynomial degrees. For the continuous Galerkin (CG) methods considered here, the challenges are different and,
+in some ways, more acute. The stronger coupling between degrees of freedom means that simple smoothers fail more
+dramatically, and a more sophisticated approach is required.
+
+This paper introduces a robust geometric multigrid preconditioner for a continuous Galerkin SBM formulation. Our main
+contribution is the development of a novel subspace correction smoother, which we term the ``Full-Residual Shy Patch''
+smoother. This smoother is built on local problems defined on overlapping patches of elements. The key ideas are:
+\begin{enumerate}
+    \item \textbf{Consistent Local Problems:} The local problem on each patch is constructed to be a faithful
+          representation of the global SBM problem, including all relevant boundary terms. This is achieved by using
+          the full
+          global residual for all degrees of freedom fully contained within the patch.
+    \item \textbf{Shy Patch Criterion:} To ensure robustness and avoid ill-conditioning, patches are only formed around
+          vertices that are sufficiently surrounded by active cells, a concept we call ``shyness''. This prevents the
+          creation of
+          small, isolated local problems that are numerically unstable.
+\end{enumerate}
+We demonstrate that this patch-based smoother, combined with a multi-stage strategy that focuses effort near the
+boundary, leads to a highly effective h-multigrid preconditioner. The performance of the proposed method is evaluated
+through a series of numerical experiments, showing excellent robustness with respect to mesh refinement ($h$) and
+scalability up to moderately high polynomial degrees ($p$).
+
 \section{Method formulation}
 \label{sec:method}
 We consider the Poisson problem as a model problem:
