@@ -16,8 +16,13 @@
 
     %Draw central vertex 
     %BTW: The name is not mine, GPT5 came up with it xD
-    \newcommand{\drawShySquareAt}[2]{%
+    \newcommand{\drawConfidentSquareAt}[2]{%
         \fill[gray] ($(#1,#2)+(-0.1,-0.1)$) rectangle ($(#1,#2)+(0.1,0.1)$);%
+    }
+
+    \newcommand{\drawShySquareAt}[2]{% 
+        \draw[gray, line width=1pt, fill=none, draw opacity=1] ($(#1,#2)+(-0.05,-0.05)$) rectangle
+        ($(#1,#2)+(0.05,0.05)$);% 
     }
 
     \foreach \x/\y in {1/0 }{
@@ -44,22 +49,28 @@
     (3.85,1.15)--(3.15,1.15)--(3.15,2.15)--cycle;
 
     %  Draw shy center at (3,1)
-    \drawShySquareAt{3}{1}
+    \drawConfidentSquareAt{3}{1}
 
     % Draw the patch boundary in the shy patches  
     \draw[line width=1pt, gray, dashed, rounded corners=10pt, line join=round] (3.15,-0.2) -- (3.15,1.2) --
     (5.20,1.2) --(5.20,0.3) --(4.82,0.1)--(4.85,-0.2);
 
     %  Draw shy center at (3,1)
-    \drawShySquareAt{4}{0}
+    \drawConfidentSquareAt{4}{0}
 
     % Draw the patch boundary in the shy patches  
     \draw[line width=1pt, gray, dashed, rounded corners=10pt, line join=round] (0.8,2.15) -- (1.85,2.15) --
     (1.850,0.15) --(0.8,0.15);
-    \drawShySquareAt{1}{1}
+    \drawConfidentSquareAt{1}{1}
 
     \draw[line width=1pt, gray, dashed, rounded corners=10pt, line join=round] (1.2,2.3) -- (3.3,2.3) --
     (3.3,1.3) --(2.8,1.15)--(2.8,0.2)--(1.2,0.2)--cycle;
-    \drawShySquareAt{2}{1}
+    \drawConfidentSquareAt{2}{1}
+
+    \drawShySquareAt{1}{2}
+    \drawShySquareAt{2}{2}
+    \drawShySquareAt{3}{2}
+    \drawShySquareAt{4}{1}
+    \drawShySquareAt{5}{1}
 
 \end{tikzpicture}

@@ -252,7 +252,9 @@ smoother.
         frame
         highlighting which degrees of freedom form the patch subspace; three other patches are indicated with gray
         dashed
-        outlines, and the central vertices are marked by gray squares.
+        outlines, and the central vertices are marked by filled gray squares. The vertices marked with small gray
+        squares may  be too shy to form their own patches, depending on the shyness threshold. Note that as long as
+        the shyness threshold is at least 3 all degrees of freedom from those patches will be include in other patches.
     }
     \label{fig:single_patch_boundaries}
 \end{figure}
