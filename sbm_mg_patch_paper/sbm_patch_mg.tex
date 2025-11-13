@@ -222,13 +222,12 @@ This process is repeated for all subspaces $i=1, \ldots, N$.
 If the subspaces are chosen as one-dimensional spaces spanned by the basis functions, then the preconditioner is
 equivalent to either Jacobi (additive) or Gauss-Seidel (successive).
 
-\mwerror{to be rewritten with justification what we want from shy patches}
 Viewing the smoother as a subspace correction method provides a useful framework. The effectiveness of such a smoother
 depends critically on the choice of subspaces and the local problems solved on them. For continuous finite element
 methods, simple choices like one-dimensional subspaces corresponding to individual degrees of freedom (leading to
 Jacobi or Gauss-Seidel smoothers) are ineffective for SBM. These methods implicitly enforce a zero correction on the
-boundary of the single-vertex \emph{patch}, which conflicts with the non-standard boundary terms introduced by SBM, a fact
-confirmed by our preliminary experiments.
+boundary of the single-vertex \emph{patch}, which conflicts with the non-standard boundary terms introduced by SBM, a
+fact confirmed by our preliminary experiments.
 
 This suggests that the subspaces must be large enough to capture the local behavior of the SBM formulation. We
 therefore construct local problems on larger subspaces, defined by patches of elements centered around a vertex, as
@@ -289,8 +288,6 @@ boundary-adjacent patches are identified once during the construction of the smo
 
 \subsection{Transfer Operators}
 \label{sec:transfer_operators}
-\mwerror{shorten and rewrite that part}
-
 The transfer of information between different levels of the multigrid hierarchy is handled by prolongation and
 restriction operators. The prolongation operator, $I_{\ell-1}^\ell$, maps a function from the coarse space
 $\mathbb{V}_{\ell-1}$ to the fine space $\mathbb{V}_\ell$, while the restriction operator, $I_\ell^{\ell-1}$, transfers
@@ -311,12 +308,11 @@ it is essentially discarded, breaking the flow of information required for an ef
 
 \section{Implementation details}
 \label{sec:implementation}
-\mwerror{refer to the previous paper, say that we follow it. Shorten.}
 The numerical implementation of our multigrid solver is based on the open-source finite element library
 \texttt{deal.II}~\cite{dealii2024}. It provides a comprehensive framework for the implementation of~finite
 element methods, including mesh handling, finite element spaces, assembly of linear systems, and interfaces to various
-linear algebra solvers and preconditioners. Its flexibility and extensive capabilities make it well-suited for
-developing complex methods like the one presented here, which involves unfitted meshes and multigrid techniques.
+linear algebra solvers and preconditioners. In this paper we build upon the implementation of the multigrid solver for
+DG-SBM presented in~\cite{wichrowski2025geometric}.
 
 \subsection{Background mesh and geometry handling}
 When implementing SBM on a non-body-fitted mesh, we need to handle cells intersected by the true
