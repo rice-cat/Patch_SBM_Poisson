@@ -24,12 +24,10 @@
 \section{Introduction}
 \mwerror{Introduction needs to be rewritten.}
 
-Ajay: you have command to mark errors:
-\aaerror{error mesage }{Text to be fixed}
-\aaerror*{error mesage but text is highlighted}{Another text to be fixed}
-\aawarning{warning message}{Text to be fixed but less severe}
-\aanote{note message}{Text maybe fixed or improved or just a note}
-\aanote*{note message with highlighted text}{works with highlighting too}
+Ajay: you have command to mark errors: \aaerror{error mesage }{Text to be fixed} \aaerror*{error mesage but text is
+    highlighted}{Another text to be fixed} \aawarning{warning message}{Text to be fixed but less severe} \aanote{note
+    message}{Text maybe fixed or improved or just a note} \aanote*{note message with highlighted text}{works with
+    highlighting too}
 
 \mwnote{the text below is created adccidentaly, I wrote prompt for Gemini in the wrong window and pressed Enter.
     Although it looks reasonable.}
@@ -94,34 +92,32 @@ where $\Omega \subset \mathbb{R}^d$ ($d=2,3$) is a domain with boundary $\Gamma 
 Figure~\ref{fig:sbm_setup}, $f$ is a given source term, and $g$ is the prescribed Dirichlet boundary condition.
 
 To solve this problem numerically, we first formulate it in a weak sense. We seek a solution $u$ in an appropriate
-function space, $H^1(\Omega)$, which consists of functions that are square-integrable
-and whose first derivatives are also square-integrable.  Multiplying the equation by a test function $v \in
-    H^1(\Omega)$
-and integrating  over $\Omega$, we obtain:
+function space, $H^1(\Omega)$, which consists of functions that are square-integrable and whose first derivatives are
+also square-integrable. Multiplying the equation by a test function $v \in H^1(\Omega)$ and integrating over $\Omega$,
+we obtain:
 \[
     \int_\Omega \nabla u \cdot \nabla v \, dx - \int_{\Gamma} (\nabla u \cdot \mathbf{n}) \, v \, ds =
     \int_\Omega f \, v \, dx.
 \]
 
 We next introduce a triangulation \( \mathcal{T}_h \) consisting of quadrilateral (2D) or hexahedral (3D) elements of
-size $h$, and define a finite element space $\mathbb{V}_h\subset H^1(\Omega)$ using Lagrange polynomial
-elements of degree \( p \). In classical finite element methods, the mesh conforms to the boundary (unlike the
-background mesh approach illustrated in Figure~\ref{fig:sbm_setup}), and test
-functions $v$ typically vanish on $\Gamma $ to strongly enforce the Dirichlet condition $u=g$.
-When function spaces do not necessarily satisfy essential boundary conditions strongly, boundary conditions
-must be enforced weakly through additional integral terms on $\Gamma$.
+size $h$, and define a finite element space $\mathbb{V}_h\subset H^1(\Omega)$ using Lagrange polynomial elements of
+degree \( p \). In classical finite element methods, the mesh conforms to the boundary (unlike the background mesh
+approach illustrated in Figure~\ref{fig:sbm_setup}), and test functions $v$ typically vanish on $\Gamma $ to strongly
+enforce the Dirichlet condition $u=g$. When function spaces do not necessarily satisfy essential boundary conditions
+strongly, boundary conditions must be enforced weakly through additional integral terms on $\Gamma$.
 
 Nitsche's method provides a way to weakly impose Dirichlet boundary conditions within a variational formulation without
 requiring the function space to satisfy the boundary conditions. It modifies the bilinear form by adding terms on the
-boundary $\Gamma$. The standard Nitsche formulation for the Poisson problem with Dirichlet boundary
-conditions $u=g$ on $\Gamma$ seeks $u_h \in V_h$ such that for all $v_h \in \mathbb{V}_h$:
+boundary $\Gamma$. The standard Nitsche formulation for the Poisson problem with Dirichlet boundary conditions $u=g$ on
+$\Gamma$ seeks $u_h \in V_h$ such that for all $v_h \in \mathbb{V}_h$:
 \begin{equation*}
     \begin{split}
         \int_\Omega \nabla u_h \cdot \nabla v_h \, dx
         \;\; - \int_{\Gamma} (\nabla u_h \cdot \mathbf{n}) v_h \, ds
-        - &\alpha\int_{\Gamma} (\nabla v_h \cdot \mathbf{n}) u_h \, ds
-        + \int_{\Gamma} \sigma u_h v_h \, ds = \\
-        & = \int_\Omega f v_h \, dx
+        - & \alpha\int_{\Gamma} (\nabla v_h \cdot \mathbf{n}) u_h \, ds
+        + \int_{\Gamma} \sigma u_h v_h \, ds =                          \\
+          & = \int_\Omega f v_h \, dx
         - \int_{\Gamma} (\nabla v_h \cdot \mathbf{n}) g \, ds
         + \int_{\Gamma} \sigma_\Gamma g v_h \, ds.
     \end{split}
@@ -152,11 +148,10 @@ only cells strictly contained in $\Omega$ were included, leading to the surrogat
 depicted by the solid blue line in Figure~\ref{fig:sbm_setup}. Consequently, the surrogate domain $\tilde{\Omega}$ is
 generally a subset of $\Omega$, and its boundary $\tilde{\Gamma}$ does not coincide with the true boundary $\Gamma$.
 
-Later extensions include intersected cells~\cite{yang2024optimal} with a volume fraction
-inside $\Omega$ greater than a threshold $\lambda\in [0,1]$. In Figure
-\ref{fig:sbm_setup}, this
-corresponds to including additional cells as indicated by the dashed blue
-line. This approach reduces the distance between true and surrogate boundaries, but can lead to ill-conditioning.
+Later extensions include intersected cells~\cite{yang2024optimal} with a volume fraction inside $\Omega$ greater than a
+threshold $\lambda\in [0,1]$. In Figure \ref{fig:sbm_setup}, this corresponds to including additional cells as
+indicated by the dashed blue line. This approach reduces the distance between true and surrogate boundaries, but can
+lead to ill-conditioning.
 
 To impose boundary conditions on $\tilde{\Gamma}$, the Dirichlet condition prescribed on the true boundary $\Gamma$ is
 extrapolated to the surrogate boundary. This is typically accomplished by projecting points from $\tilde{\Gamma}$ onto
@@ -166,11 +161,10 @@ which maps functions defined on $\tilde{\Omega}$ to the surrogate boundary $\til
 
 We assume that the Dirichlet boundary condition $g$ is given as a restriction of a function $u^\star$ defined on the
 entire domain $\Omega$ to the boundary $\Gamma$. While the choice of this function $u^\star$ (as an extension of $g$
-from $\Gamma$ into $\Omega$) is not unique, we take $u^\star$ to be equal to the solution $u$ in the
-surrogate domain $\tilde{\Omega}$. For each point $\tilde{\mathbf{x}} \in \tilde{\Gamma}$, let $\mathbf{x} \in \Gamma$
-be its closest point projection onto the true boundary, and let $\mathbf{d} = \mathbf{x} - \tilde{\mathbf{x}}$ be
-the shift vector. The function $u$ is extended from $\Gamma$ to $\tilde{\Gamma}$ using a
-Taylor expansion:
+from $\Gamma$ into $\Omega$) is not unique, we take $u^\star$ to be equal to the solution $u$ in the surrogate domain
+$\tilde{\Omega}$. For each point $\tilde{\mathbf{x}} \in \tilde{\Gamma}$, let $\mathbf{x} \in \Gamma$ be its closest
+point projection onto the true boundary, and let $\mathbf{d} = \mathbf{x} - \tilde{\mathbf{x}}$ be the shift vector.
+The function $u$ is extended from $\Gamma$ to $\tilde{\Gamma}$ using a Taylor expansion:
 \[
     \mathcal{E}u^\star(\tilde{\mathbf{x}}) = u^\star(\mathbf{x}) - \mathbf{d} \cdot \nabla u (\tilde{\mathbf{x}}) +
     \cdots
@@ -178,9 +172,8 @@ Taylor expansion:
 where $\mathcal{E}u^\star$ denotes the extrapolated boundary condition. The function $u^\star$ is assumed to be smooth
 in a neighborhood of $\tilde{\Gamma}$, which allows for the Taylor expansion to be valid. By substituting it into the
 weak formulation, we obtain a variational formulation for the shifted boundary problem with the extrapolated boundary
-condition on
-$\tilde{\Gamma}$ enforced in a Nitsche-like manner; the weak formulation seeks $u_h \in V_h$ such that for all $v_h
-    \in V_h$,
+condition on $\tilde{\Gamma}$ enforced in a Nitsche-like manner; the weak formulation seeks $u_h \in V_h$ such that for
+all $v_h \in V_h$,
 \begin{equation}
     \begin{split}
         \int_{\tilde{\Omega}} \nabla u_h \cdot \nabla v_h \, dx
@@ -197,20 +190,19 @@ where $\tilde{\mathbf{n}}$ is the outward normal to $\tilde{\Gamma}$ and $\sigma
 The choice of the stabilization term, particularly the parameter $\alpha$, significantly influences the spectral
 properties of the resulting system matrix. As detailed in our previous work on a Discontinuous Galerkin (DG) based SBM
 multigrid preconditioner~\cite{wichrowski2025geometric}, this can be observed even in a simple 1D single-cell problem.
-For instance, a penalty-free formulation ($\sigma=0$, $\alpha=-1$) can lead to complex eigenvalues, especially
-when the true boundary lies inside the surrogate domain.
+For instance, a penalty-free formulation ($\sigma=0$, $\alpha=-1$) can lead to complex eigenvalues, especially when the
+true boundary lies inside the surrogate domain.
 
 In the context of DG methods, it was found that the choice of stabilization did not have a dramatic impact on the
 overall multigrid performance, as the cell-based nature of the DG smoother effectively handled local
 issues~\cite{wichrowski2025geometric}. However, in the DG formulation the cellwise smoother experienced singifficant
-challenges for $p=3$. For continuous finite elements, where our smoother operate on
-larger, overlapping patches of elements (i.e. vertex or edge patches), the choice of stabilization becomes far more
-critical. The non-standard terms introduced by SBM are not well-contained within these patches, and an inappropriate
-stabilization can introduce spectral properties that standard smoothers cannot handle effectively, a problem that is
-exacerbated for higher-order elements.
+challenges for $p=3$. For continuous finite elements, where our smoother operate on larger, overlapping patches of
+elements (i.e. vertex or edge patches), the choice of stabilization becomes far more critical. The non-standard terms
+introduced by SBM are not well-contained within these patches, and an inappropriate stabilization can introduce
+spectral properties that standard smoothers cannot handle effectively, a problem that is exacerbated for higher-order
+elements.
 
-The SBM weak formulation with symmetrized stabilization seeks $u_h \in V_h$ such that for all $v_h
-    \in V_h$,
+The SBM weak formulation with symmetrized stabilization seeks $u_h \in V_h$ such that for all $v_h \in V_h$,
 \begin{equation}
     \begin{split}
         \int_{\tilde{\Omega}} \nabla u_h \cdot \nabla v_h \, dx
@@ -242,16 +234,15 @@ where $\ell$ denotes the level and $L$ is the finest level. On each mesh $\mathc
 space $\mathbb{V}_\ell$ consisting of continuous piecewise polynomials of a fixed degree $p$.
 
 This represents an important difference from the work on a Discontinuous Galerkin SBM
-preconditioner~\cite{wichrowski2025geometric}, where an hp-multigrid strategy with lower polynomial degrees on
-coarser levels was necessary to achieve good performance. In the present continuous Galerkin context, we find that a
-simpler h-multigrid approach is enough. We note that while the background meshes are nested, the sets of active
-cells on different levels (determined by the fraction $\lambda$ of their volume inside the domain) are not necessarily
-nested. This lack of geometric nestedness can affect the efficiency of standard inter-grid transfer operators.
+preconditioner~\cite{wichrowski2025geometric}, where an hp-multigrid strategy with lower polynomial degrees on coarser
+levels was necessary to achieve good performance. In the present continuous Galerkin context, we find that a simpler
+h-multigrid approach is enough. We note that while the background meshes are nested, the sets of active cells on
+different levels (determined by the fraction $\lambda$ of their volume inside the domain) are not necessarily nested.
+This lack of geometric nestedness can affect the efficiency of standard inter-grid transfer operators.
 
-With this hierarchy of meshes and spaces established, the multigrid method is defined through three crucial
-components: a smoother, which reduces high-frequency error components on each level; transfer operators,
-which move information between different resolution levels; and a coarse-grid solver. For preconditioning, we use a
-single multigrid V-cycle.
+With this hierarchy of meshes and spaces established, the multigrid method is defined through three crucial components:
+a smoother, which reduces high-frequency error components on each level; transfer operators, which move information
+between different resolution levels; and a coarse-grid solver. For preconditioning, we use a single multigrid V-cycle.
 
 \subsection{Smoother}
 \label{sec:smoother}
@@ -261,25 +252,24 @@ the approximation:
 \[
     u_h^{k+1} = u_h^k + P(f_h - A_h u_h^k).
 \]
-We decompose the space $\DGell$ into a sum of subspaces $\mathbb{V}_i$, i.e., $\DGell = \sum_{i=1}^N
-    \mathbb{V}_i$. Let $A_i$ be the restriction of $A$ to the subspace $\mathbb{V}_i$. Then, the additive subspace
-correction
-preconditioner is defined as:
+We decompose the space $\DGell$ into a sum of subspaces $\mathbb{V}_i$, i.e., $\DGell = \sum_{i=1}^N \mathbb{V}_i$. Let
+$A_i$ be the restriction of $A$ to the subspace $\mathbb{V}_i$. Then, the additive subspace correction preconditioner
+is defined as:
 \[
-    P = \omega \sum_{i=1}^N A_i^{-1}
+    B = \omega \sum_{i=1}^N A_i^{-1}
 \]
 where $\omega$ is a relaxation parameter. Alternatively, the successive subspace correction method is a subspace
 correction method where the subspaces $\mathbb{V}_i$ are visited in a sequential manner. The procedure can be performed
-by applying one Richardson iteration with the preconditioner $P_i$ for each subspace $\mathbb{V}_i$.
-Since in each step only one subspace is corrected, the residual only changes locally and an efficient implementation is
-possible. The preconditioner updates the solution by sequentially applying corrections for each subspace. For each
-subspace $\mathbb{V}_i$, a correction is computed and applied:
+by applying one Richardson iteration with the preconditioner $P_i$ for each subspace $\mathbb{V}_i$. Since in each step
+only one subspace is corrected, the residual only changes locally and an efficient implementation is possible. The
+preconditioner updates the solution by sequentially applying corrections for each subspace. For each subspace
+$\mathbb{V}_i$, a correction is computed and applied:
 \[
     u_h \leftarrow u_h + R_i^T A_i^{-1} R_i (f_h - A_h u_h).
 \]
-This process is repeated for all subspaces $i=1, \ldots, N$.
-If the subspaces are chosen as one-dimensional spaces spanned by the basis functions, then the preconditioner is
-equivalent to either Jacobi (additive) or Gauss-Seidel (successive).
+This process is repeated for all subspaces $i=1, \ldots, N$. If the subspaces are chosen as one-dimensional spaces
+spanned by the basis functions, then the preconditioner is equivalent to either Jacobi (additive) or Gauss-Seidel
+(successive).
 
 Viewing the smoother as a subspace correction method provides a useful framework. The effectiveness of such a smoother
 depends critically on the choice of subspaces and the local problems solved on them. For continuous finite element
@@ -325,20 +315,20 @@ the global problem, particularly in handling the non-standard terms introduced b
 vertex patches, where a patch consists of all active cells connected to a given vertex. The subspace for the smoother
 correction is then defined by the degrees of freedom (DoFs) supported by the cells within this patch.
 
-Next we  ensure that the local problem solved on the patch is a faithful representation of
-the global problem. To achieve this, we only include DoFs for which the complete residual can be evaluated using
-information solely from the cells within the patch. This means we exclude any DoFs whose support extends to cells
-outside the current patch. By doing so, we guarantee that the local correction is computed using the true global
-residual, avoiding inconsistencies that would arise from incomplete information, especially near the surrogate
-boundary. Figure~\ref{fig:single_patch_boundaries} illustrates this concept for a few patches.
+Next we ensure that the local problem solved on the patch is a faithful representation of the global problem. To
+achieve this, we only include DoFs for which the complete residual can be evaluated using information solely from the
+cells within the patch. This means we exclude any DoFs whose support extends to cells outside the current patch. By
+doing so, we guarantee that the local correction is computed using the true global residual, avoiding inconsistencies
+that would arise from incomplete information, especially near the surrogate boundary.
+Figure~\ref{fig:single_patch_boundaries} illustrates this concept for a few patches.
 
 We further refine this patch selection with a concept we call \emph{shyness}. Much like a shy person at a party needs a
 circle of friends to feel confident enough to join the dance, our vertices are considered shy. A vertex will only form
 the center of a patch if it is surrounded by a sufficient number of \emph{friends} --- in this case, active cells. We
 define a shyness threshold as the minimum number of active cells required around a vertex to consider it for patch
 construction. If a vertex does not meet this threshold, it is deemed too isolated, and no patch is formed around it.
-This strategy prevents the creation of small local problems, which reduces the computational cost of the smoother
-and avoids potential issues with ill-conditioning that can arise from patches with too few active cells.
+This strategy prevents the creation of small local problems, which reduces the computational cost of the smoother and
+avoids potential issues with ill-conditioning that can arise from patches with too few active cells.
 
 This raises an important question about the maximum shyness threshold required to ensure that every degree of freedom
 is included in at least one patch. If a DoF is not part of any patch, its value will never be updated by the smoother,
@@ -390,22 +380,21 @@ linear algebra solvers and preconditioners. In this paper we build upon the impl
 DG-SBM presented in~\cite{wichrowski2025geometric}.
 
 \subsection{Background mesh and geometry handling}
-When implementing SBM on a non-body-fitted mesh, we need to handle cells intersected by the true
-boundary $\Gamma$. We use a level set function $\phi(\mathbf{x})$ to implicitly define the domain $\Omega =
-    \{\mathbf{x} \mid \phi(\mathbf{x}) < 0\}$, with $\Gamma = \{\mathbf{x} \mid \phi(\mathbf{x}) = 0\}$. Cells of the
-background mesh are classified based on their intersection with the zero level set: cells entirely inside $\Omega$
-(interior), cells entirely outside $\Omega$ (exterior), and cells intersected by $\Gamma$.
-Then, for the intersected cells the fraction of the cell volume inside $\Omega$ is computed, and the cell is
-classified as active if this fraction is greater than a threshold $\lambda$. This is handled using non-matching
-quadrature rules implemented in \texttt{deal.II}, which are based on the techniques described in~\cite{saye2015high}.
+When implementing SBM on a non-body-fitted mesh, we need to handle cells intersected by the true boundary $\Gamma$. We
+use a level set function $\phi(\mathbf{x})$ to implicitly define the domain $\Omega = \{\mathbf{x} \mid
+    \phi(\mathbf{x}) < 0\}$, with $\Gamma = \{\mathbf{x} \mid \phi(\mathbf{x}) = 0\}$. Cells of the background mesh are
+classified based on their intersection with the zero level set: cells entirely inside $\Omega$ (interior), cells
+entirely outside $\Omega$ (exterior), and cells intersected by $\Gamma$. Then, for the intersected cells the fraction
+of the cell volume inside $\Omega$ is computed, and the cell is classified as active if this fraction is greater than a
+threshold $\lambda$. This is handled using non-matching quadrature rules implemented in \texttt{deal.II}, which are
+based on the techniques described in~\cite{saye2015high}.
 
-In our approach, degrees of freedom are formally assigned to all cells of the background mesh,
-including those that are classified  as non-active. In the matrix assembly we ignore the contributions from these
-non-active cells, effectively removing them from the system. This results in a singular global matrix; however, since
-the corresponding degrees of freedom do not influence the solution in the active domain, this does not pose a problem
-for the iterative solver. The only affected part of the multigrid is the coarse-grid solver, which we handle by using a
-direct solver. To make the coarse system invertible, we set one on the diagonal entries of zero rows corresponding to
-non-active DoFs.
+In our approach, degrees of freedom are formally assigned to all cells of the background mesh, including those that are
+classified as non-active. In the matrix assembly we ignore the contributions from these non-active cells, effectively
+removing them from the system. This results in a singular global matrix; however, since the corresponding degrees of
+freedom do not influence the solution in the active domain, this does not pose a problem for the iterative solver. The
+only affected part of the multigrid is the coarse-grid solver, which we handle by using a direct solver. To make the
+coarse system invertible, we set one on the diagonal entries of zero rows corresponding to non-active DoFs.
 
 \subsection{Processing surrogate boundary and matrix assembly}
 \label{sec:sbm_assembly}
@@ -422,17 +411,20 @@ even if the closest point is outside the cell, the extrapolation will still yiel
 condition.
 
 The extrapolation of the function values from the true boundary to the surrogate boundary required for the matrix
-assembly process is accomplished by evaluating the values of the basis
-functions at the points on the surrogate boundary. The assembly of the cell contributions and interior faces to the
-system matrix and right-hand side vector is performed using the standard finite element assembly process provided by
-\texttt{deal.II}.
+assembly process is accomplished by evaluating the values of the basis functions at the points on the surrogate
+boundary. The assembly of the cell contributions and interior faces to the system matrix and right-hand side vector is
+performed using the standard finite element assembly process provided by \texttt{deal.II}.
 
 \subsection{Multigrid structures}
 
 For the multigrid hierarchy, we leverage \texttt{deal.II}'s built-in capabilities for handling nested meshes and
-defining finite element spaces on each level. The standard $L^2$ projection operators provided by \texttt{deal.II} are
-used for the prolongation ($I_{\ell-1}^\ell$) and restriction ($I_\ell^{\ell-1}$) operators, transferring data between
-coarser and finer grid levels.
+defining finite element spaces on each level. The standard projection operators provided by \texttt{deal.II} are used
+for the prolongation ($I_{\ell-1}^\ell$) and restriction ($I_\ell^{\ell-1}$) operators, transferring data between
+coarser and finer grid levels. These operators act on the entire background mesh, transferring the solution for all
+degrees of freedom, irrespective of whether they correspond to active or non-active cells. This involves transferring
+values in regions outside the computational domain. Furthermore, since the smoother and residual evaluations are
+restricted to the active cells, the values in the inactive regions do not propagate into the solution within the domain
+of interest, nor do they influence the convergence of the method.
 
 The assembly of the system matrix $A_\ell$ on each level $\ell$ of the multigrid hierarchy follows a procedure
 analogous to that on the finest level. The level set function defining the domain geometry is interpolated onto the
