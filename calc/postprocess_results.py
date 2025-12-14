@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+"""Postprocess results produced by runner.sh
+
+Usage: postprocess_results.py RESULTS_DIR
+
+This script scans immediate subdirectories of RESULTS_DIR for folders
+matching the pattern produced by the runner, e.g.:
+
+  2D_p3_dist0.01_001
+  3D_p15_dist0.1_002
+
+It extracts: dimension, FE degree, distortion, and run index, and writes
+an `output.txt` CSV file under RESULTS_DIR with one row per found run.
+
+Columns: folder, dim, degree, distortion, run_index, param_file, output_file
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import os
+import re
+import sys
+from typing import Optional
+import statistics
+
+
+# New runner creates folders like: 2D_p1_ref5_shy3_smo3
+PATTERN = re.compile(r'^(?P<dim>2D|3D|2d|3d)_p(?P<degree>\d+)_ref(?P<ref>\d+)(?:_shy(?P<shy>[^_]+))?(?:_smo(?P<smo>\d+))?$')
+
+
+def parse_folder_name(name: str) -> Optional[dict]:
+    m = PATTERN.match(name)
+    if not m:
+        return None
+    return {
+        'folder': name,
+        'dim': m.group('dim'),
+        'degree': int(m.group('degree')),
+        'refinements': int(m.group('ref')),
+        'shy': m.group('shy') or '',
+        'smoothing': m.group('smo') or '',
+    }
+
+
+def find_runs(results_dir: str):
+    entries = sorted(os.listdir(results_dir))
+    for e in entries:
+        path = os.path.join(results_dir, e)
+        if not os.path.isdir(path):
+            continue
+        parsed = parse_folder_name(e)
+        if not parsed:
+            # skip non-matching folders
+            continue
+        # look for files inside folder
+        param_file = os.path.join(path, 'used_parameters.prm')
+        output_file = os.path.join(path, 'output.txt')
+        if not os.path.exists(param_file):
+            # try any .prm file in the folder
+            for f in os.listdir(path):
+                if f.lower().endswith('.prm'):
+                    param_file = os.path.join(path, f)
+                    break
+        if not os.path.exists(output_file):
+            raise RuntimeError(f'Missing output.txt in folder: {path}')
+
+        parsed['param_file'] = param_file if os.path.exists(param_file) else ''
+        parsed['output_file'] = output_file if os.path.exists(output_file) else ''
+
+        # parse output file for CG iterations, and level-wise cells/DoFs
+        parsed['iterations'] = ''
+        parsed['cells_finest'] = ''
+        parsed['dofs_finest'] = ''
+        try:
+            with open(output_file, 'r') as fh:
+                text = fh.read()
+
+            # iterations: look for "Solved in X iterations" or "Solved in X iterations,"
+            m_iter = re.search(r"Solved in\s*([0-9]+)\s+iterations", text)
+            if m_iter:
+                parsed['iterations'] = int(m_iter.group(1))
+
+            # Find all "Level <n>: <num> cells" and "Level <n>: <num> DoFs"
+            cells = {}
+            dofs = {}
+            for m in re.finditer(r"Level\s+(\d+):\s*([0-9]+)\s+cells", text):
+                lvl = int(m.group(1)); val = int(m.group(2)); cells[lvl] = val
+            for m in re.finditer(r"Level\s+(\d+):\s*([0-9]+)\s+DoFs", text):
+                lvl = int(m.group(1)); val = int(m.group(2)); dofs[lvl] = val
+
+            if cells:
+                finest = max(cells.keys())
+                parsed['cells_finest'] = cells.get(finest, '')
+            if dofs:
+                finest_d = max(dofs.keys())
+                parsed['dofs_finest'] = dofs.get(finest_d, '')
+
+        except Exception:
+            # ignore parse errors and leave fields empty
+            pass
+
+        yield parsed
+
+def write_csv(results_dir: str, rows):
+    out_path = os.path.join(results_dir, 'output.txt')
+    fieldnames = ['folder', 'dim', 'degree', 'distortion', 'mu', 'run_index', 'cg_iterations', 'per_iteration_reduction']
+    # Collect all rows and convert fields
+    formatted_rows = []
+    for r in rows:
+        # ensure mu field is present
+        row = {k: r.get(k, '') for k in fieldnames}
+        if not row.get('mu'):
+            row['mu'] = r.get('mu', '')
+        dim_val = row['dim']
+        if isinstance(dim_val, str) and dim_val.lower().startswith('2'):
+            row['dim'] = '2'
+        elif isinstance(dim_val, str) and dim_val.lower().startswith('3'):
+            row['dim'] = '3'
+        formatted_rows.append(row)
+    # Compute max width for each column
+    col_widths = {k: max(len(str(row[k])) for row in ([{k: k for k in fieldnames}] + formatted_rows)) for k in fieldnames}
+    with open(out_path, 'w', newline='') as fh:
+        # Write header
+        fh.write('  '.join(f"{k:<{col_widths[k]}}" for k in fieldnames) + '\n')
+        count = 0
+        for row in formatted_rows:
+            fh.write('  '.join(f"{str(row[k]):<{col_widths[k]}}" for k in fieldnames) + '\n')
+            count += 1
+    return out_path, count
+
+
+def write_summary_csv(results_dir: str, rows):
+    """Write a CSV summary (summary.csv) with one row per run.
+
+    Columns: p, refinements, cells, dofs, iterations
+    """
+    out_path = os.path.join(results_dir, 'summary.csv')
+    fieldnames = ['p', 'refinements', 'cells', 'dofs', 'iterations']
+    written = 0
+    with open(out_path, 'w', newline='') as fh:
+        writer = csv.writer(fh)
+        writer.writerow(fieldnames)
+        for r in rows:
+            p = r.get('degree', '')
+            ref = r.get('refinements', '')
+            cells = r.get('cells_finest', '')
+            dofs = r.get('dofs_finest', '')
+            its = r.get('iterations', '')
+            writer.writerow([p, ref, cells, dofs, its])
+            written += 1
+    return out_path, written
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description='Postprocess results produced by runner.sh')
+    ap.add_argument('results_dir', help='Path to the RESULTS directory produced by runner.sh')
+    args = ap.parse_args(argv)
+
+    results_dir = args.results_dir
+    if not os.path.isdir(results_dir):
+        print(f'ERROR: not a directory: {results_dir}', file=sys.stderr)
+        return 2
+
+    rows = list(find_runs(results_dir))
+    if not rows:
+        print('No matching run folders found under', results_dir)
+        return 0
+
+    out_path, count = write_csv(results_dir, rows)
+    print(f'Wrote {count} rows to {out_path}')
+    # write summary grouped by degree and distortion
+    sum_path, sum_count = write_summary_csv(results_dir, rows)
+    print(f'Wrote {sum_count} summary rows to {sum_path}')
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -7,7 +7,7 @@ set -euo pipefail
 SETTINGS_FILE="${1:-settings}"
 
 if [ ! -f "$SETTINGS_FILE" ]; then
-    cat >&2 <<EOF
+cat >&2 <<EOF
 Settings file not found: $SETTINGS_FILE
 
 Create a settings file with the following (example `calc/settings`):
@@ -38,7 +38,7 @@ read_settings() {
         value="${value#"${value%%[![:space:]]*}"}"
         value="${value%"${value##*[![:space:]]}"}"
         case "$key" in
-            MODE|PREFIX|TEMPLATE|RESULTS|SHYNESS|FEDEGREE|REFINEMENTS|N_JOBS)
+            MODE|PREFIX|TEMPLATE|RESULTS|SHYNESS|FEDEGREE|REFINEMENTS|SMOOTHING|N_JOBS)
                 declare -g "$key"="$value"
                 ;;
         esac
@@ -75,11 +75,12 @@ fi
 
 echo "Running with settings from: $SETTINGS_FILE"
 echo "MODE=$MODE, PREFIX=$PREFIX, TEMPLATE=$TEMPLATE"
-echo "FEDEGREE=$FEDEGREE, REFINEMENTS=$REFINEMENTS, SHYNESS=${SHYNESS:-(unset)}"
+echo "FEDEGREE=$FEDEGREE, REFINEMENTS=$REFINEMENTS, SHYNESS=${SHYNESS:-(unset)}, SMOOTHING=${SMOOTHING:-(unset)}"
 
 IFS=',' read -r -a fedegs <<< "$FEDEGREE"
 IFS=',' read -r -a refinements <<< "$REFINEMENTS"
 IFS=',' read -r -a shy_list <<< "${SHYNESS:-}"
+IFS=',' read -r -a smooth_list <<< "${SMOOTHING:-}"
 
 mkdir -p "${RESULTS%/}"
 
@@ -103,20 +104,43 @@ for fedeg in "${fedegs[@]}"; do
         fi
         for shy in "${shy_vals[@]}"; do
             shy=$(echo "$shy" | xargs)
+            if [ -z "${SMOOTHING:-}" ]; then
+                smooth_vals=("")
+            else
+                smooth_vals=("${smooth_list[@]}")
+            fi
+            for smooth in "${smooth_vals[@]}"; do
+                smooth=$(echo "$smooth" | xargs)
+                if [ -n "$smooth" ] && ! [[ "$smooth" =~ ^[0-9]+$ ]]; then
+                    echo "Invalid SMOOTHING value: $smooth" >&2
+                    exit 5
+                fi
             MODE_UPPER=$(echo "$MODE" | tr '[:lower:]' '[:upper:]')
             folder="${RESULTS%/}/${MODE_UPPER}_p${fedeg}_ref${ref}"
             [ -n "$shy" ] && folder+="_shy${shy}"
+                [ -n "$smooth" ] && folder+="_smo${smooth}"
             mkdir -p "$folder"
 
             cp "$TEMPLATE" "$folder/$(basename "$TEMPLATE")"
             PARAM_FILE="$folder/$(basename "$TEMPLATE")"
 
-            # Replace relevant parameters in the parameter file
-            sed -E \
-                -e "s/^[[:space:]]*set[[:space:]]+fe_degree[[:space:]]*=.*/  set fe_degree = ${fedeg}/" \
-                -e "s/^[[:space:]]*set[[:space:]]+n_refinements[[:space:]]*=.*/  set n_refinements = ${ref}/" \
-                -e "s/^[[:space:]]*set[[:space:]]+shyness[[:space:]]*=.*/  set shyness = ${shy}/" \
-                "$PARAM_FILE" > "$PARAM_FILE.tmp" && mv "$PARAM_FILE.tmp" "$PARAM_FILE" || {
+            # Replace relevant parameters in the parameter file using awk (handles optional smoothing)
+            awk -v fe="${fedeg}" -v refv="${ref}" -v shyv="${shy}" -v smo="${smooth}" '
+            BEGIN{
+                re_fe="^[[:space:]]*set[[:space:]]+fe_degree[[:space:]]*=.*$";
+                re_ref="^[[:space:]]*set[[:space:]]+n_refinements[[:space:]]*=.*$";
+                re_shy="^[[:space:]]*set[[:space:]]+shyness[[:space:]]*=.*$";
+                re_smo="^[[:space:]]*set[[:space:]]+n_smoothing_steps[[:space:]]*=.*$";
+                done_fe=0; done_ref=0; done_shy=0; done_smo=0;
+            }
+            {
+                if(!done_fe && $0 ~ re_fe){ sub("=.*$","= " fe); done_fe=1 }
+                if(!done_ref && $0 ~ re_ref){ sub("=.*$","= " refv); done_ref=1 }
+                if(!done_shy && $0 ~ re_shy && shyv!=""){ sub("=.*$","= " shyv); done_shy=1 }
+                if(!done_smo && $0 ~ re_smo && smo!=""){ sub("=.*$","= " smo); done_smo=1 }
+                print
+            }
+            ' "$PARAM_FILE" > "$PARAM_FILE.tmp" && mv "$PARAM_FILE.tmp" "$PARAM_FILE" || {
                 echo "Failed to update parameter file: $PARAM_FILE" >&2
                 exit 6
             }
@@ -127,6 +151,7 @@ for fedeg in "${fedegs[@]}"; do
                 exit 7
             }
         done
+    done
     done
 done
 
