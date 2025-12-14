@@ -1,0 +1,24 @@
+# PatchSmoother runner settings
+# Lines starting with # are comments
+
+# Results prefix:
+RESULTS=results_2d
+
+# Mode: "2d" or "3d"
+MODE=2d
+
+# Prefix folder containing pmg_patch_2d / pmg_patch_3d executables
+PREFIX=/scratch/mwichro/Patch_SBM_Poisson/build/Release
+
+# Template parameter file path
+TEMPLATE=mg_param.prm
+
+# Comma-separated distortion magnitudes
+SHYNESS = 3
+# 0.05,0.1,0.15,0.2,0.25, 0.3
+
+# Polynomial degree
+FEDEGREE=1,2
+
+# Number of refinements
+REFINEMENTS = 4,5
