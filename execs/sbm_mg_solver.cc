@@ -94,7 +94,6 @@ namespace Step85
   {
     double       omega             = 1.0;
     unsigned int shyness           = 3;
-    bool         multiplicative    = true;
     std::string  smoother_type     = "shy_patches";
     unsigned int fe_degree         = 2;
     unsigned int n_refinements     = 1;
@@ -116,11 +115,8 @@ namespace Step85
                           "3",
                           Patterns::Integer(0),
                           "Shyness parameter for patch construction");
-        prm.declare_entry(
-          "multiplicative",
-          "true",
-          Patterns::Bool(),
-          "Use multiplicative (true) or additive (false) smoother");
+        // Note: multiplicative/additive mode removed - only multiplicative
+        // smoothing is supported in this executable.
         prm.declare_entry("smoother_type",
                           "shy_patches",
                           Patterns::Selection("shy_patches|full_residual"),
@@ -162,7 +158,6 @@ namespace Step85
       {
         omega             = prm.get_double("omega");
         shyness           = prm.get_integer("shyness");
-        multiplicative    = prm.get_bool("multiplicative");
         smoother_type     = prm.get("smoother_type");
         fe_degree         = prm.get_integer("fe_degree");
         n_refinements     = prm.get_integer("n_refinements");
@@ -397,9 +392,7 @@ namespace Step85
               << std::endl;
     std::cout << "  Omega: " << mg_params.omega << std::endl;
     std::cout << "  Shyness: " << mg_params.shyness << std::endl;
-    std::cout << "  Mode: "
-              << (mg_params.multiplicative ? "multiplicative" : "additive")
-              << std::endl;
+    // Note: only multiplicative smoothing is supported by this executable.
 
     // Initialize sparsity patterns and matrices for each level
     for (unsigned int level = 0; level < n_levels; ++level)
