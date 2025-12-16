@@ -137,7 +137,7 @@ def write_summary_csv(results_dir: str, rows):
     Columns: p, refinements, cells, dofs, iterations
     """
     out_path = os.path.join(results_dir, 'summary.csv')
-    fieldnames = ['p', 'refinements', 'cells', 'dofs', 'iterations']
+    fieldnames = ['p', 'refinements', 'shyness', 'smoothing', 'cells', 'dofs', 'iterations']
     written = 0
     with open(out_path, 'w', newline='') as fh:
         writer = csv.writer(fh)
@@ -148,7 +148,24 @@ def write_summary_csv(results_dir: str, rows):
             cells = r.get('cells_finest', '')
             dofs = r.get('dofs_finest', '')
             its = r.get('iterations', '')
-            writer.writerow([p, ref, cells, dofs, its])
+
+            # Try to read shyness and n_smoothing_steps from parameter file if available
+            shyness = ''
+            smoothing = ''
+            param_file = r.get('param_file', '')
+            if param_file and os.path.exists(param_file):
+                try:
+                    with open(param_file, 'r') as pf:
+                        ptext = pf.read()
+                    m_shy = re.search(r'^\s*set\s+shyness\s*=\s*([^\s#]+)', ptext, re.I | re.M)
+                    if m_shy:
+                        shyness = m_shy.group(1)
+                    m_smo = re.search(r'^\s*set\s+n_smoothing_steps\s*=\s*([^\s#]+)', ptext, re.I | re.M)
+                    if m_smo:
+                        smoothing = m_smo.group(1)
+                except Exception:
+                    pass
+            writer.writerow([p, ref, shyness, smoothing, cells, dofs, its])
             written += 1
     return out_path, written
 
