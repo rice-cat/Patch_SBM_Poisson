@@ -335,9 +335,9 @@ is included in at least one patch. If a DoF is not part of any patch, its value 
 which is detrimental to convergence. In two dimensions, a vertex can be adjacent to at most four cells. As illustrated
 in Figure~\ref{fig:single_patch_boundaries}, if a vertex is adjacent to only one or two active cells, the DoFs
 associated with that vertex might not be included in any other patch if their respective central vertices are also
-\emph{shy}. To guarantee that every DoF belongs to at least one patch, the shyness threshold must be at most 3 in 2D
-(and 5 in 3D). This ensures that even if a vertex is too shy to form its own patch, its associated DoFs are guaranteed
-to be included in the patch of a sufficiently \emph{sociable} neighboring vertex.
+\emph{shy}. To guarantee that every DoF belongs to at least one patch, the shyness threshold $\xi$ must be at most 3 in
+2D, while in 3D it must be at most 4. This ensures that even if a vertex is too shy to form its own patch, its
+associated DoFs are guaranteed to be included in the patch of a sufficiently \emph{sociable} neighboring vertex.
 
 % While it is theoretically possible
 % for some DoFs to be left out with a lower threshold, which would hinder convergence, setting the minimum shyness to 3
@@ -464,7 +464,7 @@ possible shift magnitude in 2D is $\sqrt{2}h$, occurring if the surrogate bounda
 true boundary passes through the diagonally opposite corner.
 
 The primary metric for evaluating the multigrid preconditioner is the number of GMRES iterations required to reduce the
-initial residual by a factor of $10^{-12}$. If the threshold is not met within 100 iterations, the solver is considered
+initial residual by a factor of $10^{-8}$. If the threshold is not met within 100 iterations, the solver is considered
 to have failed. All experiments are conducted using the implementation described in the previous section. As our solver
 depends on the value of the threshold parameter $\lambda$, we will first explore the solver performance on 2D problems
 as they are less computationally intensive and then show some results for 3D problems with tuned $\lambda$.
@@ -473,6 +473,14 @@ as they are less computationally intensive and then show some results for 3D pro
 
 \subsection{Iteration counts}
 
+Figure~\ref{fig:iteration_counts_shy3_smoothing3} illustrates the iteration counts with respect to the number of
+refinement levels for both 2D and 3D problems. The results demonstrate the $h$-robustness of the proposed
+preconditioner, as the iteration counts remain largely independent of the mesh size for a fixed polynomial degree. We
+observe a mild increase in iterations as the polynomial degree $p$ increases, which is expected when using
+$h$-multigrid for high-order discretizations without $p$-coarsening. However, patch-smoother for matching meshes has
+been shown to be robust even in $p$~\cite{wichrowski2025smoothers,pavarino1993additive}, suggesting that further
+improvements may be possible with additional refinements to the smoother or the multigrid strategy.
+
 \begin{figure}[htbp]
     \centering
     \input{figures/iter_shy3_smooth3.tex}
@@ -480,6 +488,103 @@ as they are less computationally intensive and then show some results for 3D pro
         varying shyness thresholds equal to 3 on unit ball problem for polynomial degrees $p=1,2,3$. Number of smoothing steps is fixed to 3. Left panel presents results in 2D, right panel in 3D.}
     \label{fig:iteration_counts_shy3_smoothing3}
 \end{figure}
+
+We further investigate the influence of the number of smoothing steps $s$ on the solver performance.
+Table~\ref{tab:iter_smoothing} presents the iteration counts for varying $s$ with a fixed shyness threshold $\xi=3$. In
+the 2D case (Table~\ref{tab:iter_2d_smooth}), for $p=1$, the solver is robust even with a single smoothing step.
+However, for $p=2$ and $p=3$, increasing the number of smoothing steps is crucial. For $p=3$, the solver fails with
+$s=1$ but converges rapidly with $s=2$ or $s=3$. A similar trend is observed in the 3D case
+(Table~\ref{tab:iter_3d_smooth}), where increasing $s$ consistently reduces the iteration count, particularly for
+higher polynomial degrees.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Iteration counts for varying smoothing steps $s$ with fixed shyness threshold $\xi=3$. Left: 2D problem ($L=8$). Right: 3D problem ($L=4$).}
+    \label{tab:iter_smoothing}
+
+    \begin{subtable}{0.45\textwidth}
+        \centering
+        \caption{2D problem ($L=8$)}
+        \label{tab:iter_2d_smooth}
+        \begin{tabular}{c|ccc}
+            \toprule
+            $p \setminus s$ & 1   & 2  & 3  \\
+            \midrule
+            1               & 11  & 11 & 11 \\
+            2               & 22  & 13 & 11 \\
+            3               & --- & 29 & 16 \\
+            \bottomrule
+        \end{tabular}
+    \end{subtable}
+    %
+    %
+    \begin{subtable}{0.45\textwidth}
+        \centering
+        \caption{3D problem ($L=4$)}
+        \label{tab:iter_3d_smooth}
+        \begin{tabular}{c|ccc}
+            \toprule
+            $p \setminus s$ & 1  & 2  & 3  \\
+            \midrule
+            1               & 13 & 11 & 10 \\
+            2               & 15 & 10 & 9  \\
+            3               & 28 & 15 & 11 \\
+            \bottomrule
+        \end{tabular}
+    \end{subtable}
+\end{table}
+
+Finally, we analyze the effect of the shyness threshold $\xi$ on the convergence, with the number of smoothing steps
+fixed at $s=3$. The results are summarized in Table~\ref{tab:iter_shyness}. For the 2D problem
+(Table~\ref{tab:iter_2d_shy}), we present results for the baseline threshold $\xi=3$. In the 3D case
+(Table~\ref{tab:iter_3d_shy}), we compare thresholds $\xi=3, 4, 5$. The results indicate that while the method is
+robust for $\xi=3$ and $\xi=4$, increasing the threshold to $\xi=5$ results in solver failure. This suggests that a
+threshold of $\xi=5$ is too restrictive, leaving some degrees of freedom outside of any patch, thereby degrading the
+quality of the smoother.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Iteration counts for varying shyness threshold $\xi$ with fixed smoothing steps $s=3$. Left: 2D problem ($L=8$). Right: 3D problem ($L=4$).}
+    \label{tab:iter_shyness}
+
+    \begin{subtable}{0.45\textwidth}
+        \centering
+        \caption{2D problem ($L=8$)}
+        \label{tab:iter_2d_shy}
+        \begin{tabular}{c|c}
+            \toprule
+            $p \setminus \xi$ & 3  \\
+            \midrule
+            1                 & 11 \\
+            2                 & 11 \\
+            3                 & 16 \\
+            \bottomrule
+        \end{tabular}
+    \end{subtable}
+    %
+    %
+    \begin{subtable}{0.45\textwidth}
+        \centering
+        \caption{3D problem ($L=4$)}
+        \label{tab:iter_3d_shy}
+        \begin{tabular}{c|ccc}
+            \toprule
+            $p \setminus \xi$ & 3  & 4  & 5   \\
+            \midrule
+            1                 & 10 & 10 & --- \\
+            2                 & 9  & 9  & --- \\
+            3                 & 11 & 11 & --- \\
+            \bottomrule
+        \end{tabular}
+    \end{subtable}
+\end{table}
+
+\subsection{Timing}
+\begin{itemize}
+    \item time to solution vs number of dofs, fixed shyness and smoothing steps. compare to AMG
+    \item Time of a single sweep for different number of steps.
+\end{itemize}
+We need to show that the subsequent smoothing steps are not really expesive, because they only operate on a small number of patches.
 
 \section{Conclusion}
 \label{sec:conclusion}
