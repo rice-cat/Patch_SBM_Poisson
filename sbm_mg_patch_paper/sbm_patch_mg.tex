@@ -463,6 +463,76 @@ discretization. The shift magnitudes are normalized by the cell size $h$; for a 
 possible shift magnitude in 2D is $\sqrt{2}h$, occurring if the surrogate boundary point is at a cell corner and the
 true boundary passes through the diagonally opposite corner.
 
+\begin{figure}[h!]
+    \centering
+    % Placeholder for shift distribution plot
+    \begin{subfigure}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{figures/ball_domain.pdf}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        %2D
+        \begin{tikzpicture}
+            \begin{axis}[
+                    xlabel={Refinement Level},
+                    ylabel={Normalized Shift Magnitude},
+                    xmin=1, xmax=7,
+                    xtick={1,2,3,4,5,6,7},
+                    ymin=-1.5,
+                    ymax=1.5,
+                    ytick={-1.41421356, -1, 0,1, 1.41421356},
+                    yticklabels={$-\sqrt{2}$,$-1$ ,$0$,  $1$, $\sqrt{2}$},
+                    width=\textwidth, % Use \textwidth for subfigure's width
+                    legend pos=south west, % Adjusted legend position
+                    legend style={font=\scriptsize, cells={anchor=west}, legend columns=2},
+                    height=7cm, % Adjust height as needed
+                    grid=major,
+                ]
+                % Data from 2D_hp_stand_ball_p3.txt
+                % Lambda = 1.0
+                \addplot+[mark=*,color=red, mark options={solid}, thick,forget plot,  dashed ] coordinates {
+                        (1, 0.0000) (2, 0.0000) (3, 0.0000) (4, 0.0000) (5, 0.0000) (6, 0.0000) (7, 0.0000)
+                    };
+                \addlegendentry{$\lambda=1.0$}
+                \addplot+[mark=*,color=red, mark options={solid}, thick ] coordinates {
+                        (1, 1.0825) (2, 1.1813) (3, 1.0437) (4, 1.2373) (5, 1.3157) (6, 1.3304) (7, 1.3510)
+                    };
+
+                % Lambda = 0.75
+                % \addplot+[mark=square*,color=darkgreen, mark options={solid}, thick, forget plot,  dashed ] coordinates
+                %     {
+                %         (1, -0.2334) (2, -0.3089) (3, -0.3904) (4, -0.3152) (5, -0.4135) (6, -0.4265) (7, -0.4302)
+                %     };
+                % \addlegendentry{$\lambda=0.75$}
+                % \addplot+[mark=square*,color=darkgreen, mark options={solid}, thick] coordinates {
+                %         (1, 0.7755) (2, 0.8005) (3, 0.7998) (4, 0.8367) (5, 0.8399) (6, 0.8450) (7, 0.8609)
+                %     };
+
+                % Lambda = 0.5
+                \addplot+[mark=triangle*,color=blue, mark options={solid}, thick, forget plot,	dashed ] coordinates {
+                        (1, -0.4811) (2, -0.6414) (3, -0.5174) (4, -0.6021) (5, -0.6216) (6, -0.6392) (7, -0.6436)
+                    };
+                \addlegendentry{$\lambda=0.5$}
+                \addplot+[mark=triangle*,color=blue, mark options={solid}, thick] coordinates {
+                        (1, 0.3159) (2, 0.2774) (3, 0.5826) (4, 0.5807) (5, 0.6458) (6, 0.6540) (7, 0.6299)
+                    };
+
+            \end{axis}
+        \end{tikzpicture}
+    \end{subfigure}
+    \caption{Left: Exemplary numerical solution for the Poisson equation on a unit disc domain, visualized on the
+        surrogate domain ($\lambda=0.75$), obtained with the shifted  boundary method. The true boundary $\Gamma$ is
+        shown in black lines; connections between quadrature  points ($p=2$) on the surrogate boundary and their
+        projections on the true boundary are illustrated with grey lines. Note that with $\lambda=0.75$,
+        some parts of the true boundary lie within the surrogate domain
+        Right: Illustrative distribution of minimum and maximum shift magnitudes (normalized by cell size $h$) on
+        the surrogate boundary
+        for the unit disk problem with $p=3$. The values $\pm\sqrt{2}$ represent the theoretical maximum possible
+        normalized shift magnitude in 2D for a square cell.}
+    \label{fig:shift_distribution}
+\end{figure}
+
 The primary metric for evaluating the multigrid preconditioner is the number of GMRES iterations required to reduce the
 initial residual by a factor of $10^{-8}$. If the threshold is not met within 100 iterations, the solver is considered
 to have failed. All experiments are conducted using the implementation described in the previous section. As our solver
