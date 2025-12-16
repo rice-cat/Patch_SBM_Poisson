@@ -471,6 +471,16 @@ as they are less computationally intensive and then show some results for 3D pro
 
 \mwnote{we have two metrics: estimate of max eigenvalues of Smoother applied to A and number of GMRES iterations}
 
+\subsection{Iteration counts}
+
+\begin{figure}[htbp]
+    \centering
+    \input{figures/iter_shy3_smooth3.tex}
+    \caption{Iteration counts for multigrid preconditioned GMRES solver using the Full-Residual Shy Patch smoother with
+        varying shyness thresholds equal to 3 on unit ball problem for polynomial degrees $p=1,2,3$. Number of smoothing steps is fixed to 3. Left panel presents results in 2D, right panel in 3D.}
+    \label{fig:iteration_counts_shy3_smoothing3}
+\end{figure}
+
 \section{Conclusion}
 \label{sec:conclusion}
 

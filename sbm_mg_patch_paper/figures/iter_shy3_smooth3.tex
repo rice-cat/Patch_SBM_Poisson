@@ -1,0 +1,82 @@
+\begin{tikzpicture}
+    \begin{scope}
+        \begin{axis}[
+                xlabel={Number of refinements},
+                ylabel={Number of iterations},
+                ymin=0,
+                ymax =25,
+                legend pos=north west]
+
+            \addplot+[thick] table[ col sep=comma,
+                    x=refinements,
+                    y=iterations,
+                    restrict expr to domain={\thisrow{p}}{0.9:1.1},
+                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
+                    unbounded coords=discard ]
+                {results/iterations_2D.csv}; \addlegendentry{$p=1$}
+
+            \addplot+[ thick] table[
+                    col sep=comma,
+                    x=refinements,
+                    y=iterations,
+                    restrict expr to domain={\thisrow{p}}{1.9:2.1},
+                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
+                    unbounded coords=discard
+                ] {results/iterations_2D.csv};
+            \addlegendentry{$p=2$}
+
+            \addplot+[ thick] table[
+                    col sep=comma,
+                    x=refinements,
+                    y=iterations,
+                    restrict expr to domain={\thisrow{p}}{2.9:3.1},
+                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
+                    unbounded coords=discard
+                ] {results/iterations_2D.csv};
+            \addlegendentry{$p=3$}
+
+        \end{axis}
+    \end{scope}
+
+    \begin{scope}[xshift=0.52\columnwidth]
+        \begin{axis}[
+                xlabel={Number of refinements},
+                ylabel={Number of iterations},
+                ymin=0,
+                ymax =25,
+                legend pos=north west]
+
+            \addplot+[thick] table[ col sep=comma,
+                    x=refinements,
+                    y=iterations,
+                    restrict expr to domain={\thisrow{p}}{0.9:1.1},
+                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
+                    restrict expr to domain={\thisrow{shyness}}{2.9:3.1},
+                    unbounded coords=discard ]
+                {results/iterations_3D.csv}; \addlegendentry{$p=1$}
+
+            \addplot+[ thick] table[
+                    col sep=comma,
+                    x=refinements,
+                    y=iterations,
+                    restrict expr to domain={\thisrow{p}}{1.9:2.1},
+                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
+                    restrict expr to domain={\thisrow{shyness}}{2.9:3.1},
+                    unbounded coords=discard
+                ] {results/iterations_3D.csv};
+            \addlegendentry{$p=2$}
+
+            \addplot+[ thick] table[
+                    col sep=comma,
+                    x=refinements,
+                    y=iterations,
+                    restrict expr to domain={\thisrow{p}}{2.9:3.1},
+                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
+                    restrict expr to domain={\thisrow{shyness}}{2.9:3.1},
+                    unbounded coords=discard
+                ] {results/iterations_3D.csv};
+            \addlegendentry{$p=3$}
+
+        \end{axis}
+    \end{scope}
+\end{tikzpicture}
