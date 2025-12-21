@@ -1,4 +1,6 @@
+#include <deal.II/base/mpi.h>
 #include <deal.II/base/parameter_handler.h>
+#include <deal.II/base/timer.h>
 
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/precondition.h>
@@ -6,6 +8,9 @@
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_control.h>
 #include <deal.II/lac/solver_gmres.h>
+#include <deal.II/lac/trilinos_precondition.h>
+#include <deal.II/lac/trilinos_sparse_matrix.h>
+#include <deal.II/lac/trilinos_vector.h>
 
 #include <deal.II/multigrid/mg_base.h>
 #include <deal.II/multigrid/mg_coarse.h>
@@ -200,6 +205,9 @@ namespace Step85
 
     void
     solve();
+
+    void
+    solve_amg();
 
     void
     output_results() const;
@@ -559,6 +567,17 @@ namespace Step85
     mg_smoother.initialize(mg_matrices, smoother_data);
     mg_smoother.set_steps(1); // Number of smoothing steps
 
+    // Measure single smoother sweep on the finest level
+    {
+      VectorType dst(rhs);
+      VectorType src(rhs);
+      Timer      timer;
+      mg_smoother.smooth(max_level, dst, src);
+      const double smoother_time = timer.wall_time();
+      std::cout << "SUMMARY: smoother_sweep_time " << smoother_time << " s"
+                << std::endl;
+    }
+
     using TwoLevelTransfer = MGTwoLevelTransfer<dim, VectorType>;
     MGLevelObject<TwoLevelTransfer> transfers;
     AffineConstraints<double>       constraints_dummy;
@@ -598,7 +617,14 @@ namespace Step85
 
     try
       {
+        Timer timer;
         solver.solve(stiffness_matrix, solution, rhs, preconditioner);
+        const double solve_time = timer.wall_time();
+        std::cout << "SUMMARY: gmg_solve_time " << solve_time << " s"
+                  << std::endl;
+        std::cout << "SUMMARY: gmg_iterations " << solver_control.last_step()
+                  << std::endl;
+
         std::cout << "  Solved in " << solver_control.last_step()
                   << " iterations, final residual "
                   << solver_control.last_value() << std::endl;
@@ -608,6 +634,65 @@ namespace Step85
         std::cout << "  Solver failed: " << e.what() << std::endl;
       }
   }
+
+
+
+  template <int dim>
+  void
+  MGSolver<dim>::solve_amg()
+  {
+    std::cout << "Solving system with AMG" << std::endl;
+
+    Timer timer;
+
+    TrilinosWrappers::SparseMatrix trilinos_matrix;
+    trilinos_matrix.reinit(stiffness_matrix);
+
+    IndexSet index_set(solution.size());
+    index_set.add_range(0, solution.size());
+
+    TrilinosWrappers::MPI::Vector trilinos_solution(index_set, MPI_COMM_SELF);
+    TrilinosWrappers::MPI::Vector trilinos_rhs(index_set, MPI_COMM_SELF);
+    for (unsigned int i = 0; i < rhs.size(); ++i)
+      trilinos_rhs(i) = rhs(i);
+
+    TrilinosWrappers::PreconditionAMG                 preconditioner;
+    TrilinosWrappers::PreconditionAMG::AdditionalData data;
+    data.elliptic = true;
+    preconditioner.initialize(trilinos_matrix, data);
+
+    IterationNumberControl solver_control(mg_params.max_iterations,
+                                          mg_params.solver_tolerance);
+    SolverGMRES<TrilinosWrappers::MPI::Vector> solver(solver_control);
+
+    try
+      {
+        timer.restart();
+        solver.solve(trilinos_matrix,
+                     trilinos_solution,
+                     trilinos_rhs,
+                     preconditioner);
+        const double solve_time = timer.wall_time();
+
+        for (unsigned int i = 0; i < solution.size(); ++i)
+          solution(i) = trilinos_solution(i);
+
+        std::cout << "SUMMARY: amg_solve_time " << solve_time << " s"
+                  << std::endl;
+        std::cout << "SUMMARY: amg_iterations " << solver_control.last_step()
+                  << std::endl;
+
+        std::cout << "  Solved in " << solver_control.last_step()
+                  << " iterations, final residual "
+                  << solver_control.last_value() << std::endl;
+      }
+    catch (std::exception &e)
+      {
+        std::cout << "  AMG Solver failed: " << e.what() << std::endl;
+      }
+  }
+
+
 
   template <int dim>
   void
@@ -690,6 +775,7 @@ namespace Step85
     setup_multigrid();
     assemble_system();
     solve();
+    solve_amg();
     output_results();
 
     const double error_L2 = compute_L2_error();
@@ -702,7 +788,8 @@ namespace Step85
 int
 main(int argc, char **argv)
 {
-  constexpr int dim = DEAL_II_DIMENSION;
+  dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+  constexpr int                            dim = DEAL_II_DIMENSION;
 
   Step85::MGParameters     params;
   dealii::ParameterHandler prm;
