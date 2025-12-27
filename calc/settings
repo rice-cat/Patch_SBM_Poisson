@@ -2,10 +2,10 @@
 # Lines starting with # are comments
 
 # Results prefix:
-RESULTS=results_3d_shy5
+RESULTS=results_2d
 
 # Mode: "2d" or "3d"
-MODE=3d
+MODE=2d
 
 # Prefix folder containing pmg_patch_2d / pmg_patch_3d executables
 PREFIX=/scratch/mwichro/Patch_SBM_Poisson/build/Release
@@ -14,14 +14,16 @@ PREFIX=/scratch/mwichro/Patch_SBM_Poisson/build/Release
 TEMPLATE=mg_param.prm
 
 # Comma-separated list of shyness values
-SHYNESS = 3,4,5
+SHYNESS = 1,2,3
+
+# Comma-separated list of cell threshold values
+CELL_THRESHOLD = 1. , 0.75 , 0.5 , 0.25
 
 # Polynomial degree
 FEDEGREE= 1,2,3
 
 # Number of refinements
-REFINEMENTS = 2,3,4,5
-# ,7,8,9
+REFINEMENTS = 2,3,4,5,7,8,9
 
 # Number of smoothing steps
 SMOOTHING =1, 2,3 

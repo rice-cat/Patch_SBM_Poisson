@@ -10,6 +10,9 @@ subsection Multigrid parameters
   # Type of patch smoother to use (shy_patches or full_residual)
   set smoother_type = full_residual
 
+  # Threshold for cell inclusion in domain when using level set
+  set cell_threshold = 1.
+
   # Finite element polynomial degree
   set fe_degree = 3
 

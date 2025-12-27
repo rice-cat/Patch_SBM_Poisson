@@ -824,7 +824,12 @@ namespace Step85
     setup_multigrid();
     assemble_system();
     solve();
-    solve_amg();
+    // only solve with AMG for linear elements, as a comparison
+    // for higher order elements the AMG preconditioner does not converge
+    // anyway.
+    if (fe_degree == 1)
+      solve_amg();
+
     output_results();
 
     const double error_L2 = compute_L2_error();

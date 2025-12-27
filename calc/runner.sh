@@ -38,7 +38,7 @@ read_settings() {
         value="${value#"${value%%[![:space:]]*}"}"
         value="${value%"${value##*[![:space:]]}"}"
         case "$key" in
-            MODE|PREFIX|TEMPLATE|RESULTS|SHYNESS|FEDEGREE|REFINEMENTS|SMOOTHING|N_JOBS)
+            MODE|PREFIX|TEMPLATE|RESULTS|SHYNESS|FEDEGREE|REFINEMENTS|SMOOTHING|CELL_THRESHOLD|N_JOBS)
                 declare -g "$key"="$value"
                 ;;
         esac
@@ -75,12 +75,13 @@ fi
 
 echo "Running with settings from: $SETTINGS_FILE"
 echo "MODE=$MODE, PREFIX=$PREFIX, TEMPLATE=$TEMPLATE"
-echo "FEDEGREE=$FEDEGREE, REFINEMENTS=$REFINEMENTS, SHYNESS=${SHYNESS:-(unset)}, SMOOTHING=${SMOOTHING:-(unset)}"
+echo "FEDEGREE=$FEDEGREE, REFINEMENTS=$REFINEMENTS, SHYNESS=${SHYNESS:-(unset)}, SMOOTHING=${SMOOTHING:-(unset)}, CELL_THRESHOLD=${CELL_THRESHOLD:-(unset)}"
 
 IFS=',' read -r -a fedegs <<< "$FEDEGREE"
 IFS=',' read -r -a refinements <<< "$REFINEMENTS"
 IFS=',' read -r -a shy_list <<< "${SHYNESS:-}"
 IFS=',' read -r -a smooth_list <<< "${SMOOTHING:-}"
+IFS=',' read -r -a threshold_list <<< "${CELL_THRESHOLD:-}"
 
 mkdir -p "${RESULTS%/}"
 
@@ -115,43 +116,55 @@ for fedeg in "${fedegs[@]}"; do
                     echo "Invalid SMOOTHING value: $smooth" >&2
                     exit 5
                 fi
-            MODE_UPPER=$(echo "$MODE" | tr '[:lower:]' '[:upper:]')
-            folder="${RESULTS%/}/${MODE_UPPER}_p${fedeg}_ref${ref}"
-            [ -n "$shy" ] && folder+="_shy${shy}"
-                [ -n "$smooth" ] && folder+="_smo${smooth}"
-            mkdir -p "$folder"
+                if [ -z "${CELL_THRESHOLD:-}" ]; then
+                    threshold_vals=("")
+                else
+                    threshold_vals=("${threshold_list[@]}")
+                fi
+                for threshold in "${threshold_vals[@]}"; do
+                    threshold=$(echo "$threshold" | xargs)
 
-            cp "$TEMPLATE" "$folder/$(basename "$TEMPLATE")"
-            PARAM_FILE="$folder/$(basename "$TEMPLATE")"
+                    MODE_UPPER=$(echo "$MODE" | tr '[:lower:]' '[:upper:]')
+                    folder="${RESULTS%/}/${MODE_UPPER}_p${fedeg}_ref${ref}"
+                    [ -n "$shy" ] && folder+="_shy${shy}"
+                    [ -n "$smooth" ] && folder+="_smo${smooth}"
+                    [ -n "$threshold" ] && folder+="_th${threshold}"
+                    mkdir -p "$folder"
 
-            # Replace relevant parameters in the parameter file using awk (handles optional smoothing)
-            awk -v fe="${fedeg}" -v refv="${ref}" -v shyv="${shy}" -v smo="${smooth}" '
-            BEGIN{
-                re_fe="^[[:space:]]*set[[:space:]]+fe_degree[[:space:]]*=.*$";
-                re_ref="^[[:space:]]*set[[:space:]]+n_refinements[[:space:]]*=.*$";
-                re_shy="^[[:space:]]*set[[:space:]]+shyness[[:space:]]*=.*$";
-                re_smo="^[[:space:]]*set[[:space:]]+n_smoothing_steps[[:space:]]*=.*$";
-                done_fe=0; done_ref=0; done_shy=0; done_smo=0;
-            }
-            {
-                if(!done_fe && $0 ~ re_fe){ sub("=.*$","= " fe); done_fe=1 }
-                if(!done_ref && $0 ~ re_ref){ sub("=.*$","= " refv); done_ref=1 }
-                if(!done_shy && $0 ~ re_shy && shyv!=""){ sub("=.*$","= " shyv); done_shy=1 }
-                if(!done_smo && $0 ~ re_smo && smo!=""){ sub("=.*$","= " smo); done_smo=1 }
-                print
-            }
-            ' "$PARAM_FILE" > "$PARAM_FILE.tmp" && mv "$PARAM_FILE.tmp" "$PARAM_FILE" || {
-                echo "Failed to update parameter file: $PARAM_FILE" >&2
-                exit 6
-            }
+                    cp "$TEMPLATE" "$folder/$(basename "$TEMPLATE")"
+                    PARAM_FILE="$folder/$(basename "$TEMPLATE")"
 
-            echo "Running $EXE_PATH with params $PARAM_FILE -> $folder/output.txt"
-            (cd "$folder" && "$EXE_PATH" "$(basename "$PARAM_FILE")") >"$folder/output.txt" 2>&1 || {
-                echo "Execution failed for $folder (see $folder/output.txt)" >&2
-                exit 7
-            }
+                    # Replace relevant parameters in the parameter file using awk (handles optional smoothing and threshold)
+                    awk -v fe="${fedeg}" -v refv="${ref}" -v shyv="${shy}" -v smo="${smooth}" -v th="${threshold}" '
+                    BEGIN{
+                        re_fe="^[[:space:]]*set[[:space:]]+fe_degree[[:space:]]*=.*$";
+                        re_ref="^[[:space:]]*set[[:space:]]+n_refinements[[:space:]]*=.*$";
+                        re_shy="^[[:space:]]*set[[:space:]]+shyness[[:space:]]*=.*$";
+                        re_smo="^[[:space:]]*set[[:space:]]+n_smoothing_steps[[:space:]]*=.*$";
+                        re_th="^[[:space:]]*set[[:space:]]+cell_threshold[[:space:]]*=.*$";
+                        done_fe=0; done_ref=0; done_shy=0; done_smo=0; done_th=0;
+                    }
+                    {
+                        if(!done_fe && $0 ~ re_fe){ sub("=.*$","= " fe); done_fe=1 }
+                        if(!done_ref && $0 ~ re_ref){ sub("=.*$","= " refv); done_ref=1 }
+                        if(!done_shy && $0 ~ re_shy && shyv!=""){ sub("=.*$","= " shyv); done_shy=1 }
+                        if(!done_smo && $0 ~ re_smo && smo!=""){ sub("=.*$","= " smo); done_smo=1 }
+                        if(!done_th && $0 ~ re_th && th!=""){ sub("=.*$","= " th); done_th=1 }
+                        print
+                    }
+                    ' "$PARAM_FILE" > "$PARAM_FILE.tmp" && mv "$PARAM_FILE.tmp" "$PARAM_FILE" || {
+                        echo "Failed to update parameter file: $PARAM_FILE" >&2
+                        exit 6
+                    }
+
+                    echo "Running $EXE_PATH with params $PARAM_FILE -> $folder/output.txt"
+                    (cd "$folder" && "$EXE_PATH" "$(basename "$PARAM_FILE")") >"$folder/output.txt" 2>&1 || {
+                        echo "Execution failed for $folder (see $folder/output.txt)" >&2
+                        exit 7
+                    }
+                done
+            done
         done
-    done
     done
 done
 
