@@ -101,6 +101,7 @@ namespace Step85
     unsigned int shyness           = 3;
     std::string  smoother_type     = "shy_patches";
     unsigned int fe_degree         = 2;
+    double       cell_threshold    = 1;
     unsigned int n_refinements     = 1;
     unsigned int base_refinements  = 3;
     unsigned int max_iterations    = 100;
@@ -130,6 +131,11 @@ namespace Step85
                           "2",
                           Patterns::Integer(1),
                           "Finite element polynomial degree");
+        prm.declare_entry(
+          "cell_threshold",
+          "1.0",
+          Patterns::Double(0.0, 1.0),
+          "Threshold for cell inclusion in domain when using level set");
         prm.declare_entry(
           "n_refinements",
           "2",
@@ -163,6 +169,7 @@ namespace Step85
       {
         omega             = prm.get_double("omega");
         shyness           = prm.get_integer("shyness");
+        cell_threshold    = prm.get_double("cell_threshold");
         smoother_type     = prm.get("smoother_type");
         fe_degree         = prm.get_integer("fe_degree");
         n_refinements     = prm.get_integer("n_refinements");
@@ -330,9 +337,19 @@ namespace Step85
   void
   MGSolver<dim>::distribute_dofs()
   {
-    std::cout << "Distributing degrees of freedom for all levels" << std::endl;
+    std::cout
+      << "Distributing degrees of freedom for all levels with cell threshold "
+      << mg_params.cell_threshold << std::endl;
 
     const unsigned int n_levels = mg_triangulations.n_levels();
+
+
+    const QGauss<1>       quadrature_1D(2);
+    hp::FECollection<dim> collection_dummy;
+    collection_dummy.push_back(fe_level_set);
+
+    NonMatching::RegionUpdateFlags region_update_flags;
+    region_update_flags.inside = update_JxW_values;
 
     for (unsigned int level = 0; level < n_levels; ++level)
       {
@@ -340,6 +357,18 @@ namespace Step85
 
         // Reinitialize DoFHandler for this level's triangulation
         mg_dof_handlers[level].reinit(mg_triangulations[level]);
+
+
+        std::vector<types::global_dof_index> level_set_dof_indices(
+          fe_level_set.dofs_per_cell);
+
+        NonMatching::FEValues<dim> non_matching_fe_values(
+          collection_dummy,
+          quadrature_1D,
+          region_update_flags,
+          *mg_mesh_classifiers[level],
+          mg_level_set_dof_handlers[level],
+          mg_level_sets[level]);
 
         // Set user flags for cells inside the domain
         for (const auto &cell : mg_dof_handlers[level].active_cell_iterators())
@@ -349,6 +378,26 @@ namespace Step85
 
             if (cell_location == NonMatching::LocationToLevelSet::inside)
               cell->set_user_flag();
+
+            if (cell_location == NonMatching::LocationToLevelSet::intersected)
+              {
+                const typename DoFHandler<dim>::active_cell_iterator
+                  lvl_set_cell(&mg_triangulations[level],
+                               cell->level(),
+                               cell->index(),
+                               &mg_level_set_dof_handlers[level]);
+                non_matching_fe_values.reinit(lvl_set_cell);
+                const Quadrature<dim> inside_quad =
+                  non_matching_fe_values.get_inside_fe_values()
+                    ->get_quadrature();
+                double inside_ratio = 0;
+                for (const double q_weight : inside_quad.get_weights())
+                  {
+                    inside_ratio += q_weight;
+                  }
+                if (inside_ratio > mg_params.cell_threshold)
+                  cell->set_user_flag();
+              }
           }
 
         mg_dof_handlers[level].distribute_dofs(*mg_fe_poisson[level]);
