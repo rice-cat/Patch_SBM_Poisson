@@ -1,0 +1,33 @@
+# Parameter file for MG solver
+
+subsection Multigrid parameters
+  # Relaxation parameter for smoother
+  set omega = 0.9
+
+  # Shyness parameter for patch construction
+  set shyness = 2
+
+  # Type of patch smoother to use (shy_patches or full_residual)
+  set smoother_type = full_residual
+
+  # Threshold for cell inclusion in domain when using level set
+  set cell_threshold = 0.25
+
+  # Finite element polynomial degree
+  set fe_degree = 2
+
+  # Number of base global refinements applied to the base mesh
+  set base_refinements = 2
+
+  # Number of global refinements
+  set n_refinements = 4
+
+  # Number of smoothing steps
+  set n_smoothing_steps = 3
+
+  # Maximum solver iterations
+  set max_iterations = 100
+
+  # Solver tolerance
+  set solver_tolerance = 1e-8
+end
