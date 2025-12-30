@@ -110,6 +110,50 @@ def find_runs(results_dir: str):
             if m_amg_iter:
                 parsed['amg_iterations'] = int(m_amg_iter.group(1))
 
+            # Extract cell threshold if not already set from folder name
+            if not parsed.get('threshold'):
+                m_th_out = re.search(r"cell threshold\s+([0-9.]+)", text, re.I)
+                if m_th_out:
+                    parsed['threshold'] = m_th_out.group(1)
+                else:
+                    # Try to find it in the parameter file
+                    if parsed.get('param_file'):
+                        try:
+                            with open(parsed['param_file'], 'r') as pf:
+                                ptext = pf.read()
+                            m_th_prm = re.search(r'^\s*set\s+cell_threshold\s*=\s*([^\s#]+)', ptext, re.I | re.M)
+                            if m_th_prm:
+                                parsed['threshold'] = m_th_prm.group(1)
+                        except:
+                            pass
+                
+            # Extract shyness if not already set from folder name
+            if not parsed.get('shy'):
+                m_shy = re.search(r"Shyness:\s+([0-9]+)", text)
+                if m_shy:
+                    parsed['shy'] = m_shy.group(1)
+                elif parsed.get('param_file'):
+                    try:
+                        with open(parsed['param_file'], 'r') as pf:
+                            ptext = pf.read()
+                        m_shy_prm = re.search(r'^\s*set\s+shyness\s*=\s*([^\s#]+)', ptext, re.I | re.M)
+                        if m_shy_prm:
+                            parsed['shy'] = m_shy_prm.group(1)
+                    except:
+                        pass
+
+            # Extract smoothing if not already set from folder name
+            if not parsed.get('smoothing'):
+                if parsed.get('param_file'):
+                    try:
+                        with open(parsed['param_file'], 'r') as pf:
+                            ptext = pf.read()
+                        m_smo_prm = re.search(r'^\s*set\s+n_smoothing_steps\s*=\s*([^\s#]+)', ptext, re.I | re.M)
+                        if m_smo_prm:
+                            parsed['smoothing'] = m_smo_prm.group(1)
+                    except:
+                        pass
+
             # Find all "Level <n>: <num> cells" and "Level <n>: <num> DoFs"
             cells = {}
             dofs = {}
@@ -191,25 +235,6 @@ def write_summary_csv(results_dir: str, rows):
             smoothing = r.get('smoothing', '')
             threshold = r.get('threshold', '')
             
-            param_file = r.get('param_file', '')
-            if param_file and os.path.exists(param_file):
-                try:
-                    with open(param_file, 'r') as pf:
-                        ptext = pf.read()
-                    if not shyness:
-                        m_shy = re.search(r'^\s*set\s+shyness\s*=\s*([^\s#]+)', ptext, re.I | re.M)
-                        if m_shy:
-                            shyness = m_shy.group(1)
-                    if not smoothing:
-                        m_smo = re.search(r'^\s*set\s+n_smoothing_steps\s*=\s*([^\s#]+)', ptext, re.I | re.M)
-                        if m_smo:
-                            smoothing = m_smo.group(1)
-                    if not threshold:
-                        m_th = re.search(r'^\s*set\s+cell_threshold\s*=\s*([^\s#]+)', ptext, re.I | re.M)
-                        if m_th:
-                            threshold = m_th.group(1)
-                except Exception:
-                    pass
             writer.writerow([
                 p, ref, shyness, smoothing, threshold, cells, dofs,
                 gmg_its, gmg_time, sweep_time, amg_its, amg_time
