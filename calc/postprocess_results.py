@@ -26,8 +26,8 @@ from typing import Optional
 import statistics
 
 
-# New runner creates folders like: 2D_p1_ref5_shy3_smo3
-PATTERN = re.compile(r'^(?P<dim>2D|3D|2d|3d)_p(?P<degree>\d+)_ref(?P<ref>\d+)(?:_shy(?P<shy>[^_]+))?(?:_smo(?P<smo>\d+))?$')
+# New runner creates folders like: 2D_p1_ref5_shy3_smo3_th1.
+PATTERN = re.compile(r'^(?P<dim>2D|3D|2d|3d)_p(?P<degree>\d+)_ref(?P<ref>\d+)(?:_shy(?P<shy>[^_]+))?(?:_smo(?P<smo>\d+))?(?:_th(?P<th>[^_]+))?$')
 
 
 def parse_folder_name(name: str) -> Optional[dict]:
@@ -41,6 +41,7 @@ def parse_folder_name(name: str) -> Optional[dict]:
         'refinements': int(m.group('ref')),
         'shy': m.group('shy') or '',
         'smoothing': m.group('smo') or '',
+        'threshold': m.group('th') or '',
     }
 
 
@@ -73,6 +74,12 @@ def find_runs(results_dir: str):
         parsed['iterations'] = ''
         parsed['cells_finest'] = ''
         parsed['dofs_finest'] = ''
+        parsed['smoother_sweep_time'] = ''
+        parsed['gmg_solve_time'] = ''
+        parsed['gmg_iterations'] = ''
+        parsed['amg_solve_time'] = ''
+        parsed['amg_iterations'] = ''
+
         try:
             with open(output_file, 'r') as fh:
                 text = fh.read()
@@ -81,6 +88,27 @@ def find_runs(results_dir: str):
             m_iter = re.search(r"Solved in\s*([0-9]+)\s+iterations", text)
             if m_iter:
                 parsed['iterations'] = int(m_iter.group(1))
+
+            # Extract SUMMARY values
+            m_sweep = re.search(r"SUMMARY: smoother_sweep_time\s+([0-9.]+)", text)
+            if m_sweep:
+                parsed['smoother_sweep_time'] = float(m_sweep.group(1))
+
+            m_gmg_time = re.search(r"SUMMARY: gmg_solve_time\s+([0-9.]+)", text)
+            if m_gmg_time:
+                parsed['gmg_solve_time'] = float(m_gmg_time.group(1))
+
+            m_gmg_iter = re.search(r"SUMMARY: gmg_iterations\s+([0-9]+)", text)
+            if m_gmg_iter:
+                parsed['gmg_iterations'] = int(m_gmg_iter.group(1))
+
+            m_amg_time = re.search(r"SUMMARY: amg_solve_time\s+([0-9.]+)", text)
+            if m_amg_time:
+                parsed['amg_solve_time'] = float(m_amg_time.group(1))
+
+            m_amg_iter = re.search(r"SUMMARY: amg_iterations\s+([0-9]+)", text)
+            if m_amg_iter:
+                parsed['amg_iterations'] = int(m_amg_iter.group(1))
 
             # Find all "Level <n>: <num> cells" and "Level <n>: <num> DoFs"
             cells = {}
@@ -105,14 +133,15 @@ def find_runs(results_dir: str):
 
 def write_csv(results_dir: str, rows):
     out_path = os.path.join(results_dir, 'output.txt')
-    fieldnames = ['folder', 'dim', 'degree', 'distortion', 'mu', 'run_index', 'cg_iterations', 'per_iteration_reduction']
+    fieldnames = [
+        'folder', 'dim', 'degree', 'refinements', 'shy', 'smoothing', 'threshold',
+        'gmg_iterations', 'gmg_solve_time', 'smoother_sweep_time',
+        'amg_iterations', 'amg_solve_time'
+    ]
     # Collect all rows and convert fields
     formatted_rows = []
     for r in rows:
-        # ensure mu field is present
         row = {k: r.get(k, '') for k in fieldnames}
-        if not row.get('mu'):
-            row['mu'] = r.get('mu', '')
         dim_val = row['dim']
         if isinstance(dim_val, str) and dim_val.lower().startswith('2'):
             row['dim'] = '2'
@@ -134,10 +163,13 @@ def write_csv(results_dir: str, rows):
 def write_summary_csv(results_dir: str, rows):
     """Write a CSV summary (summary.csv) with one row per run.
 
-    Columns: p, refinements, cells, dofs, iterations
+    Columns: p, refinements, cells, dofs, iterations, ...
     """
     out_path = os.path.join(results_dir, 'summary.csv')
-    fieldnames = ['p', 'refinements', 'shyness', 'smoothing', 'cells', 'dofs', 'iterations']
+    fieldnames = [
+        'p', 'refinements', 'shyness', 'smoothing', 'threshold', 'cells', 'dofs',
+        'gmg_its', 'gmg_time', 'sweep_time', 'amg_its', 'amg_time'
+    ]
     written = 0
     with open(out_path, 'w', newline='') as fh:
         writer = csv.writer(fh)
@@ -147,25 +179,41 @@ def write_summary_csv(results_dir: str, rows):
             ref = r.get('refinements', '')
             cells = r.get('cells_finest', '')
             dofs = r.get('dofs_finest', '')
-            its = r.get('iterations', '')
+            
+            gmg_its = r.get('gmg_iterations', '')
+            gmg_time = r.get('gmg_solve_time', '')
+            sweep_time = r.get('smoother_sweep_time', '')
+            amg_its = r.get('amg_iterations', '')
+            amg_time = r.get('amg_solve_time', '')
 
-            # Try to read shyness and n_smoothing_steps from parameter file if available
-            shyness = ''
-            smoothing = ''
+            # Try to read shyness, n_smoothing_steps, and cell_threshold from parameter file if available
+            shyness = r.get('shy', '')
+            smoothing = r.get('smoothing', '')
+            threshold = r.get('threshold', '')
+            
             param_file = r.get('param_file', '')
             if param_file and os.path.exists(param_file):
                 try:
                     with open(param_file, 'r') as pf:
                         ptext = pf.read()
-                    m_shy = re.search(r'^\s*set\s+shyness\s*=\s*([^\s#]+)', ptext, re.I | re.M)
-                    if m_shy:
-                        shyness = m_shy.group(1)
-                    m_smo = re.search(r'^\s*set\s+n_smoothing_steps\s*=\s*([^\s#]+)', ptext, re.I | re.M)
-                    if m_smo:
-                        smoothing = m_smo.group(1)
+                    if not shyness:
+                        m_shy = re.search(r'^\s*set\s+shyness\s*=\s*([^\s#]+)', ptext, re.I | re.M)
+                        if m_shy:
+                            shyness = m_shy.group(1)
+                    if not smoothing:
+                        m_smo = re.search(r'^\s*set\s+n_smoothing_steps\s*=\s*([^\s#]+)', ptext, re.I | re.M)
+                        if m_smo:
+                            smoothing = m_smo.group(1)
+                    if not threshold:
+                        m_th = re.search(r'^\s*set\s+cell_threshold\s*=\s*([^\s#]+)', ptext, re.I | re.M)
+                        if m_th:
+                            threshold = m_th.group(1)
                 except Exception:
                     pass
-            writer.writerow([p, ref, shyness, smoothing, cells, dofs, its])
+            writer.writerow([
+                p, ref, shyness, smoothing, threshold, cells, dofs,
+                gmg_its, gmg_time, sweep_time, amg_its, amg_time
+            ])
             written += 1
     return out_path, written
 
