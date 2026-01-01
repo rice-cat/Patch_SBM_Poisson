@@ -1,0 +1,53 @@
+\begin{tikzpicture}
+    \begin{scope}
+        \begin{axis}[
+                xlabel={Number of refinements},
+                ylabel={Time per DOF [s]},
+                % ymin=0,
+                % ymax =25,
+                legend pos=north west]
+
+            \newcommand{\addGMGplot}[1]{%
+                \addplot+[thick] table[
+                        col sep=comma,
+                        x=refinements,
+                        y expr=\thisrow{sweep_time}/\thisrow{dofs},
+                        restrict expr to domain={\thisrow{p}}{#1:#1},
+                        restrict expr to domain={\thisrow{smoothing}}{3:3},
+                        restrict expr to domain={\thisrow{threshold}}{1:1},
+                        restrict expr to domain={\thisrow{shyness}}{3:3},
+                        unbounded coords=discard
+                    ] {results/full_2D.csv}; \addlegendentry{$p=#1$}%
+            }
+            \addGMGplot{1}
+            \addGMGplot{2}
+            \addGMGplot{3}
+
+        \end{axis}
+    \end{scope}
+
+    \begin{scope}[xshift=0.52\columnwidth]
+        \begin{axis}[
+                xlabel={Number of refinements},
+                ylabel={Time per DOF [s]},
+                legend pos=north west]
+
+            \newcommand{\addGMGplot}[1]{%
+                \addplot+[thick] table[
+                        col sep=comma,
+                        x=refinements,
+                        y expr=\thisrow{gmg_time}/ \thisrow{dofs},
+                        restrict expr to domain={\thisrow{p}}{#1:#1},
+                        restrict expr to domain={\thisrow{smoothing}}{3:3},
+                        restrict expr to domain={\thisrow{threshold}}{1:1},
+                        restrict expr to domain={\thisrow{shyness}}{3:3},
+                        unbounded coords=discard ] {results/full_3D.csv}; \addlegendentry{$p=#1$}%
+            }
+
+            \addGMGplot{1}
+            \addGMGplot{2}
+            \addGMGplot{3}
+
+        \end{axis}
+    \end{scope}
+\end{tikzpicture}
