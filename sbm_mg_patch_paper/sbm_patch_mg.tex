@@ -664,7 +664,12 @@ We need to show that the subsequent smoothing steps are not really expesive, bec
     \label{fig:timing_solver}
 \end{figure}
 
-Here put a table with relative cost of subsequent smoothing steps. Two tables: one for 2D and one for 3D.
+\begin{figure}[htbp]
+    \centering
+    \input{figures/timing_sweeps.tex}
+    \caption{Ratio of the time per iteration for 2 smoothing steps vs 1 smoothing step ($\xi=3$, threshold 1.0).}
+    \label{fig:timing_sweeps}
+\end{figure}
 
 \section{Conclusion}
 \label{sec:conclusion}

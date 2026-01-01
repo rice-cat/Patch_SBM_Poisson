@@ -18,6 +18,7 @@ import tempfile
 def main():
     p = argparse.ArgumentParser(description="Filter CSV by numeric amg_time column")
     p.add_argument('input_csv', help='Path to input CSV file')
+    p.add_argument('output_dir', nargs='?', default=None, help='Path to output directory')
     args = p.parse_args()
 
     in_path = args.input_csv

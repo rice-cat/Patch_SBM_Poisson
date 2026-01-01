@@ -88,6 +88,8 @@ def find_runs(results_dir: str):
             m_iter = re.search(r"Solved in\s*([0-9]+)\s+iterations", text)
             if m_iter:
                 parsed['iterations'] = int(m_iter.group(1))
+                if not parsed.get('gmg_iterations'):
+                    parsed['gmg_iterations'] = int(m_iter.group(1))
 
             # Extract SUMMARY values
             m_sweep = re.search(r"SUMMARY: smoother_sweep_time\s+([0-9.eE+-]+)", text)
@@ -97,6 +99,11 @@ def find_runs(results_dir: str):
             m_gmg_time = re.search(r"SUMMARY: gmg_solve_time\s+([0-9.eE+-]+)", text)
             if m_gmg_time:
                 parsed['gmg_solve_time'] = float(m_gmg_time.group(1))
+            else:
+                # Fallback for older output format or missing SUMMARY
+                # Look for "Solving system with multigrid" and then "Solved in X iterations"
+                # We don't have a direct solve time without SUMMARY, but we might have it in a different line
+                pass
 
             m_gmg_iter = re.search(r"SUMMARY: gmg_iterations\s+([0-9]+)", text)
             if m_gmg_iter:
@@ -126,6 +133,8 @@ def find_runs(results_dir: str):
                                 parsed['threshold'] = m_th_prm.group(1)
                         except:
                             pass
+                if not parsed.get('threshold'):
+                    parsed['threshold'] = '1.'
                 
             # Extract shyness if not already set from folder name
             if not parsed.get('shy'):
@@ -144,7 +153,10 @@ def find_runs(results_dir: str):
 
             # Extract smoothing if not already set from folder name
             if not parsed.get('smoothing'):
-                if parsed.get('param_file'):
+                m_smo = re.search(r"smoothing steps:\s+([0-9]+)", text, re.I)
+                if m_smo:
+                    parsed['smoothing'] = m_smo.group(1)
+                elif parsed.get('param_file'):
                     try:
                         with open(parsed['param_file'], 'r') as pf:
                             ptext = pf.read()
