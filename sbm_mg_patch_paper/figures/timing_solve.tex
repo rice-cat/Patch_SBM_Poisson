@@ -2,9 +2,7 @@
     \begin{scope}
         \begin{axis}[
                 width=0.45\columnwidth,
-                xlabel={Number of refinements},
-                ylabel={Throughput [DOF/s]},
-                ymode=log,
+                xlabel={Number of refinements}, ylabel={Throughput [DOF/s]}, ymode=log, paperplot,
                 % ymin=0,
                 % ymax =25,
                 legend pos=north west]
@@ -25,11 +23,16 @@
             \addGMGplot{2}
             \addGMGplot{3}
 
+            % AMG plots are dashed via the `dashed` plot option below.
+            % Reset cycle index so AMG uses the same colors (but dashed)
+            % as the GMG curves which were plotted above.
+            \pgfplotsset{cycle list shift=-3}
+
             % Ensure `results/full_2D.csv` contains only rows with a numeric
             % `amg_time`. This calls an external script (requires -shell-escape).
             \immediate\write18{python3 scripts/filter_amg_time.py results/full_2D.csv results/tmp}
             \newcommand{\addAMGplot}[1]{%
-                \addplot+[thick, mark=*, mark options={scale=0.8}, mark repeat=1] table[
+                \addplot+[thick, dashed, mark=*, mark options={scale=0.8}, mark repeat=1] table[
                         col sep=comma,
                         x=refinements,
                         y expr=\thisrow{dofs}/\thisrow{amg_time},
@@ -42,6 +45,9 @@
             }
             \addAMGplot{1}
 
+            % Restore cycle-list shift
+            \pgfplotsset{cycle list shift=0}
+
         \end{axis}
     \end{scope}
 
@@ -51,7 +57,8 @@
                 xlabel={Number of refinements},
                 ylabel={Throughput [DOF/s]},
                 ymode=log,
-                legend pos=north west]
+                legend pos=north west,
+                paperplot]
             \immediate\write18{python3 scripts/filter_amg_time.py results/full_3D.csv results/tmp}
 
             \newcommand{\addGMGplot}[1]{%
@@ -66,13 +73,16 @@
                         unbounded coords=discard ] {results/full_3D.csv}; \addlegendentry{$p=#1$}%
             }
 
+            % Add GMG curves first (match 2D pattern)
             \addGMGplot{1}
             \addGMGplot{2}
             \addGMGplot{3}
 
-            % AMG plot for 3D
+            % AMG plots dashed but reuse GMG colors via cycle list shift
+            \pgfplotsset{cycle list shift=-3}
+
             \newcommand{\addAMGplotThree}[1]{%
-                \addplot+[thick, mark=*, mark options={scale=0.8}, mark repeat=1] table[
+                \addplot+[thick, dashed, mark=*, mark options={scale=0.8}, mark repeat=1] table[
                         col sep=comma,
                         x=refinements,
                         y expr=\thisrow{dofs}/\thisrow{amg_time},
@@ -84,6 +94,9 @@
                     ] {results/tmp/full_3D.filtered.csv}; \addlegendentry{$p=#1$}%
             }
             \addAMGplotThree{1}
+
+            % Restore cycle-list shift
+            \pgfplotsset{cycle list shift=0}
 
         \end{axis}
     \end{scope}

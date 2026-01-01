@@ -5,7 +5,8 @@
                 ylabel={Number of iterations},
                 ymin=0,
                 ymax =22,
-                legend pos=north west]
+                legend pos=north west,
+                paperplot]
 
             \addplot+[thick] table[ col sep=comma,
                     x=refinements,
@@ -38,13 +39,15 @@
         \end{axis}
     \end{scope}
 
-    \begin{scope}[xshift=0.52\columnwidth]
+    \begin{scope}[xshift=0.48\columnwidth]
         \begin{axis}[
+                width=0.45\columnwidth,
                 xlabel={Number of refinements},
                 ylabel={Number of iterations},
                 ymin=0,
                 ymax =20,
-                legend pos=north west]
+                legend pos=north west,
+                paperplot]
 
             \addplot+[thick] table[ col sep=comma,
                     x=refinements,

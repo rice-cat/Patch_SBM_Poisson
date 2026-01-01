@@ -119,33 +119,54 @@
 
 % \usepackage[marginal]{showlabels}
 
-% \documentclass{article}
-% \usepackage{graphicx} % Required for including images
-% \usepackage{subcaption} % Required for subfigures
+\definecolor{deepgreen}{RGB}{0,100,0}
 
-% \begin{document}
+% --- plot size / style helpers (added) ---
+% Define global plot sizes (adjust here to change all figures)
+\newcommand{\plotwidth}{0.49\columnwidth}
+\newcommand{\plotheight}{0.4\columnwidth}
 
-% \begin{figure}[htbp] % 'h'ere, 't'op, 'b'ottom, 'p'age
-%     \centering % Center the figure
+% Create a cycle list that uses symbols (markers) for the paper plots
+\pgfplotscreateplotcyclelist{paper markers}{
+    {teal,    solid, mark=*},
+    {orange,   solid, mark=triangle*},
+    {blue,     solid, mark=square*},
+    {red,      solid, mark=pentagon*},
+    {violet,     solid, mark=otimes*},
+    {brown,    solid, mark=halfcircle*},
+    {black,   solid, mark=diamond*},
+}
 
-%     \begin{subfigure}[b]{0.45\textwidth} % [b]ottom alignment, width relative to text width
-%         \centering
-%         \includegraphics[width=\textwidth]{example-image-a} % Replace with your image file
-%         \caption{Caption for first subfigure}
-%         \label{fig:subfig_a}
-%     \end{subfigure}
-%     \hfill % Adds horizontal space between subfigures
-%     \begin{subfigure}[b]{0.45\textwidth}
-%         \centering
-%         \includegraphics[width=\textwidth]{example-image-b} % Replace with your image file
-%         \caption{Caption for second subfigure}
-%         \label{fig:subfig_b}
-%     \end{subfigure}
+% Default to the solid paper markers for all plots.
+\pgfplotsset{cycle list name=paper markers}
 
-%     \caption{Caption for the main figure}
-%     \label{fig:main_figure}
-% \end{figure}
+% Centralized palette (change these three names to update all highlights)
+\newcommand{\PaperColorA}{teal}
+\newcommand{\PaperColorB}{orange}
+\newcommand{\PaperColorC}{blue}
 
-% You can refer to the subfigures using their labels, for example, Figure~\ref{fig:subfig_a} shows the first image.
+% Global opacity for range highlights (change here)
+\newcommand{\RangeFillOpacity}{0.15}
 
-% \end{document}
+% Reusable style for axis environments in the paper
+\pgfplotsset{
+    paperplot/.style={
+            width=\plotwidth,
+            height=\plotheight,
+            cycle list name=paper markers,
+            every axis/.append style={font=\small},
+            grid=major,
+            thick
+        }
+}
+
+\pgfplotsset{
+    longplot/.style={
+            width=0.8\columnwidth,
+            height=\plotheight,
+            cycle list name=paper markers,
+            every axis/.append style={font=\small},
+            grid=major,
+            thick
+        }
+}
