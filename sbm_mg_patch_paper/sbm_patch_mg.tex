@@ -35,9 +35,9 @@ composed of cells from the background mesh and extrapolating boundary conditions
 of these selected cells. This approach avoids complex cell-cutting procedures and specialized quadrature rules common
 in methods like CutFEM~\cite{burman2015cutfem}. However, the resulting linear system exhibits a condition number
 scaling like $\mathcal{O}(h^{-2})$~\cite{atallah2021shifted}, posing significant difficulties for iterative solvers.
-While conditioning issues for linear elements ($p=1$) are similar to body-fitted methods~\cite{atallah2021shifted,
-    collins2023penalty}, the efficient numerical solution of algebraic systems emanating from high-order SBM formulations
-remains somewhat unexplored.
+While conditioning issues are similar to body-fitted methods~\cite{atallah2021shifted, collins2023penalty}, the
+efficient numerical solution of algebraic systems emanating from high-order SBM formulations remains somewhat
+unexplored.
 
 % The gap in solvers for SBM, previous DG work, and the need for a CG-specific approach
 Despite its advantages, the development of robust and scalable solvers for SBM, particularly geometric multigrid
@@ -115,15 +115,21 @@ introduce a \emph{shyness} criterion to ensure that patches are only formed arou
 active cells, thereby preventing the creation of ill-conditioned local problems on small, isolated slivers of the
 domain.
 
-% Matrix-free context
-For practical efficiency, especially with high-order methods, the implementation of these smoothers and the overall
-multigrid algorithm benefits significantly from matrix-free techniques. Matrix-free implementations enhance the
-efficiency of finite element methods by avoiding the expensive assembly of the system matrix~\cite{kronbichler2019fast,
-    witte2021fast}. Assembling the system matrix, as typically required by AMG, becomes prohibitively expensive in terms of
-memory and computational time for high polynomial degrees. Geometric multigrid methods are particularly well-suited for
-matrix-free settings. Recent work~\cite{wichrowski2025MFSBM} has demonstrated that matrix-free evaluation of SBM
-operators is feasible and efficient. While this work uses matrix-based implementations to demonstrate the multigrid
-approach, the patch-based smoother is designed with future high-performance matrix-free solvers in mind.
+% Matrix-free context and efficiency of patch smoothers
+The adoption of patch-based smoothers is further justified by recent algorithmic improvements that render them highly
+efficient, particularly in matrix-free settings. While traditional overlapping Schwarz methods are often viewed as
+computationally expensive, recent work on smoothers with localized residual computations~\cite{wichrowski2025smoothers}
+demonstrates that multiplicative formulations allow for the fusion of residual computation with the local subspace
+correction. This significantly reduces memory transfers, a key bottleneck on modern hardware. Furthermore, the local
+problems on these patches can be solved with remarkable efficiency; interior patches can leverage fast tensor-product
+inverses~\cite{witte2021fast, cui2025multigrid}, while more general patches can be solved using local $p$-multigrid
+techniques. This approach yields $p$-robustness at a cost comparable to a global operator
+evaluation~\cite{wichrowski2025multigrid, wichrowski2025local}. Indeed, recent results for CutFEM on
+GPUs~\cite{cui2025multigrid} validate the effectiveness of such vertex-patch smoothers for unfitted methods, reporting
+promising iteration counts and demonstrating that performing multiple smoothing sweeps specifically on boundary patches
+is a viable strategy to ensure robustness. Thus, while this work utilizes matrix-based implementations to demonstrate
+the robustness of the multigrid approach, the proposed smoother is designed to align with future high-performance,
+matrix-free solvers that avoid expensive matrix assembly~\cite{kronbichler2019fast, witte2021fast}.
 
 % Context: CutFEM and stabilization
 In the broader context of unfitted methods, CutFEM~\cite{burman2015cutfem} is a prominent alternative with theoretical
