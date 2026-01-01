@@ -24,62 +24,138 @@
 \section{Introduction}
 \mwerror{Introduction needs to be rewritten.}
 
-Ajay: you have command to mark errors: \aaerror{error mesage }{Text to be fixed} \aaerror*{error mesage but text is
-    highlighted}{Another text to be fixed} \aawarning{warning message}{Text to be fixed but less severe} \aanote{note
-    message}{Text maybe fixed or improved or just a note} \aanote*{note message with highlighted text}{works with
-    highlighting too}
-
-\mwnote{the text below is created adccidentaly, I wrote prompt for Gemini in the wrong window and pressed Enter.
-    Although it looks reasonable.}
+% Motivation: PDEs on complex geometries, unfitted methods, and SBM basics leading to conditioning issues
 The numerical solution of partial differential equations (PDEs) on domains with complex or evolving geometries is a
-persistent challenge in scientific computing. Traditional finite element methods, which rely on body-fitted meshes that
-conform to the domain's boundary, often face significant hurdles in mesh generation, particularly for intricate
-three-dimensional shapes. This process can be both computationally expensive and a major bottleneck in the overall
-simulation workflow.
+persistent challenge in scientific computing. Traditional finite element methods (FEM) rely on body-fitted meshes that
+must conform precisely to the domain's boundary, a process that is computationally expensive and often constitutes a
+major bottleneck for intricate three-dimensional shapes. Unfitted finite element methods offer an attractive
+alternative by employing a fixed background mesh that does not conform to the physical domain boundary. Among these,
+the Shifted Boundary Method (SBM)~\cite{main2018shifted} stands out by defining the problem on a surrogate domain
+composed of cells from the background mesh and extrapolating boundary conditions from the true boundary to the boundary
+of these selected cells. This approach avoids complex cell-cutting procedures and specialized quadrature rules common
+in methods like CutFEM~\cite{burman2015cutfem}. However, the resulting linear system exhibits a condition number
+scaling like $\mathcal{O}(h^{-2})$~\cite{atallah2021shifted}, posing significant difficulties for iterative solvers.
+While conditioning issues for linear elements ($p=1$) are similar to body-fitted methods~\cite{atallah2021shifted,
+    collins2023penalty}, the efficient numerical solution of algebraic systems emanating from high-order SBM formulations
+remains somewhat unexplored.
 
-Immersed or unfitted boundary methods offer an attractive alternative by decoupling the domain geometry from the mesh.
-These methods employ a simple, structured background mesh (e.g., a Cartesian grid) that does not conform to the
-physical boundary, thereby simplifying the meshing process immensely. The domain is simply ``immersed'' in this
-background mesh. The Shifted Boundary Method (SBM) is a prominent example of such a technique~\cite{main2018shifted}.
-In SBM, the boundary conditions are not enforced on the true, complex boundary but are instead transferred to a nearby
-surrogate boundary composed of faces from the background mesh cells. This transfer is achieved by extrapolating the
-boundary data, typically via Taylor series expansions.
+% The gap in solvers for SBM, previous DG work, and the need for a CG-specific approach
+Despite its advantages, the development of robust and scalable solvers for SBM, particularly geometric multigrid
+preconditioners~\cite{hackbusch1985multi}, has remained an open problem. In previous
+work~\cite{wichrowski2025geometric}, a geometric multigrid preconditioner was developed for a Discontinuous Galerkin
+(DG) SBM formulation. That approach leveraged the inherent block structure of DG to utilize element-wise smoothers
+effectively. However, for Continuous Galerkin (CG) methods, which are often preferred for their lower degree-of-freedom
+count and compatibility with standard engineering workflows, the challenges are different. The strong coupling between
+degrees of freedom in CG means that one can expect simple point-wise smoothers fail to resolve the error near the
+surrogate boundary, where SBM introduces non-local terms. Consequently, this work aims to bridge this gap by
+introducing a geometric multigrid solver specifically tailored for Continuous Galerkin SBM discretizations, relying on
+a patch-based smoothing strategy.
 
-While SBM simplifies mesh generation, it introduces new mathematical and computational challenges. The resulting linear
-systems are often large, sparse, ill-conditioned, and non-symmetric, making them difficult to solve efficiently. The
-convergence of iterative solvers like GMRES, which are necessary for such systems, depends heavily on the availability
-of a robust and scalable preconditioner. Multigrid methods are prime candidates for this role, offering the potential
-for optimal, mesh-independent convergence rates.
+% Literature review: SBM details, evolution, and applications (Stokes, Interfaces, etc.)
+In SBM, the \emph{surrogate domain} $\tilde{\Omega}$ is typically constructed as a union of cells from a fixed
+background mesh that are deemed \emph{active} (e.g., entirely inside or significantly intersecting the true domain
+$\Omega$), and its boundary $\tilde{\Gamma}$ does not conform to the domain boundary $\Gamma$. Boundary conditions are
+transferred from the true to the surrogate boundary, typically via Taylor expansions or more general extension
+operators~\cite{zorrilla2024shifted}, and enforced in a Nitsche-like manner~\cite{nitsche1971variationsprinzip}. The
+Shifted Boundary Method has evolved from its first formulation~\cite{main2018shifted, main2018shiftedVol2}, which used
+cells strictly within the considered domain, to a recent approach~\cite{yang2024optimal} that often includes
+intersected cells based on a volume fraction threshold. It has been extended to high-order discretizations
+\cite{atallah2022high}, various physical problems including Stokes flow~\cite{atallah2020analysis}, solid
+mechanics~\cite{atallah2021shifted, atallah2024nonlinear}, and significantly, to problems with embedded
+interfaces~\cite{li2020shifted, xu2024weighted}. These latter works demonstrate the capability of SBM to handle
+discontinuities across internal boundaries by appropriately modifying the formulation to impose jump conditions,
+extending the method's applicability to multiphysics and multi-material problems. Other innovations include
+penalty-free variants~\cite{collins2023penalty} and integration with level set methods~\cite{kuzmin2022unfitted,
+    xue2021new}.
 
-However, the application of standard multigrid techniques to SBM is not straightforward. Two primary difficulties
-arise. First, the non-standard boundary terms introduced by the SBM formulation can disrupt the smoothing properties of
-classical smoothers like Jacobi or Gauss-Seidel, which are not designed to handle such complexities. Second, the set of
-active cells forming the computational domain may not be nested across the multigrid hierarchy, which can compromise
-the effectiveness of standard inter-grid transfer operators.
+% Comparison with CutFEM: Geometric flexibility vs. Quadrature efficiency
+While SBM avoids the complexities of generating body-fitted meshes, the primary geometric task shifts to accurately
+determining the relationship between points on the surrogate boundary $\tilde{\Gamma}$ and the true boundary $\Gamma$.
+The method inherently allows for the use of arbitrarily complex geometries, and crucially, avoids the need to compute
+integrals over the arbitrarily shaped integration domains that arise from cell-boundary intersections. While
+determining the active mesh requires computing volume fractions of cut cells, this is a one-time geometric
+preprocessing step. In contrast, methods like CutFEM require specialized quadrature for all terms in the bilinear form
+on every cut cell. This makes SBM significantly more efficient in terms of computational throughput, especially in
+matrix-free implementations where the overhead of cut-cell quadrature would be incurred in every operator evaluation.
+The SBM utilizes closest-point projection algorithms to find for each point on $\tilde{\Gamma}$ a corresponding point
+on $\Gamma$, but other strategies could be used, such as level sets. Level set methods, which represent the domain
+boundary as the zero level set of a function, are often employed in unfitted methods like SBM to facilitate operations
+such as closest point projection~\cite{kuzmin2022unfitted, xue2021new}. Special treatment of domains with corners was
+analyzed in~\cite{atallah2021analysis}.
 
-In previous work~\cite{wichrowski2025geometric}, a geometric multigrid preconditioner was developed for a Discontinuous
-Galerkin (DG) SBM formulation. While effective, the cell-based nature of the DG smoother encountered difficulties at
-higher polynomial degrees. For the continuous Galerkin (CG) methods considered here, the challenges are different and,
-in some ways, more acute. The stronger coupling between degrees of freedom means that simple smoothers fail more
-dramatically, and a more sophisticated approach is required.
+% Algebraic challenges: Non-symmetry and indefiniteness
+However, the geometric flexibility of SBM comes at the cost of new computational challenges. The extrapolation of
+boundary conditions and the resulting modifications to the variational formulation often lead to linear systems with
+non-symmetric and potentially indefinite properties~\cite{wichrowski2025geometric}, particularly for higher-order
+polynomial approximations. These properties make the efficient solution of the resulting system non-trivial and demand
+specialized preconditioning strategies.
 
-This paper introduces a robust geometric multigrid preconditioner for a continuous Galerkin SBM formulation. Our main
-contribution is the development of a novel subspace correction smoother, which we term the ``Full-Residual Shy Patch''
-smoother. This smoother is built on local problems defined on overlapping patches of elements. The key ideas are:
-\begin{enumerate}
-    \item \textbf{Consistent Local Problems:} The local problem on each patch is constructed to be a faithful
-          representation of the global SBM problem, including all relevant boundary terms. This is achieved by using
-          the full
-          global residual for all degrees of freedom fully contained within the patch.
-    \item \textbf{Shy Patch Criterion:} To ensure robustness and avoid ill-conditioning, patches are only formed around
-          vertices that are sufficiently surrounded by active cells, a concept we call ``shyness''. This prevents the
-          creation of
-          small, isolated local problems that are numerically unstable.
-\end{enumerate}
-We demonstrate that this patch-based smoother, combined with a multi-stage strategy that focuses effort near the
-boundary, leads to a highly effective h-multigrid preconditioner. The performance of the proposed method is evaluated
-through a series of numerical experiments, showing excellent robustness with respect to mesh refinement ($h$) and
-scalability up to moderately high polynomial degrees ($p$).
+% Multigrid basics and failure of standard smoothers/AMG
+Multigrid methods~\cite{brandt1977multi, hackbusch1985multi} are renowned for their potential to solve large systems
+arising from partial differential equations, often offering optimal or near-optimal complexity. However, their
+application as preconditioners for SBM remains largely unexplored. While Algebraic Multigrid (AMG) has been applied to
+SBM for discretizations using continuous linear elements~\cite{atallah2020second}, its efficiency for higher-order
+methods is not established. In fact, AMG generally struggles with high-order finite element discretizations even for
+body-fitted meshes, and for unfitted methods like SBM, it is even less effective for $p > 1$. Furthermore, AMG may not
+fully leverage the geometric information in structured background meshes. Geometric multigrid methods, in contrast,
+explicitly use the hierarchy of meshes and can be very effective. A critical component is the smoother. Standard
+smoothers like Jacobi or Gauss-Seidel, however, struggle with the non-standard local properties of SBM systems. They
+implicitly enforce zero correction on the boundary of the local support (e.g., a vertex patch for Gauss-Seidel), which
+conflicts with the non-zero boundary terms introduced by SBM.
+
+% Solution strategy: Subspace correction and Patch smoothers
+To address these issues in the context of Continuous Galerkin SBM, we adopt the perspective of subspace correction
+methods~\cite{xu2001method, bramble1991analysis}. The effectiveness of a smoother depends critically on the choice of
+subspaces and the local problems solved on them. Since simple one-dimensional subspaces (corresponding to individual
+DoFs) are ineffective for SBM due to the boundary conflicts mentioned above, we construct local problems on larger,
+overlapping subspaces defined by patches of elements centered around vertices. This concept is akin to overlapping
+Schwarz smoothers~\cite{pavarino1993additive}, but tailored for the specific challenges of SBM. By solving a local
+problem on a patch that includes the relevant SBM boundary terms, we can compute a more effective correction. We
+introduce a \emph{shyness} criterion to ensure that patches are only formed around vertices sufficiently surrounded by
+active cells, thereby preventing the creation of ill-conditioned local problems on small, isolated slivers of the
+domain.
+
+% Matrix-free context
+For practical efficiency, especially with high-order methods, the implementation of these smoothers and the overall
+multigrid algorithm benefits significantly from matrix-free techniques. Matrix-free implementations enhance the
+efficiency of finite element methods by avoiding the expensive assembly of the system matrix~\cite{kronbichler2019fast,
+    witte2021fast}. Assembling the system matrix, as typically required by AMG, becomes prohibitively expensive in terms of
+memory and computational time for high polynomial degrees. Geometric multigrid methods are particularly well-suited for
+matrix-free settings. Recent work~\cite{wichrowski2025MFSBM} has demonstrated that matrix-free evaluation of SBM
+operators is feasible and efficient. While this work uses matrix-based implementations to demonstrate the multigrid
+approach, the patch-based smoother is designed with future high-performance matrix-free solvers in mind.
+
+% Context: CutFEM and stabilization
+In the broader context of unfitted methods, CutFEM~\cite{burman2015cutfem} is a prominent alternative with theoretical
+results for preconditioners already developed. It discretizes directly on the physical domain by cutting background
+cells, requiring specialized quadrature. Due to inherent difficulties with small cuts, proper stabilization seems to be
+an unavoidable part of CutFEM. The so-called ghost penalty~\cite{burman2010ghost, wichrowski2025matrix} solves the
+issue of ill-conditioning but may require additional care to avoid
+locking~\cite{badia2022linking,bergbauer2024high,burman2022design}. CutFEM has been applied to various problems,
+including Stokes~\cite{burman2014fictitious}, elasticity~\cite{hansbo2017cut}, or two-phase
+flows~\cite{claus2019cutfem}. Furthermore, Discontinuous Galerkin methods have also been combined with
+CutFEM~\cite{gurkan2019stabilized, bergbauer2024high}. While CutFEM ensures robust conditioning via geometry-adapted
+quadrature, SBM retains the efficiency comparable to standard tensor-product quadrature.
+
+% Context: CutFEM preconditioners
+Concerning preconditioning, CutFEM seems to pose challenges. Results providing optimal
+preconditioners~\cite{gross2023analysis, gross2021optimal} have been developed. Although these methods are shown to be
+mesh-independent, iteration counts can be high. In~\cite{bergbauer2024high} DG-CutFEM was considered, and a multigrid
+preconditioner based on cell-wise Additive Schwarz smoother was used. Although the paper mostly focuses on matrix-free
+implementation, the preconditioner seems promising. However, the smoothing step requires a rather high number of
+matrix-vector products.
+
+% Contribution of this paper: Full-Residual Shy Patch Smoother for CG-SBM
+This paper addresses the computational challenges of solving linear systems arising from Continuous Galerkin SBM
+discretizations. Our main contribution is the development of a novel subspace correction smoother, termed the
+\emph{Full-Residual Shy Patch} smoother. This smoother is built on local problems defined on overlapping patches of
+elements, constructed to be faithful representations of the global SBM problem. We introduce a \emph{shyness} criterion
+to ensure robustness and avoid ill-conditioning on small patches. We demonstrate that this patch-based smoother,
+combined with a multi-stage strategy, leads to a highly effective $h$-multigrid preconditioner. Numerical experiments
+demonstrate the preconditioner's effectiveness under mesh refinement and compare our results with an algebraic
+multigrid (AMG) preconditioner, highlighting the limitations of AMG for higher-order SBM discretizations. The
+implementation is built on the \texttt{deal.II} finite element library~\cite{dealii2019design, dealii2024}, leveraging
+its comprehensive tools for finite element methods and multigrid.
 
 \section{Method formulation}
 \label{sec:method}
@@ -678,6 +754,7 @@ quality of the smoother.
     \item compare DG-SBM and cellwise smoothers
     \item compare to AMG
 \end{itemize}
+Comparison in 2D. Reason: more data available because the number of levels can be higher.
 
 \subsection{Timing}
 \begin{itemize}
@@ -685,6 +762,7 @@ quality of the smoother.
     \item Time of a single sweep for different number of steps.
 \end{itemize}
 We need to show that the subsequent smoothing steps are not really expesive, because they only operate on a small number of patches.
+DG-SBM with cellwise SOR for p=3 struggles so it is not included here.
 
 \begin{figure}[htbp]
     \centering
