@@ -659,7 +659,7 @@ We need to show that the subsequent smoothing steps are not really expesive, bec
 \begin{figure}[htbp]
     \centering
     \input{figures/timing_solve.tex}
-    \caption{Comparison of time to solution for the proposed multigrid preconditioner with Full-Residual Shy Patch smoother ($\xi=3$, $s=3$) against
+    \caption{Comparison of throughput (DOF/s) for the proposed multigrid preconditioner with Full-Residual Shy Patch smoother ($\xi=3$, $s=3$) against
         an algebraic multigrid (AMG) preconditioner from \texttt{deal.II}'s interface to \texttt{Trilinos}. The tests are performed on the unit ball problem in 2D for polynomial degrees $p=1,2,3$ with $s=3$ smoothing steps.}
     \label{fig:timing_solver}
 \end{figure}
