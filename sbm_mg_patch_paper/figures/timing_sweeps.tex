@@ -1,0 +1,52 @@
+\begin{tikzpicture}
+    \begin{scope}
+        \begin{axis}[
+                width=0.45\columnwidth,
+                xlabel={Number of refinements}, ylabel={Ratio 2 sweeps / 1 sweep}, paperplot,
+                ymin=1,
+                ymax=1.3 ]
+
+            \immediate\write18{python3 scripts/compute_sweep_ratio.py results/full_2D.csv 3 1. > results/tmp/ratio_2D.csv}
+
+            \newcommand{\addRatioPlot}[1]{%
+                \addplot+[thick] table[
+                        col sep=comma,
+                        x=refinements,
+                        y=ratio,
+                        restrict expr to domain={\thisrow{p}}{#1:#1},
+                        unbounded coords=discard
+                    ] {results/tmp/ratio_2D.csv}; \addlegendentry{$p=#1$}%
+            }
+            \addRatioPlot{1}
+            \addRatioPlot{2}
+            \addRatioPlot{3}
+
+        \end{axis}
+    \end{scope}
+
+    \begin{scope}[xshift=0.48\columnwidth]
+        \begin{axis}[
+                width=0.45\columnwidth,
+                xlabel={Number of refinements},
+                legend pos=south east,
+                paperplot,
+                ymin=1, ymax=1.3]
+
+            \immediate\write18{python3 scripts/compute_sweep_ratio.py results/full_3D.csv 3 1. > results/tmp/ratio_3D.csv}
+
+            \newcommand{\addRatioPlotThree}[1]{%
+                \addplot+[thick] table[
+                        col sep=comma,
+                        x=refinements,
+                        y=ratio,
+                        restrict expr to domain={\thisrow{p}}{#1:#1},
+                        unbounded coords=discard ] {results/tmp/ratio_3D.csv}; \addlegendentry{$p=#1$}%
+            }
+
+            \addRatioPlotThree{1}
+            \addRatioPlotThree{2}
+            \addRatioPlotThree{3}
+
+        \end{axis}
+    \end{scope}
+\end{tikzpicture}

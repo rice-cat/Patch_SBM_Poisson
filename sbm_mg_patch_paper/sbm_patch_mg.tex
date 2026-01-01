@@ -555,7 +555,7 @@ improvements may be possible with additional refinements to the smoother or the 
     \centering
     \input{figures/iter_shy3_smooth3.tex}
     \caption{Iteration counts for multigrid preconditioned GMRES solver using the Full-Residual Shy Patch smoother with
-        varying shyness thresholds equal to 3 on unit ball problem for polynomial degrees $p=1,2,3$. Number of smoothing steps is fixed to 3. Left panel presents results in 2D, right panel in 3D.}
+        varying shyness thresholds equal to 3 on unit ball problem for polynomial degrees $p=1,2,3$. Number of smoothing steps is fixed to 3. Left panel presents results in 2D, right panel in 3D. TODO: update this plot with new data.}
     \label{fig:iteration_counts_shy3_smoothing3}
 \end{figure}
 
@@ -626,8 +626,8 @@ quality of the smoother.
             $p \setminus \xi$ & 1  & 2  & 3  & 4   \\
             \midrule
             1                 & 11 & 11 & 11 & --- \\
-            2                 & 10 & 10 & 11 & --- \\
-            3                 & 15 & 15 & 16 & --- \\
+            2                 & 10 & 10 & 10 & --- \\
+            3                 & 15 & 15 & 15 & --- \\
             \bottomrule
         \end{tabular}
     \end{subtable}
@@ -648,6 +648,36 @@ quality of the smoother.
         \end{tabular}
     \end{subtable}
 \end{table}
+
+\subsection{Comparison with other methods}
+
+\begin{table}[h!]
+    \centering
+    \caption{GMRES iteration counts (tolerance $10^{-8}$) for the Poisson problem. Comparison of the continuous SBM ($\lambda=1$) preconditioned with the Full-Residual Shy Patch smoother (shyness $\xi=3$, $s=3$, 2D) against DG-SBM with a cellwise SOR smoother ($s=3$) and algebraic multigrid (AMG). Solver failures (no convergence within 100 iterations) are indicated by ``---''.}
+    \label{tab:comparison_cutfem}
+    \begin{tabular}{lll|ccccccc}
+        \hline
+        Formulation             & Preconditioner                & Degree & \multicolumn{7}{c}{Mesh refinement}                                     \\
+                                &                               &        & 2                                   & 3   & 4   & 5   & 6   & 7   & 8   \\
+        \hline
+
+        \multirow{5}{*}{SBM}    & \multirow{3}{*}{Shy Patch}    & $1$    & 5                                   & 5   & 7   & 8   & 9   & 10  & 11  \\
+                                &                               & $2$    & 4                                   & 6   & 7   & 7   & 8   & 9   & 10  \\
+                                &                               & $3$    & 5                                   & 7   & 8   & 9   & 11  & 13  & 15  \\
+        \cline{3-10}
+                                & \multirow{2}{*}{AMG}          & $1$    & 2                                   & 2   & 12  & 13  & 14  & 15  & 17  \\
+                                &                               & $2$    & ---                                 & --- & --- & --- & --- & --- & --- \\
+        \cline{3-10}
+        \multirow{2}{*}{DG-SBM} & \multirow{2}{*}{cellwise-SOR} & $1$    & ?                                   & ?   & ?   & ?   & ?   & ?   & ?   \\
+                                &                               & $2$    & ?                                   & ?   & ?   & ?   & ?   & ?   & ?   \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{itemize}
+    \item compare DG-SBM and cellwise smoothers
+    \item compare to AMG
+\end{itemize}
 
 \subsection{Timing}
 \begin{itemize}
