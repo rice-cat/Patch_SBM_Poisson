@@ -1,5 +1,5 @@
-\documentclass[11pt,a4paper]{article}
-% \documentclass{elsarticle}
+% \documentclass[11pt,a4paper]{article}
+\documentclass{elsarticle}
 
 \usepackage{amsmath,amssymb,amsfonts,graphicx,hyperref}
 \usepackage[margin=1in]{geometry}
@@ -13,31 +13,34 @@
 
 \begin{document}
 
-% \begin{abstract}
+\begin{abstract}
 
-% \end{abstract}
-% \begin{keyword}
-%     immersed boundary methods \sep finite element methods \sep Shifted Boundary Method \sep Discontinuous Galerkin \sep
-%     multigrid
-% \end{keyword}
+\end{abstract}
+\begin{keyword}
+    immersed boundary methods \sep finite element methods \sep Shifted Boundary Method \sep
+    multigrid \sep  patch smoothers
+\end{keyword}
 \maketitle
 \section{Introduction}
-\mwerror{Introduction needs to be rewritten.}
 
 % Motivation: PDEs on complex geometries, unfitted methods, and SBM basics leading to conditioning issues
-The numerical solution of partial differential equations (PDEs) on domains with complex or evolving geometries is a
-persistent challenge in scientific computing. Traditional finite element methods (FEM) rely on body-fitted meshes that
-must conform precisely to the domain's boundary, a process that is computationally expensive and often constitutes a
-major bottleneck for intricate three-dimensional shapes. Unfitted finite element methods offer an attractive
-alternative by employing a fixed background mesh that does not conform to the physical domain boundary. Among these,
-the Shifted Boundary Method (SBM)~\cite{main2018shifted} stands out by defining the problem on a surrogate domain
-composed of cells from the background mesh and extrapolating boundary conditions from the true boundary to the boundary
-of these selected cells. This approach avoids complex cell-cutting procedures and specialized quadrature rules common
-in methods like CutFEM~\cite{burman2015cutfem}. However, the resulting linear system exhibits a condition number
-scaling like $\mathcal{O}(h^{-2})$~\cite{atallah2021shifted}, posing significant difficulties for iterative solvers.
-While conditioning issues are similar to body-fitted methods~\cite{atallah2021shifted, collins2023penalty}, the
-efficient numerical solution of algebraic systems emanating from high-order SBM formulations remains somewhat
-unexplored.
+
+% Motivation: PDEs on complex geometries, unfitted methods, and SBM basics leading to conditioning issues
+Capturing the intrinsic detail and complexity of the real world within the rigid structure of computational grids is a
+persistent tension in scientific computing. Traditional finite element methods (FEM) act like artisanal tailors,
+requiring body-fitted meshes that must conform precisely to every contour of the domain's boundary. While effective,
+this bespoke mesh generation is computationally expensive and frequently becomes the bottleneck for intricate
+three-dimensional shapes. Unfitted finite element methods offer a liberating alternative by employing a fixed
+background mesh that remains blissfully agnostic to the physical boundary. Among these, the Shifted Boundary Method
+(SBM)~\cite{main2018shifted} adopts a distinct strategy: instead of the mesh chasing the boundary, the boundary is
+mathematically shifted to meet the mesh. By defining the problem on a surrogate domain and extrapolating boundary
+conditions, SBM avoids the complex geometric intersections of methods like CutFEM~\cite{burman2015cutfem}. However, in
+a display of the "conservation of difficulty," SBM essentially shifts part of the challenge from the mesh generator to
+the linear solver. The resulting linear systems are burdened with extrapolation terms that introduce non-symmetry and
+potential indefiniteness, proving that a simple mesh does not necessarily guarantee a simple matrix. While conditioning
+issues scale like $\mathcal{O}(h^{-2})$~\cite{atallah2021shifted}, similar to body-fitted
+methods~\cite{collins2023penalty}, the efficient numerical solution of algebraic systems emanating from high-order SBM
+formulations remains somewhat unexplored.
 
 % The gap in solvers for SBM, previous DG work, and the need for a CG-specific approach
 Despite its advantages, the development of robust and scalable solvers for SBM, particularly geometric multigrid
@@ -78,10 +81,11 @@ preprocessing step. In contrast, methods like CutFEM require specialized quadrat
 on every cut cell. This makes SBM significantly more efficient in terms of computational throughput, especially in
 matrix-free implementations where the overhead of cut-cell quadrature would be incurred in every operator evaluation.
 The SBM utilizes closest-point projection algorithms to find for each point on $\tilde{\Gamma}$ a corresponding point
-on $\Gamma$, but other strategies could be used, such as level sets. Level set methods, which represent the domain
+on $\Gamma$, \mwerror{level set is just a very simple way to describe domain, so that statement should be
+    corrected}{but other strategies could be used, such as level sets}. Level set methods, which represent the domain
 boundary as the zero level set of a function, are often employed in unfitted methods like SBM to facilitate operations
 such as closest point projection~\cite{kuzmin2022unfitted, xue2021new}. Special treatment of domains with corners was
-analyzed in~\cite{atallah2021analysis}.
+analyzed in~\cite{atallah2021analysis}. \mwnote{maybe cite literature on closest point that is common in graphics?}
 
 % Algebraic challenges: Non-symmetry and indefiniteness
 However, the geometric flexibility of SBM comes at the cost of new computational challenges. The extrapolation of
@@ -129,7 +133,8 @@ GPUs~\cite{cui2025multigrid} validate the effectiveness of such vertex-patch smo
 promising iteration counts and demonstrating that performing multiple smoothing sweeps specifically on boundary patches
 is a viable strategy to ensure robustness. Thus, while this work utilizes matrix-based implementations to demonstrate
 the robustness of the multigrid approach, the proposed smoother is designed to align with future high-performance,
-matrix-free solvers that avoid expensive matrix assembly~\cite{kronbichler2019fast, witte2021fast}.
+matrix-free solvers that avoid expensive matrix assembly~\cite{kronbichler2019fast,wichrowski2025largeStrain,
+    witte2021fast}.
 
 % Context: CutFEM and stabilization
 In the broader context of unfitted methods, CutFEM~\cite{burman2015cutfem} is a prominent alternative with theoretical
