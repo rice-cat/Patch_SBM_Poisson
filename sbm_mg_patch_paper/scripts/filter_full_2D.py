@@ -1,14 +1,43 @@
 #!/usr/bin/env python3
+#file:settings.json
 import csv
 import sys
 import os
 import tempfile
 import shutil
+import json
 
 # This script is intended to be run from the sbm_mg_patch_paper/ directory
 IN_CSV = os.path.join(os.getcwd(), 'results', 'full_2D.csv')
-# write temporary filtered results to `results/tmp/` to avoid polluting originals
-OUT_DIR = os.path.join(os.getcwd(), 'results', 'tmp')
+# determine OUT_DIR from settings directive if present, otherwise default to results/tmp
+default_tmp = 'results/tmp'
+try:
+    script_dir = os.path.dirname(__file__)
+    try:
+        with open(__file__, 'r') as sf:
+            for _ in range(20):
+                line = sf.readline()
+                if not line:
+                    break
+                line = line.strip()
+                if line.startswith('#file:'):
+                    fname = line.split(':', 1)[1].strip()
+                    settings_path = os.path.join(script_dir, fname)
+                    if os.path.exists(settings_path):
+                        with open(settings_path) as s2:
+                            settings = json.load(s2)
+                            default_tmp = settings.get('tmp_dir', default_tmp)
+                    break
+    except Exception:
+        pass
+except Exception:
+    pass
+
+if os.path.isabs(default_tmp):
+    OUT_DIR = default_tmp
+else:
+    OUT_DIR = os.path.join(os.getcwd(), default_tmp)
+
 OUT_CSV = os.path.join(OUT_DIR, 'full_2D.filtered.csv')
 
 try:

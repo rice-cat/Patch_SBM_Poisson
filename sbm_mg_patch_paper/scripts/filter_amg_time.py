@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#file:settings.json
 """Filter CSV rows keeping only those with a numeric `amg_time`.
 
 Usage: filter_amg_time.py <input_csv> [output_dir]
@@ -17,21 +18,33 @@ import tempfile
 def main():
     p = argparse.ArgumentParser(description="Filter CSV by numeric amg_time column")
     p.add_argument('input_csv', help='Path to input CSV file')
-    p.add_argument('output_dir', nargs='?', default=None, help='Directory for filtered output (overrides settings)')
     args = p.parse_args()
 
     in_path = args.input_csv
     out_dir = args.output_dir
-    # load settings (script-local) for default tmp dir
+    # load settings from a directive comment referencing a settings file
+    default_tmp = 'results/tmp'
     try:
         script_dir = os.path.dirname(__file__)
-        settings_path = os.path.join(script_dir, 'settings.json')
-        if os.path.exists(settings_path):
-            with open(settings_path) as sf:
-                settings = json.load(sf)
-                default_tmp = settings.get('tmp_dir', 'results/tmp')
-        else:
-            default_tmp = 'results/tmp'
+        # look for a top-level directive like: #file:settings.json
+        try:
+            with open(__file__, 'r') as sf:
+                for _ in range(20):
+                    line = sf.readline()
+                    if not line:
+                        break
+                    line = line.strip()
+                    if line.startswith('#file:'):
+                        fname = line.split(':', 1)[1].strip()
+                        settings_path = os.path.join(script_dir, fname)
+                        if os.path.exists(settings_path):
+                            with open(settings_path) as s2:
+                                settings = json.load(s2)
+                                default_tmp = settings.get('tmp_dir', default_tmp)
+                        break
+        except Exception:
+            # keep default_tmp
+            pass
     except Exception:
         default_tmp = 'results/tmp'
 

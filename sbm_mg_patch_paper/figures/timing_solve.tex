@@ -4,8 +4,7 @@
                 width=0.45\columnwidth,
                 xlabel={Number of refinements}, ylabel={Throughput [DOF/s]}, ymode=log, paperplot,
                 % ymin=0,
-                % ymax =25,
-                legend pos=north west]
+                ymax =3e6 ]
 
             \newcommand{\addGMGplot}[1]{%
                 \addplot+[thick] table[
@@ -30,7 +29,7 @@
 
             % Ensure `results/full_2D.csv` contains only rows with a numeric
             % `amg_time`. This calls an external script (requires -shell-escape).
-            \immediate\write18{python3 scripts/filter_amg_time.py results/full_2D.csv results/tmp}
+            \immediate\write18{python3 scripts/filter_amg_time.py results/full_2D.csv }
             \newcommand{\addAMGplot}[1]{%
                 \addplot+[thick, dashed, mark=*, mark options={scale=0.8}, mark repeat=1] table[
                         col sep=comma,
@@ -41,7 +40,7 @@
                         restrict expr to domain={\thisrow{threshold}}{1:1},
                         restrict expr to domain={\thisrow{shyness}}{3:3},
                         unbounded coords=discard
-                    ] {results/tmp/full_2D.filtered.csv}; \addlegendentry{$p=#1$}% 
+                    ] {results/tmp/full_2D.filtered.csv};
             }
             \addAMGplot{1}
 
@@ -55,11 +54,10 @@
         \begin{axis}[
                 width=0.45\columnwidth,
                 xlabel={Number of refinements},
-                ylabel={Throughput [DOF/s]},
                 ymode=log,
-                legend pos=north west,
+                legend pos=south east,
                 paperplot]
-            \immediate\write18{python3 scripts/filter_amg_time.py results/full_3D.csv results/tmp}
+            \immediate\write18{python3 scripts/filter_amg_time.py results/full_3D.csv}
 
             \newcommand{\addGMGplot}[1]{%
                 \addplot+[thick] table[
@@ -91,7 +89,7 @@
                         restrict expr to domain={\thisrow{threshold}}{1:1},
                         restrict expr to domain={\thisrow{shyness}}{3:3},
                         unbounded coords=discard
-                    ] {results/tmp/full_3D.filtered.csv}; \addlegendentry{$p=#1$}%
+                    ] {results/tmp/full_3D.filtered.csv};
             }
             \addAMGplotThree{1}
 
