@@ -84,19 +84,20 @@ def find_runs(results_dir: str):
             with open(output_file, 'r') as fh:
                 text = fh.read()
 
-            # iterations: look for "Solved in X iterations" or "Solved in X iterations,"
-            m_iter = re.search(r"Solved in\s*([0-9]+)\s+iterations", text)
+            # iterations: look for "Solved in X iteration(s)" (allow singular/plural),
+            # and optionally a trailing comma/period
+            m_iter = re.search(r"Solved in\s*([0-9]+)\s+iteration(?:s)?\b[,\.]?", text)
             if m_iter:
                 parsed['iterations'] = int(m_iter.group(1))
                 if not parsed.get('gmg_iterations'):
                     parsed['gmg_iterations'] = int(m_iter.group(1))
 
             # Extract SUMMARY values
-            m_sweep = re.search(r"SUMMARY: smoother_sweep_time\s+([0-9.eE+-]+)", text)
+            m_sweep = re.search(r"SUMMARY: smoother_sweep_time\s+([0-9.eE+-]+)(?:\s*[a-zA-Z%]+)?", text)
             if m_sweep:
                 parsed['smoother_sweep_time'] = float(m_sweep.group(1))
 
-            m_gmg_time = re.search(r"SUMMARY: gmg_solve_time\s+([0-9.eE+-]+)", text)
+            m_gmg_time = re.search(r"SUMMARY: gmg_solve_time\s+([0-9.eE+-]+)(?:\s*[a-zA-Z%]+)?", text)
             if m_gmg_time:
                 parsed['gmg_solve_time'] = float(m_gmg_time.group(1))
             else:
@@ -109,7 +110,7 @@ def find_runs(results_dir: str):
             if m_gmg_iter:
                 parsed['gmg_iterations'] = int(m_gmg_iter.group(1))
 
-            m_amg_time = re.search(r"SUMMARY: amg_solve_time\s+([0-9.eE+-]+)", text)
+            m_amg_time = re.search(r"SUMMARY: amg_solve_time\s+([0-9.eE+-]+)(?:\s*[a-zA-Z%]+)?", text)
             if m_amg_time:
                 parsed['amg_solve_time'] = float(m_amg_time.group(1))
 
@@ -242,9 +243,7 @@ def write_summary_csv(results_dir: str, rows):
             amg_its = r.get('amg_iterations', '')
             amg_time = r.get('amg_solve_time', '')
 
-            # Skip rows that don't have basic GMG timing info
-            if gmg_time == '' or gmg_its == '':
-                continue
+            # Write rows even when GMG timing/iterations are missing (e.g., smoothing-only runs)
 
             # Try to read shyness, n_smoothing_steps, and cell_threshold from parameter file if available
             shyness = r.get('shy', '')
