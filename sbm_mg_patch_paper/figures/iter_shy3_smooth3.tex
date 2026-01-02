@@ -1,6 +1,7 @@
 \begin{tikzpicture}
     \begin{scope}
         \begin{axis}[
+                width=0.45\columnwidth,
                 xlabel={Number of refinements},
                 ylabel={Number of iterations},
                 ymin=0,
@@ -8,33 +9,20 @@
                 legend pos=north west,
                 paperplot]
 
-            \addplot+[thick] table[ col sep=comma,
-                    x=refinements,
-                    y=iterations,
-                    restrict expr to domain={\thisrow{p}}{0.9:1.1},
-                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
-                    unbounded coords=discard ]
-                {results/iterations_2D.csv}; \addlegendentry{$p=1$}
+            \immediate\write18{python3 scripts/compute_iterations.py results/full_2D.csv 3 3. 1. > results/tmp/iterations_2D.csv}
 
-            \addplot+[ thick] table[
-                    col sep=comma,
-                    x=refinements,
-                    y=iterations,
-                    restrict expr to domain={\thisrow{p}}{1.9:2.1},
-                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
-                    unbounded coords=discard
-                ] {results/iterations_2D.csv};
-            \addlegendentry{$p=2$}
-
-            \addplot+[ thick] table[
-                    col sep=comma,
-                    x=refinements,
-                    y=iterations,
-                    restrict expr to domain={\thisrow{p}}{2.9:3.1},
-                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
-                    unbounded coords=discard
-                ] {results/iterations_2D.csv};
-            \addlegendentry{$p=3$}
+            \newcommand{\addIterPlot}[1]{%
+                \addplot+[thick] table[
+                        col sep=comma,
+                        x=refinements,
+                        y=iterations,
+                        restrict expr to domain={\thisrow{p}}{#1:#1},
+                        unbounded coords=discard
+                    ] {results/tmp/iterations_2D.csv}; \addlegendentry{$p=#1$}%
+            }
+            \addIterPlot{1}
+            \addIterPlot{2}
+            \addIterPlot{3}
 
         \end{axis}
     \end{scope}
@@ -49,36 +37,20 @@
                 legend pos=north west,
                 paperplot]
 
-            \addplot+[thick] table[ col sep=comma,
-                    x=refinements,
-                    y=iterations,
-                    restrict expr to domain={\thisrow{p}}{0.9:1.1},
-                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
-                    restrict expr to domain={\thisrow{shyness}}{2.9:3.1},
-                    unbounded coords=discard ]
-                {results/iterations_3D.csv}; \addlegendentry{$p=1$}
+            \immediate\write18{python3 scripts/compute_iterations.py results/full_3D.csv 3 3. 1. > results/tmp/iterations_3D.csv}
 
-            \addplot+[ thick] table[
-                    col sep=comma,
-                    x=refinements,
-                    y=iterations,
-                    restrict expr to domain={\thisrow{p}}{1.9:2.1},
-                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
-                    restrict expr to domain={\thisrow{shyness}}{2.9:3.1},
-                    unbounded coords=discard
-                ] {results/iterations_3D.csv};
-            \addlegendentry{$p=2$}
-
-            \addplot+[ thick] table[
-                    col sep=comma,
-                    x=refinements,
-                    y=iterations,
-                    restrict expr to domain={\thisrow{p}}{2.9:3.1},
-                    restrict expr to domain={\thisrow{smoothing}}{2.9:3.1},
-                    restrict expr to domain={\thisrow{shyness}}{2.9:3.1},
-                    unbounded coords=discard
-                ] {results/iterations_3D.csv};
-            \addlegendentry{$p=3$}
+            \newcommand{\addIterPlotThree}[1]{%
+                \addplot+[thick] table[
+                        col sep=comma,
+                        x=refinements,
+                        y=iterations,
+                        restrict expr to domain={\thisrow{p}}{#1:#1},
+                        unbounded coords=discard
+                    ] {results/tmp/iterations_3D.csv}; \addlegendentry{$p=#1$}%
+            }
+            \addIterPlotThree{1}
+            \addIterPlotThree{2}
+            \addIterPlotThree{3}
 
         \end{axis}
     \end{scope}
