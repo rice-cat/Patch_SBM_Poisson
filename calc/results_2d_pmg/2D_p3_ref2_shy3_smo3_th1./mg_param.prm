@@ -20,7 +20,7 @@ subsection Multigrid parameters
   set base_refinements = 2
 
   # Number of global refinements
-  set n_refinements = 4
+  set n_refinements = 2
 
   # Number of smoothing steps
   set n_smoothing_steps = 3

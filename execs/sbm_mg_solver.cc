@@ -107,6 +107,7 @@ namespace Step85
     unsigned int max_iterations    = 100;
     unsigned int n_smoothing_steps = 2;
     double       solver_tolerance  = 1e-10;
+    bool         use_p_multigrid   = false;
 
     void
     declare_parameters(ParameterHandler &prm)
@@ -158,6 +159,10 @@ namespace Step85
                           "1e-10",
                           Patterns::Double(0.0),
                           "Solver tolerance");
+        prm.declare_entry("use_p_multigrid",
+                          "false",
+                          Patterns::Bool(),
+                          "Whether to use p-multigrid instead of h-multigrid");
       }
       prm.leave_subsection();
     }
@@ -177,6 +182,7 @@ namespace Step85
         max_iterations    = prm.get_integer("max_iterations");
         n_smoothing_steps = prm.get_integer("n_smoothing_steps");
         solver_tolerance  = prm.get_double("solver_tolerance");
+        use_p_multigrid   = prm.get_bool("use_p_multigrid");
       }
       prm.leave_subsection();
     }
@@ -272,7 +278,9 @@ namespace Step85
   {
     std::cout << "Creating background meshes for MG levels" << std::endl;
 
-    const unsigned int n_levels = mg_params.n_refinements + 1;
+    const unsigned int n_levels = mg_params.use_p_multigrid ?
+                                    mg_params.fe_degree :
+                                    mg_params.n_refinements + 1;
 
     // Resize all level objects
     mg_triangulations.resize(0, n_levels - 1);
@@ -282,22 +290,33 @@ namespace Step85
     mg_dof_handlers.resize(0, n_levels - 1);
     mg_mesh_classifiers.resize(0, n_levels - 1);
 
-    // Create triangulations for each level (h-coarsening)
+    // Create triangulations for each level
     for (unsigned int level = 0; level < n_levels; ++level)
       {
         mg_triangulations[level].set_mesh_smoothing(
           Triangulation<dim>::limit_level_difference_at_vertices);
         GridGenerator::hyper_cube(mg_triangulations[level], -1.21, 1.21);
-        // Apply base refinements first, then additional refinements per level
-        mg_triangulations[level].refine_global(mg_params.base_refinements +
-                                               level);
 
-        // Initialize FE objects for this level
-        mg_fe_poisson[level] = std::make_unique<FE_Q<dim>>(fe_degree);
+        if (mg_params.use_p_multigrid)
+          {
+            // For p-multigrid, all levels have the same mesh refinement
+            mg_triangulations[level].refine_global(mg_params.base_refinements +
+                                                   mg_params.n_refinements);
+            // FE degree varies from 1 to fe_degree
+            mg_fe_poisson[level] = std::make_unique<FE_Q<dim>>(level + 1);
+          }
+        else
+          {
+            // For h-multigrid, mesh refinement varies
+            mg_triangulations[level].refine_global(mg_params.base_refinements +
+                                                   level);
+            // FE degree is constant
+            mg_fe_poisson[level] = std::make_unique<FE_Q<dim>>(fe_degree);
+          }
 
         std::cout << "  Level " << level << ": "
-                  << mg_triangulations[level].n_active_cells() << " cells"
-                  << std::endl;
+                  << mg_triangulations[level].n_active_cells() << " cells, "
+                  << "FE degree " << mg_fe_poisson[level]->degree << std::endl;
       }
   }
 
@@ -478,7 +497,7 @@ namespace Step85
     Step85::assemble_system(mg_dof_handlers[finest_level],
                             *mg_fe_poisson[finest_level],
                             *mg_mesh_classifiers[finest_level],
-                            fe_degree,
+                            mg_fe_poisson[finest_level]->degree,
                             rhs_function,
                             boundary_condition,
                             stiffness_matrix,
@@ -492,7 +511,7 @@ namespace Step85
         Step85::assemble_system(mg_dof_handlers[level],
                                 *mg_fe_poisson[level],
                                 *mg_mesh_classifiers[level],
-                                fe_degree,
+                                mg_fe_poisson[level]->degree,
                                 rhs_function,
                                 boundary_condition,
                                 mg_matrices[level],

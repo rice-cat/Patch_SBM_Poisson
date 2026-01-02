@@ -14,7 +14,7 @@ subsection Multigrid parameters
   set cell_threshold = 1.
 
   # Finite element polynomial degree
-  set fe_degree = 3
+  set fe_degree = 2
 
   # Number of base global refinements applied to the base mesh
   set base_refinements = 2
