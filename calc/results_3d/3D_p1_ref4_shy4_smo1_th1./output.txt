@@ -1,0 +1,47 @@
+Creating background meshes for MG levels
+  Level 0: 64 cells
+  Level 1: 512 cells
+  Level 2: 4096 cells
+  Level 3: 32768 cells
+  Level 4: 262144 cells
+Setting up discrete level set functions for all levels
+  Level 0: 729 level set DoFs
+  Level 1: 4913 level set DoFs
+  Level 2: 35937 level set DoFs
+  Level 3: 274625 level set DoFs
+  Level 4: 2146689 level set DoFs
+Classifying cells for all levels
+Distributing degrees of freedom for all levels with cell threshold 1
+  Level 0: 125 DoFs
+  Level 1: 729 DoFs
+  Level 2: 4913 DoFs
+  Level 3: 35937 DoFs
+  Level 4: 274625 DoFs
+Initializing matrices for finest level
+Setting up multigrid
+  Number of MG levels: 5
+  Using full_residual smoother
+  Omega: 0.9
+  Shyness: 4
+  Level 0: 125 x 125 matrix
+  Level 1: 729 x 729 matrix
+  Level 2: 4913 x 4913 matrix
+  Level 3: 35937 x 35937 matrix
+  Level 4: 274625 x 274625 matrix
+  MG matrices initialized for 5 levels
+Assembling
+Assembling
+Assembling
+Assembling
+Assembling
+Assembling
+Solving system with multigrid
+SUMMARY: smoother_sweep_time 0.075993 s
+Solving system with AMG
+SUMMARY: amg_solve_time 1.08075 s
+SUMMARY: amg_iterations 24
+  Solved in 24 iterations, final residual 8.74807e-09
+Writing vtu file
+Computing L2 error
+
+L2 Error: 2.39778
