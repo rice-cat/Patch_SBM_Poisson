@@ -23,12 +23,30 @@ def main():
                     shy_match = (args.shyness is None) or (abs(row_shy - args.shyness) < 1e-9)
                     th_match = (args.threshold is None) or (abs(row_th - args.threshold) < 1e-9)
                     if shy_match and th_match:
+                        # Prefer the reported per-smoother-sweep time if present; otherwise
+                        # fall back to gmg_time/gmg_its when available.
+                        sweep_time = None
+                        if row.get('sweep_time') not in (None, ''):
+                            try:
+                                sweep_time = float(row['sweep_time'])
+                            except ValueError:
+                                sweep_time = None
+
+                        if sweep_time is None:
+                            # try fallback to gmg_time/gmg_its
+                            try:
+                                gmg_time = float(row['gmg_time'])
+                                gmg_its = int(row['gmg_its'])
+                                if gmg_its != 0:
+                                    sweep_time =999
+                            except (ValueError, KeyError):
+                                sweep_time = None
+
                         data.append({
                             'p': int(row['p']),
                             'refinements': int(row['refinements']),
                             'smoothing': int(row['smoothing']),
-                            'gmg_its': int(row['gmg_its']),
-                            'gmg_time': float(row['gmg_time'])
+                            'per_sweep_time': sweep_time
                         })
                 except (ValueError, KeyError):
                     continue
@@ -40,13 +58,18 @@ def main():
         print(f"No data found for shyness={args.shyness} and threshold={args.threshold}", file=sys.stderr)
         return
 
-    # Group by (p, refinements)
+    # Group by (p, refinements) using per-sweep timing
     results = {}
     for entry in data:
         key = (entry['p'], entry['refinements'])
         if key not in results:
             results[key] = {}
-        results[key][entry['smoothing']] = entry['gmg_time'] / entry['gmg_its']
+        if entry.get('per_sweep_time') is not None:
+            # If multiple entries exist for the same (p, ref, smoothing),
+            # store them in a list to average later
+            if entry['smoothing'] not in results[key]:
+                results[key][entry['smoothing']] = []
+            results[key][entry['smoothing']].append(entry['per_sweep_time'])
 
     # Output CSV
     writer = csv.writer(sys.stdout)
@@ -54,7 +77,10 @@ def main():
     
     for (p, ref), smooths in sorted(results.items()):
         if 1 in smooths and 2 in smooths:
-            ratio = smooths[2] / smooths[1]
+            # Use the average timing for each smoothing level
+            avg_time_1 = sum(smooths[1]) / len(smooths[1])
+            avg_time_2 = sum(smooths[2]) / len(smooths[2])
+            ratio = avg_time_2 / avg_time_1  - 1.0
             writer.writerow([p, ref, ratio])
 
 if __name__ == "__main__":
