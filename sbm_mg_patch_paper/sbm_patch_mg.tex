@@ -42,17 +42,17 @@ issues scale like $\mathcal{O}(h^{-2})$~\cite{atallah2021shifted}, similar to bo
 methods~\cite{collins2023penalty}, the efficient numerical solution of algebraic systems emanating from high-order SBM
 formulations remains somewhat unexplored.
 
-% The gap in solvers for SBM, previous DG work, and the need for a CG-specific approach
+% The gap in solvers for SBM, previous DG work limitation, and the need for patches
 Despite its advantages, the development of robust and scalable solvers for SBM, particularly geometric multigrid
 preconditioners~\cite{hackbusch1985multi}, has remained an open problem. In previous
 work~\cite{wichrowski2025geometric}, a geometric multigrid preconditioner was developed for a Discontinuous Galerkin
-(DG) SBM formulation. That approach leveraged the inherent block structure of DG to utilize element-wise smoothers
-effectively. However, for Continuous Galerkin (CG) methods, which are often preferred for their lower degree-of-freedom
-count and compatibility with standard engineering workflows, the challenges are different. The strong coupling between
-degrees of freedom in CG means that one can expect simple point-wise smoothers fail to resolve the error near the
-surrogate boundary, where SBM introduces non-local terms. Consequently, this work aims to bridge this gap by
-introducing a geometric multigrid solver specifically tailored for Continuous Galerkin SBM discretizations, relying on
-a patch-based smoothing strategy.
+(DG) SBM formulation. That approach leveraged the inherent block structure of DG to utilize element-wise smoothers.
+However, while effective for low orders, that strategy faced significant difficulties at higher polynomial degrees
+($p=3$), where the simple cell-wise smoother failed to resolve the error efficiently, leading to deteriorating
+iteration counts. For Continuous Galerkin (CG) methods, the strong coupling between degrees of freedom makes
+element-wise smoothing even less viable. Consequently, this work aims to not only address the specific challenges of
+classical SBM but also to overcome the high-order robustness issues encountered in previous formulations by introducing
+a more sophisticated patch-based smoothing strategy.
 
 % Literature review: SBM details, evolution, and applications (Stokes, Interfaces, etc.)
 In SBM, the \emph{surrogate domain} $\tilde{\Omega}$ is typically constructed as a union of cells from a fixed
@@ -550,6 +550,8 @@ discretization. The shift magnitudes are normalized by the cell size $h$; for a 
 possible shift magnitude in 2D is $\sqrt{2}h$, occurring if the surrogate boundary point is at a cell corner and the
 true boundary passes through the diagonally opposite corner.
 
+\mwnote{TODO: describe the RHS}
+
 \begin{figure}[h!]
     \centering
     % Placeholder for shift distribution plot
@@ -642,7 +644,7 @@ improvements may be possible with additional refinements to the smoother or the 
     \centering
     \input{figures/iter_shy3_smooth3.tex}
     \caption{Iteration counts for multigrid preconditioned GMRES solver using the Full-Residual Shy Patch smoother with
-        varying shyness thresholds equal to 3 on unit ball problem for polynomial degrees $p=1,2,3$. Number of smoothing steps is fixed to 3. Left panel presents results in 2D, right panel in 3D. TODO: update this plot with new data.}
+        varying shyness thresholds equal to 3 on unit ball problem for polynomial degrees $p=1,2,3$. Number of smoothing steps is fixed to 3. Left panel presents results in 2D with shyness $3$, right panel in 3D with shyness $4$.}
     \label{fig:iteration_counts_shy3_smoothing3}
 \end{figure}
 
@@ -740,23 +742,27 @@ quality of the smoother.
 
 \begin{table}[h!]
     \centering
-    \caption{GMRES iteration counts (tolerance $10^{-8}$) for the Poisson problem. Comparison of the continuous SBM ($\lambda=1$) preconditioned with the Full-Residual Shy Patch smoother (shyness $\xi=3$, $s=3$, 2D) against DG-SBM with a cellwise SOR smoother ($s=3$) and algebraic multigrid (AMG). Solver failures (no convergence within 100 iterations) are indicated by ``---''.}
+    \caption{GMRES iteration counts (tolerance $10^{-8}$) for the Poisson problem. Comparison of the continuous SBM ($\lambda=1$) preconditioned with the Full-Residual Shy Patch smoother (shyness $\xi=3$, $s=3$, 2D) against DG-SBM with a cellwise SSOR smoother ($s=3$) and algebraic multigrid (AMG). Solver failures (no convergence within 100 iterations) are indicated by ``---''.}
+    %DG-SBM results for lambda 0.75: choice of lambda because it gives better results than 1.0
     \label{tab:comparison_cutfem}
     \begin{tabular}{lll|ccccccc}
         \hline
-        Formulation             & Preconditioner                & Degree & \multicolumn{7}{c}{Mesh refinement}                                     \\
-                                &                               &        & 2                                   & 3   & 4   & 5   & 6   & 7   & 8   \\
+        Formulation                             & Preconditioner                                               & Degree & \multicolumn{7}{c}{Mesh refinement}                              \\
+                                                &                                                              &        & 2                                   & 3 & 4  & 5  & 6  & 7  & 8  \\
         \hline
 
-        \multirow{5}{*}{SBM}    & \multirow{3}{*}{Shy Patch}    & $1$    & 5                                   & 5   & 7   & 8   & 9   & 10  & 11  \\
-                                &                               & $2$    & 4                                   & 6   & 7   & 7   & 8   & 9   & 10  \\
-                                &                               & $3$    & 5                                   & 7   & 8   & 9   & 11  & 13  & 15  \\
-        \cline{3-10}
-                                & \multirow{2}{*}{AMG}          & $1$    & 2                                   & 2   & 12  & 13  & 14  & 15  & 17  \\
-                                &                               & $2$    & ---                                 & --- & --- & --- & --- & --- & --- \\
-        \cline{3-10}
-        \multirow{2}{*}{DG-SBM} & \multirow{2}{*}{cellwise-SOR} & $1$    & ?                                   & ?   & ?   & ?   & ?   & ?   & ?   \\
-                                &                               & $2$    & ?                                   & ?   & ?   & ?   & ?   & ?   & ?   \\
+        \multirow{4}{*}{SBM, $\lambda=1$}       & \multirow{3}{*}{h-MG,Shy-Patch smoother}                     & $1$    & 5                                   & 5 & 7  & 8  & 9  & 10 & 11 \\
+                                                &                                                              & $2$    & 4                                   & 6 & 7  & 7  & 8  & 9  & 10 \\
+                                                &                                                              & $3$    & 5                                   & 7 & 8  & 9  & 11 & 13 & 15 \\
+        \cline{2-10}
+                                                & \multirow{1}{*}{AMG}                                         & $1$    & 2                                   & 2 & 12 & 13 & 14 & 15 & 17 \\
+        \cline{1-10}
+        \multirow{2}{*}{DG-SBM, $\lambda=0.75$} & {cellwise-SSOR,}                                             & $1$    & 5                                   & 6 & 7  & 8  & 9  & 9  & 11 \\
+                                                & $hp$-multigrid                                               & $2$    & 7                                   & 9 & 10 & 12 & 14 & 14 & 16 \\
+        \cline{1-10}
+        \multirow{3}{*}{cutFEM}                 & \multirow{3}{*}{h-MG, Patch smoother\cite{cui2025multigrid}} & $1$    & ?                                   & ? & ?  & ?  & ?  & ?  & ?  \\
+                                                &                                                              & $2$    & ?                                   & ? & ?  & ?  & ?  & ?  & ?  \\
+                                                &                                                              & $3$    & ?                                   & ? & ?  & ?  & ?  & ?  & ?  \\
         \hline
     \end{tabular}
 \end{table}
@@ -764,6 +770,7 @@ quality of the smoother.
 \begin{itemize}
     \item compare DG-SBM and cellwise smoothers
     \item compare to AMG
+    \item compare to cutFEM with patch smoother from \cite{cui2025multigrid}
 \end{itemize}
 Comparison in 2D. Reason: more data available because the number of levels can be higher.
 
@@ -787,6 +794,7 @@ DG-SBM with cellwise SOR for p=3 struggles so it is not included here.
     \centering
     \input{figures/timing_sweeps.tex}
     \caption{Ratio of the time per iteration for 2 smoothing steps vs 1 smoothing step ( $xi=4$  threshold 1.0).}
+    %2D results are skipped here because the timings are too small to be meaningful: too much pollution and the ratio went negative for some runs, so I guess there were measurement errors. Anyway, the 3D results are more relevant.
     \label{fig:timing_sweeps}
 \end{figure}
 
