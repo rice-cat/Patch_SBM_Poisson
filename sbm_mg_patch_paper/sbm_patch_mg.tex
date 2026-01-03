@@ -850,12 +850,23 @@ confirming the effectiveness of the p-multigrid approach combined with the Shy P
     \end{tabular}
 \end{table}
 
-\begin{itemize}
-    \item compare DG-SBM and cellwise smoothers
-    \item compare to AMG
-    \item compare to cutFEM with patch smoother from \cite{cui2025multigrid}
-\end{itemize}
-Comparison in 2D. Reason: more data available because the number of levels can be higher.
+In Table~\ref{tab:comparison_cutfem}, we compare the performance of the proposed SBM preconditioners against other
+relevant methods for the 2D Poisson problem. We focus on the 2D case as it allows for a wider range of refinement
+levels to be analyzed. First, we compare the continuous SBM formulation with the Discontinuous Galerkin SBM (DG-SBM)
+solved using an $hp$-multigrid method with a cellwise SSOR smoother. The proposed SBM with the Shy-Patch smoother
+consistently exhibits lower iteration counts compared to DG-SBM, especially as the mesh is refined. This demonstrates
+the superior smoothing property of the patch-based approach compared to the cellwise smoother for the SBM formulation.
+
+We also compare the performance against a standard Algebraic Multigrid (AMG) preconditioner for linear finite elements
+($p=1$). While AMG is efficient on coarser meshes, we observe a steady growth in iteration counts with mesh refinement.
+In contrast, the geometric multigrid with the Shy-Patch smoother shows a more moderate increase, resulting in better
+scalability on fine meshes.
+
+Comparison with the Cut Finite Element Method (cutFEM) equipped with a patch smoother~\cite{cui2025multigrid} shows
+that our method yields comparable iteration counts. For $p=1$, cutFEM shows very stable iterations, while our
+h-multigrid approach shows a slight increase. However, the p-multigrid variant of our method (p-MG) demonstrates
+exceptional robustness, outperforming all other tested methods with very low and constant iteration counts across all
+refinement levels and polynomial degrees.
 
 \subsection{Timing}
 \begin{itemize}
