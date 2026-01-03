@@ -168,6 +168,20 @@ multigrid (AMG) preconditioner, highlighting the limitations of AMG for higher-o
 implementation is built on the \texttt{deal.II} finite element library~\cite{dealii2019design, dealii2024}, leveraging
 its comprehensive tools for finite element methods and multigrid.
 
+The remainder of this paper is organized as follows. In Section~\ref{sec:method}, we briefly review the Shifted
+Boundary Method formulation to establish the necessary notation and context. Section~\ref{sec:mg_preconditioner}
+details the core of our contribution: the construction of the Full-Residual Shy Patch smoother and the associated
+multigrid hierarchy. The key concept of \emph{Shy Patches}, which ensures robustness by avoiding ill-conditioned
+slivers near the boundary, is formally introduced in Section~\ref{sec:shy_patches}. We then present numerical evidence
+in Section~\ref{sec:numerical_results}, demonstrating the effectiveness of the method and providing comparisons with
+AMG and CutFEM. In essence, this work demonstrates that while SBM matrices can be notoriously difficult to handle at
+high polynomial degrees, they can be effectively tamed by our \emph{Shy Patch} smoothers. By solving local problems on
+vertex patches while carefully avoiding ill-conditioned regions, we achieve a solver that remains robust in both mesh
+size $h$ and polynomial degree $p$. This robustness is clearly illustrated by the stable iteration counts presented in
+Figure~\ref{fig:iteration_counts_shy3_smoothing3} and Table~\ref{tab:pmg_iterations}, while the comparative performance
+against other methods is summarized in Table~\ref{tab:comparison_cutfem}. Finally, Section~\ref{sec:conclusion} offers
+concluding remarks.
+
 \section{Method formulation}
 \label{sec:method}
 We consider the Poisson problem as a model problem:
