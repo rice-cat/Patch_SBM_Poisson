@@ -876,20 +876,21 @@ Finally, we evaluate the computational efficiency of the proposed solver. Figure
 comparison of the throughput (Degrees of Freedom per second) between our multigrid preconditioner with the
 Full-Residual Shy Patch smoother and an algebraic multigrid (AMG) preconditioner. Although AMG currently shows higher
 throughput for $p=1$, it is worth noting that patch-based smoothers are particularly advantageous for matrix-free
-implementations. Recent studies~\cite{cui2025multigrid,wichrowski2025local,wichrowski2025multigrid} have demonstrated
-that matrix-free geometric multigrid methods with patch smoothers can achieve high performance on modern architectures
-by minimizing memory traffic. Our current implementation is matrix-based, and we expect that a matrix-free optimization
-would yield significant performance improvements.
+implementations. Recent studies~\cite{wichrowski2025smoothers,
+    cui2025multigrid,wichrowski2025local,wichrowski2025multigrid} have demonstrated that matrix-free geometric multigrid
+methods with patch smoothers can achieve high performance on modern architectures by minimizing memory traffic. Our
+current implementation is matrix-based, and we expect that a matrix-free optimization would yield significant
+performance improvements.
 
 We further analyze the cost of performing additional smoothing steps. Figure~\ref{fig:timing_sweeps} displays the
 relative increase in computational time when increasing the number of smoothing steps from one to two. The plotted
-value corresponds to the ratio $(T_{s=2}/T_{s=1}) - 1$, representing the fractional cost of the second sweep. As
-detailed in Section~\ref{sec:shy_patches}, the Shy Patch smoother restricts subsequent relaxation sweeps to only those
-patches affected by the boundary. Consequently, the cost of these additional sweeps is substantially lower than that of
-the initial full sweep. Furthermore, as the mesh is refined, the fraction of patches near the boundary diminishes,
-leading to a decreasing relative cost for the extra smoothing steps. Given the significant reduction in iteration
-counts achieved with multiple smoothing steps (see Table~\ref{tab:iter_smoothing}), this marginal additional cost is
-well justified, particularly for higher polynomial degrees.
+value corresponds to the ratio $(T_{s=2}/T_{s=1}) - 1$, representing the cost of the second (and consecutive) sweeps
+relative to the first one. As detailed in Section~\ref{sec:shy_patches}, the Shy Patch smoother restricts subsequent
+relaxation sweeps to only those patches affected by the boundary. Consequently, the cost of these additional sweeps is
+substantially lower than that of the initial full sweep. Furthermore, as the mesh is refined, the fraction of patches
+near the boundary diminishes, leading to a decreasing relative cost for the extra smoothing steps. Given the
+significant reduction in iteration counts achieved with multiple smoothing steps (see Table~\ref{tab:iter_smoothing}),
+this marginal additional cost is well justified, particularly for higher polynomial degrees.
 
 \begin{figure}[htbp]
     \centering
