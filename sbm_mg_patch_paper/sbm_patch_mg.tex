@@ -738,6 +738,45 @@ quality of the smoother.
     \end{subtable}
 \end{table}
 
+We also examine the influence of the cell threshold parameter $\lambda$ on the solver performance. Table~\ref{tab:iter_lambda} presents the iteration counts for varying $\lambda$ with fixed shyness threshold $\xi=3$ and smoothing steps $s=3$. In the 2D case (Table~\ref{tab:iter_2d_lambda}), for $p=1$ and $p=2$, the solver is relatively robust to $\lambda$, although $\lambda=1.0$ yields slightly lower iteration counts. However, for $p=3$, small values of $\lambda$ ($\lambda \le 0.5$) lead to increased iterations or failure, while $\lambda \ge 0.75$ restores convergence. In the 3D case (Table~\ref{tab:iter_3d_lambda}), the sensitivity is more pronounced. For $p \ge 2$, $\lambda=0.5$ results in solver failure, while $\lambda=1.0$ provides robust convergence.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Iteration counts for varying cell threshold $\lambda$ with fixed shyness threshold $\xi=3$ and smoothing steps $s=3$. Left: 2D problem ($L=8$). Right: 3D problem ($L=4$).}
+    \label{tab:iter_lambda}
+
+    \begin{subtable}{0.45\textwidth}
+        \centering
+        \caption{2D problem ($L=8$)}
+        \label{tab:iter_2d_lambda}
+        \begin{tabular}{c|cccc}
+            \toprule
+            $p \setminus \lambda$ & 0.25 & 0.5 & 0.75 & 1.0 \\
+            \midrule
+            1                     & 13   & 13  & 13   & 11  \\
+            2                     & 12   & 11  & 11   & 11  \\
+            3                     & ---  & 27  & 14   & 16  \\
+            \bottomrule
+        \end{tabular}
+    \end{subtable}
+    %
+    %
+    \begin{subtable}{0.45\textwidth}
+        \centering
+        \caption{3D problem ($L=4$)}
+        \label{tab:iter_3d_lambda}
+        \begin{tabular}{c|cc}
+            \toprule
+            $p \setminus \lambda$ & 0.5 & 1.0 \\
+            \midrule
+            1                     & 13  & 10  \\
+            2                     & --- & 9   \\
+            3                     & --- & 11  \\
+            \bottomrule
+        \end{tabular}
+    \end{subtable}
+\end{table}
+
 \subsection{Comparison with other methods}
 
 \begin{table}[h!]
