@@ -27,20 +27,20 @@
 
 % Motivation: PDEs on complex geometries, unfitted methods, and SBM basics leading to conditioning issues
 Capturing the intrinsic detail and complexity of the real world within the rigid structure of computational grids is a
-persistent tension in scientific computing. Traditional finite element methods (FEM) act like artisanal tailors,
-requiring body-fitted meshes that must conform precisely to every contour of the domain's boundary. While effective,
-this bespoke mesh generation is computationally expensive and frequently becomes the bottleneck for intricate
-three-dimensional shapes. Unfitted finite element methods offer a liberating alternative by employing a fixed
-background mesh that remains blissfully agnostic to the physical boundary. Among these, the Shifted Boundary Method
-(SBM)~\cite{main2018shifted} adopts a distinct strategy: instead of the mesh chasing the boundary, the boundary is
-mathematically shifted to meet the mesh. By defining the problem on a surrogate domain and extrapolating boundary
-conditions, SBM avoids the complex geometric intersections of methods like CutFEM~\cite{burman2015cutfem}. However, in
-a display of the "conservation of difficulty," SBM essentially shifts part of the challenge from the mesh generator to
-the linear solver. The resulting linear systems are burdened with extrapolation terms that introduce non-symmetry and
-potential indefiniteness, proving that a simple mesh does not necessarily guarantee a simple matrix. While conditioning
-issues scale like $\mathcal{O}(h^{-2})$~\cite{atallah2021shifted}, similar to body-fitted
-methods~\cite{collins2023penalty}, the efficient numerical solution of algebraic systems emanating from high-order SBM
-formulations remains somewhat unexplored.
+persistent tension in scientific computing. Traditional finite element methods (FEM) require body-fitted meshes that
+must conform precisely to every contour of the domain's boundary. While effective, this bespoke mesh generation is
+computationally expensive and frequently becomes the bottleneck for intricate three-dimensional shapes. Unfitted finite
+element methods offer a liberating alternative by employing a fixed background mesh that remains agnostic to the
+physical boundary. Among these, the Shifted Boundary Method (SBM)~\cite{main2018shifted} adopts a distinct strategy:
+instead of the mesh chasing the boundary, the boundary is mathematically shifted to meet the mesh. By defining the
+problem on a surrogate domain and extrapolating boundary conditions, SBM avoids the complex geometric intersections of
+methods like CutFEM~\cite{burman2015cutfem}. However, in a display of the "conservation of difficulty," SBM essentially
+shifts part of the challenge from the mesh generator to the linear solver. The resulting linear systems are burdened
+with extrapolation terms that introduce non-symmetry and potential indefiniteness, proving that a simple mesh does not
+necessarily guarantee a simple matrix. While conditioning issues scale like
+$\mathcal{O}(h^{-2})$~\cite{atallah2021shifted}, similar to body-fitted methods~\cite{collins2023penalty}, the
+efficient numerical solution of algebraic systems emanating from high-order SBM formulations remains somewhat
+unexplored.
 
 % The gap in solvers for SBM, previous DG work limitation, and the need for patches
 Despite its advantages, the development of robust and scalable solvers for SBM, particularly geometric multigrid
@@ -540,10 +540,8 @@ In this section, we present numerical results to evaluate the performance of the
 preconditioner for the Poisson equation. We investigate its effectiveness in terms of convergence rates, iteration
 counts under mesh refinement ($h$-refinement) and polynomial degree increase ($p$-refinement). To better illustrate the
 multigrid preconditioner's performance characteristics and enable meaningful comparison of iteration counts, we solve
-the system to high accuracy with a tolerance of $10^{-12}$ for the relative residual reduction. This stringent
-tolerance results in higher iteration counts, making the differences in solver performance more apparent and
-facilitating clearer assessment of the multigrid effectiveness. Solver failure is defined as exceeding 100 GMRES
-iterations without reaching this tolerance.
+the system to high accuracy with a tolerance of $10^{-8}$ for the relative residual reduction.
+Solver failure is defined as exceeding 100 GMRES iterations without reaching this tolerance.
 The initial background mesh is a square (or cube in 3D) domain covering the range $[-1.01, 1.01]$ in each dimension,
 subdivided into $4$ cells in each coordinate direction. We use a penalty parameter $\sigma = 5$ in the SBM
 formulation. This parameter is selected to be sufficiently large to ensure stability of the Nitsche coupling on the
@@ -879,11 +877,11 @@ efficient on coarser meshes, its iteration counts tend to grow steadily with mes
 geometric multigrid with the Shy-Patch smoother exhibits a much more moderate increase in iterations, suggesting better
 scalability properties on fine meshes.
 
-Finally, we compare our approach with the Cut Finite Element Method (cutFEM) utilizing a patch
-smoother~\cite{cui2025multigrid}. Our method yields iteration counts comparable to cutFEM. While cutFEM shows
-remarkable stability for $p=1$, our h-multigrid approach experiences a slight increase in iterations. However, the
-p-multigrid variant (p-MG) demonstrates exceptional robustness, outperforming all other tested methods with very low
-and nearly constant iteration counts across all refinement levels and polynomial degrees.
+Finally, we compare our approach with cutFEM utilizing a patch smoother~\cite{cui2025multigrid}. Our method yields
+iteration counts comparable to cutFEM. While cutFEM shows remarkable stability for $p=1$, our h-multigrid approach
+experiences a slight increase in iterations. However, the p-multigrid variant (p-MG) demonstrates exceptional
+robustness, outperforming all other tested methods with very low and nearly constant iteration counts across all
+refinement levels and polynomial degrees.
 
 \subsection{Timing}
 Finally, we evaluate the computational efficiency of the proposed solver. Figure~\ref{fig:timing_solver} presents a
@@ -894,7 +892,8 @@ implementations. Recent studies~\cite{wichrowski2025smoothers,
     cui2025multigrid,wichrowski2025local,wichrowski2025multigrid} have demonstrated that matrix-free geometric multigrid
 methods with patch smoothers can achieve high performance on modern architectures by minimizing memory traffic. Our
 current implementation is matrix-based, and we expect that a matrix-free optimization would yield significant
-performance improvements.
+performance improvements. All timing measurements reported here were obtained using a single core of an AMD EPYC 7282
+processor.
 
 We further analyze the cost of performing additional smoothing steps. Figure~\ref{fig:timing_sweeps} displays the
 relative increase in computational time when increasing the number of smoothing steps from one to two. The plotted
@@ -910,14 +909,14 @@ this marginal additional cost is well justified, particularly for higher polynom
     \centering
     \input{figures/timing_solve.tex}
     \caption{Comparison of throughput (DOF/s) for the proposed multigrid preconditioner with Full-Residual Shy Patch smoother ($\xi=3$, $s=3$) against
-        an algebraic multigrid (AMG) preconditioner from \texttt{deal.II}'s interface to \texttt{Trilinos}. The tests are performed on the unit ball problem in 2D for polynomial degrees $p=1,2,3$ with $s=3$ smoothing steps.}
+        an algebraic multigrid (AMG) preconditioner from \texttt{deal.II}'s interface to \texttt{Trilinos}. The tests are performed on the unit ball problem in 2D for polynomial degrees $p=1,2,3$ with $s=3$ smoothing steps. Timings obtained on a single core of an AMD EPYC 7282.}
     \label{fig:timing_solver}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
     \input{figures/timing_sweeps.tex}
-    \caption{Ratio of the time per iteration for 2 smoothing steps vs 1 smoothing step ( $xi=4$  threshold 1.0).}
+    \caption{Relative increase in time per iteration when using two smoothing steps versus one, computed as $(T_{s=2}/T_{s=1})-1$, measured on the unit ball with shyness $\xi=4$ and cell threshold $\lambda=1$. Additional sweeps are restricted to boundary patches. Timings obtained on a single core of an AMD EPYC 7282.}
     %2D results are skipped here because the timings are too small to be meaningful: too much pollution and the ratio went negative for some runs, so I guess there were measurement errors. Anyway, the 3D results are more relevant.
     \label{fig:timing_sweeps}
 \end{figure}
