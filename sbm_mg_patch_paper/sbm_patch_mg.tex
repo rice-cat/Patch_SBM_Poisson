@@ -738,7 +738,13 @@ quality of the smoother.
     \end{subtable}
 \end{table}
 
-We also examine the influence of the cell threshold parameter $\lambda$ on the solver performance. Table~\ref{tab:iter_lambda} presents the iteration counts for varying $\lambda$ with fixed shyness threshold $\xi=3$ and smoothing steps $s=3$. In the 2D case (Table~\ref{tab:iter_2d_lambda}), for $p=1$ and $p=2$, the solver is relatively robust to $\lambda$, although $\lambda=1.0$ yields slightly lower iteration counts. However, for $p=3$, small values of $\lambda$ ($\lambda \le 0.5$) lead to increased iterations or failure, while $\lambda \ge 0.75$ restores convergence. In the 3D case (Table~\ref{tab:iter_3d_lambda}), the sensitivity is more pronounced. For $p \ge 2$, $\lambda=0.5$ results in solver failure, while $\lambda=1.0$ provides robust convergence.
+We also examine the influence of the cell threshold parameter $\lambda$ on the solver performance.
+Table~\ref{tab:iter_lambda} presents the iteration counts for varying $\lambda$ with fixed shyness threshold $\xi=3$
+and smoothing steps $s=3$. In the 2D case (Table~\ref{tab:iter_2d_lambda}), for $p=1$ and $p=2$, the solver is
+relatively robust to $\lambda$, although $\lambda=1.0$ yields slightly lower iteration counts. However, for $p=3$,
+small values of $\lambda$ ($\lambda \le 0.5$) lead to increased iterations or failure, while $\lambda \ge 0.75$
+restores convergence. In the 3D case (Table~\ref{tab:iter_3d_lambda}), the sensitivity is more pronounced. For $p \ge
+    2$, $\lambda=0.5$ results in solver failure, while $\lambda=1.0$ provides robust convergence.
 
 \begin{table}[htbp]
     \centering
@@ -775,6 +781,37 @@ We also examine the influence of the cell threshold parameter $\lambda$ on the s
             \bottomrule
         \end{tabular}
     \end{subtable}
+\end{table}
+
+\subsection{p-Multigrid}
+
+We observed a mild increase in iteration counts with increasing polynomial degree for the h-multigrid method. This is
+likely due to the properties of the transfer operators between the grid levels. To obtain a method that is robust with
+respect to the polynomial degree and does not rely on a hierarchy of nested meshes, we implemented a p-multigrid
+strategy. In this approach, the grid is fixed, and the multigrid hierarchy is constructed by coarsening the polynomial
+degree of the finite element space. The coarsest level corresponds to $p=1$, which is solved using a direct solver.
+Currently, this strategy is implemented only for 2D problems, as the direct solver for the $p=1$ system on the fine
+grid becomes prohibitively expensive in 3D. However, this limitation can be overcome by using an algebraic multigrid
+(AMG) solver for the coarse $p=1$ problem, which would extend the applicability of the p-multigrid method to 3D.
+
+Table~\ref{tab:pmg_iterations} presents the iteration counts for the p-multigrid solver for polynomial degrees $p=2, 3,
+    4$ and varying mesh refinement levels. The results demonstrate excellent robustness with respect to both the mesh size
+$h$ and the polynomial degree $p$. The iteration counts are very low and remain nearly constant as the mesh is refined,
+confirming the effectiveness of the p-multigrid approach combined with the Shy Patch smoother.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Iteration counts for p-multigrid preconditioned GMRES solver with varying polynomial degree $p$ and mesh refinements. Shyness threshold $\xi=3$, smoothing steps $s=3$, cell threshold $\lambda=1.0$.}
+    \label{tab:pmg_iterations}
+    \begin{tabular}{c|ccccccc}
+        \toprule
+        $p \setminus L$ & 2 & 3 & 4 & 5 & 6 & 7 & 8 \\
+        \midrule
+        2               & 4 & 4 & 4 & 4 & 4 & 3 & 3 \\
+        3               & 4 & 4 & 4 & 4 & 4 & 3 & 3 \\
+        4               & 4 & 4 & 5 & 5 & 5 & 5 & 5 \\
+        \bottomrule
+    \end{tabular}
 \end{table}
 
 \subsection{Comparison with other methods}
@@ -827,6 +864,7 @@ Comparison in 2D. Reason: more data available because the number of levels can b
 \end{itemize}
 We need to show that the subsequent smoothing steps are not really expesive, because they only operate on a small number of patches.
 DG-SBM with cellwise SOR for p=3 struggles so it is not included here.
+Also: for now timing sucks, compared to AMG. This is going to change with better implementation: do matrix-free and it will fly.
 
 \begin{figure}[htbp]
     \centering
