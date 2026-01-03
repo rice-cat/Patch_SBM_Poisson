@@ -14,7 +14,7 @@
 \begin{document}
 
 \begin{abstract}
-
+    The Shifted Boundary Method (SBM) trades some part of the burden of body-fitted meshing for increased algebraic complexity. While the resulting linear systems retain the standard $\mathcal{O}(h^{-2})$ conditioning of second-order operators, the non-symmetry and non-local boundary coupling render them resistant to standard Algebraic Multigrid (AMG) and simple smoothers for high-order discretizations. We present a geometric multigrid preconditioner that effectively tames these systems. At its core lies the \emph{Full-Residual Shy Patch} smoother: a subspace correction strategy that  filters out some patches while capturing the full physics of the shifted boundary. Unlike previous cell-wise approaches that falter at high polynomial degrees, our method delivers  convergence with low mesh dependence. We demonstrate performance for Continuous Galerkin approximations, maintaining low and stable iteration counts even up to polynomial degree $p=4$, proving that SBM can be both geometrically flexible and algebraically efficient.
 \end{abstract}
 \begin{keyword}
     immersed boundary methods \sep finite element methods \sep Shifted Boundary Method \sep
@@ -925,6 +925,34 @@ this marginal additional cost is well justified, particularly for higher polynom
 \section{Conclusion}
 \label{sec:conclusion}
 
+We have addressed the algebraic challenges inherent to the Shifted Boundary Method (SBM), specifically for high-order
+Continuous Galerkin discretizations. While SBM significantly simplifies mesh generation by decoupling the geometry from
+the grid, it inherently shifts the complexity to the linear solver. The resulting systems exhibit condition numbers
+scaling as $\mathcal{O}(h^{-2})$, which, when combined with the non-symmetry and potential indefiniteness introduced by
+the boundary extrapolation, renders them resistant to standard preconditioning techniques. We have demonstrated that
+this complexity can be effectively managed through a geometric multigrid preconditioner equipped with our novel
+"Full-Residual Shy Patch" smoother.
+
+The core innovation of this approach lies in the construction of local smoothing problems that are faithful
+representations of the global SBM formulation. By defining subspaces over vertex patches and incorporating the full
+global residual, we ensure that the non-local boundary coupling introduced by the SBM extension operators is correctly
+resolved. Crucially, the introduction of the *shyness* criterion—which prevents the formation of patches around
+isolated or insufficiently supported vertices—guarantees the stability of these local problems. This strategy avoids
+the numerical instability associated with small cut elements that often plagues unfitted methods.
+
+A significant advancement of this work is the method's performance at higher polynomial degrees. Unlike previous
+attempts with Discontinuous Galerkin formulations where cell-wise smoothers failed to converge efficiently at $p=3$,
+the Shy Patch smoother maintains consistent performance. This is particularly evident in our $p$-multigrid experiments
+in 2D, where the solver demonstrated exceptional robustness with low, stable iteration counts up to polynomial degree
+$p=4$. We have further shown that the computational cost can be optimized by applying additional smoothing sweeps
+exclusively to boundary patches, effectively targeting the source of the error without incurring the cost of a global
+sweep.
+
+Comparisons with Algebraic Multigrid (AMG) highlight the necessity of this geometric approach; while AMG struggles
+significantly with high-order SBM discretizations, our method remains stable. Although the current implementation is
+matrix-based, the patch-based design is inherently compatible with tensor-product operations in the bulk domain.
+Consequently, this work lays the foundation for future high-performance, matrix-free SBM solvers that can fully exploit
+modern hardware architectures while retaining the geometric flexibility of unfitted methods.
 %%
 \section*{Acknowledgments}
 % Optional: Acknowledge funding sources, helpful discussions, etc.
