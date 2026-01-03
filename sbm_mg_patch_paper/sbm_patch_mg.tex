@@ -850,32 +850,46 @@ confirming the effectiveness of the p-multigrid approach combined with the Shy P
     \end{tabular}
 \end{table}
 
-In Table~\ref{tab:comparison_cutfem}, we compare the performance of the proposed SBM preconditioners against other
-relevant methods for the 2D Poisson problem. We focus on the 2D case as it allows for a wider range of refinement
-levels to be analyzed. First, we compare the continuous SBM formulation with the Discontinuous Galerkin SBM (DG-SBM)
-solved using an $hp$-multigrid method with a cellwise SSOR smoother. The proposed SBM with the Shy-Patch smoother
-consistently exhibits lower iteration counts compared to DG-SBM, especially as the mesh is refined. This demonstrates
-the superior smoothing property of the patch-based approach compared to the cellwise smoother for the SBM formulation.
+To place the performance of the proposed SBM preconditioners in context, we compare them against other established
+methods for the 2D Poisson problem. Table~\ref{tab:comparison_cutfem} summarizes the iteration counts for the
+continuous SBM formulation alongside results for Discontinuous Galerkin SBM (DG-SBM), Algebraic Multigrid (AMG), and
+CutFEM. We focus on the 2D case to enable a comparison across a broad range of refinement levels.
 
-We also compare the performance against a standard Algebraic Multigrid (AMG) preconditioner for linear finite elements
-($p=1$). While AMG is efficient on coarser meshes, we observe a steady growth in iteration counts with mesh refinement.
-In contrast, the geometric multigrid with the Shy-Patch smoother shows a more moderate increase, resulting in better
-scalability on fine meshes.
+We first consider the DG-SBM formulation solved using an $hp$-multigrid method with a cellwise SSOR smoother. The
+proposed SBM with the Shy-Patch smoother consistently requires fewer iterations than DG-SBM. This advantage becomes
+increasingly apparent as the mesh is refined, underscoring the superior smoothing capabilities of the patch-based
+approach compared to cellwise smoothers within the SBM framework.
 
-Comparison with the Cut Finite Element Method (cutFEM) equipped with a patch smoother~\cite{cui2025multigrid} shows
-that our method yields comparable iteration counts. For $p=1$, cutFEM shows very stable iterations, while our
-h-multigrid approach shows a slight increase. However, the p-multigrid variant of our method (p-MG) demonstrates
-exceptional robustness, outperforming all other tested methods with very low and constant iteration counts across all
-refinement levels and polynomial degrees.
+Next, we benchmark against a standard AMG preconditioner for linear finite elements ($p=1$). While AMG is highly
+efficient on coarser meshes, its iteration counts tend to grow steadily with mesh refinement. In contrast, the
+geometric multigrid with the Shy-Patch smoother exhibits a much more moderate increase in iterations, suggesting better
+scalability properties on fine meshes.
+
+Finally, we compare our approach with the Cut Finite Element Method (cutFEM) utilizing a patch
+smoother~\cite{cui2025multigrid}. Our method yields iteration counts comparable to cutFEM. While cutFEM shows
+remarkable stability for $p=1$, our h-multigrid approach experiences a slight increase in iterations. However, the
+p-multigrid variant (p-MG) demonstrates exceptional robustness, outperforming all other tested methods with very low
+and nearly constant iteration counts across all refinement levels and polynomial degrees.
 
 \subsection{Timing}
-\begin{itemize}
-    \item time to solution vs number of dofs, fixed shyness and smoothing steps. compare to AMG
-    \item Time of a single sweep for different number of steps.
-\end{itemize}
-We need to show that the subsequent smoothing steps are not really expesive, because they only operate on a small number of patches.
-DG-SBM with cellwise SOR for p=3 struggles so it is not included here.
-Also: for now timing sucks, compared to AMG. This is going to change with better implementation: do matrix-free and it will fly.
+Finally, we evaluate the computational efficiency of the proposed solver. Figure~\ref{fig:timing_solver} presents a
+comparison of the throughput (Degrees of Freedom per second) between our multigrid preconditioner with the
+Full-Residual Shy Patch smoother and an algebraic multigrid (AMG) preconditioner. Although AMG currently shows higher
+throughput for $p=1$, it is worth noting that patch-based smoothers are particularly advantageous for matrix-free
+implementations. Recent studies~\cite{cui2025multigrid,wichrowski2025local,wichrowski2025multigrid} have demonstrated
+that matrix-free geometric multigrid methods with patch smoothers can achieve high performance on modern architectures
+by minimizing memory traffic. Our current implementation is matrix-based, and we expect that a matrix-free optimization
+would yield significant performance improvements.
+
+We further analyze the cost of performing additional smoothing steps. Figure~\ref{fig:timing_sweeps} displays the
+relative increase in computational time when increasing the number of smoothing steps from one to two. The plotted
+value corresponds to the ratio $(T_{s=2}/T_{s=1}) - 1$, representing the fractional cost of the second sweep. As
+detailed in Section~\ref{sec:shy_patches}, the Shy Patch smoother restricts subsequent relaxation sweeps to only those
+patches affected by the boundary. Consequently, the cost of these additional sweeps is substantially lower than that of
+the initial full sweep. Furthermore, as the mesh is refined, the fraction of patches near the boundary diminishes,
+leading to a decreasing relative cost for the extra smoothing steps. Given the significant reduction in iteration
+counts achieved with multiple smoothing steps (see Table~\ref{tab:iter_smoothing}), this marginal additional cost is
+well justified, particularly for higher polynomial degrees.
 
 \begin{figure}[htbp]
     \centering
