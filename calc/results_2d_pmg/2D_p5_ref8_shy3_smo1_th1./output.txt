@@ -1,0 +1,39 @@
+Creating background meshes for MG levels
+  Level 0: 1048576 cells, FE degree 1
+  Level 1: 1048576 cells, FE degree 2
+  Level 2: 1048576 cells, FE degree 3
+  Level 3: 1048576 cells, FE degree 4
+  Level 4: 1048576 cells, FE degree 5
+Setting up discrete level set functions for all levels
+  Level 0: 37761025 level set DoFs
+  Level 1: 37761025 level set DoFs
+  Level 2: 37761025 level set DoFs
+  Level 3: 37761025 level set DoFs
+  Level 4: 37761025 level set DoFs
+Classifying cells for all levels
+Distributing degrees of freedom for all levels with cell threshold 1
+  Level 0: 1050625 DoFs
+  Level 1: 4198401 DoFs
+  Level 2: 9443329 DoFs
+  Level 3: 16785409 DoFs
+  Level 4: 26224641 DoFs
+Initializing matrices for finest level
+Setting up multigrid
+  Number of MG levels: 5
+  Using full_residual smoother
+  Omega: 0.9
+  Shyness: 3
+  Level 0: 1050625 x 1050625 matrix
+  Level 1: 4198401 x 4198401 matrix
+  Level 2: 9443329 x 9443329 matrix
+  Level 3: 16785409 x 16785409 matrix
+  Level 4: 26224641 x 26224641 matrix
+  MG matrices initialized for 5 levels
+Assembling
+Assembling
+Assembling
+Assembling
+Assembling
+Assembling
+Solving system with multigrid
+./runner.sh: line 161: 1621426 Killed                  "$EXE_PATH" "$(basename "$PARAM_FILE")"
