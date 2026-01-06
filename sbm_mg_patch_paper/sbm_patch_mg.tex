@@ -83,14 +83,15 @@ matrix-free implementations where the overhead of cut-cell quadrature would be i
 The SBM utilizes closest-point projection algorithms to find for each point on $\tilde{\Gamma}$ a corresponding point
 on $\Gamma$, \mwerror{level set is just a very simple way to describe domain, so that statement should be
     corrected}{but other strategies could be used, such as level sets}. Level set methods, which represent the domain
+\aanote{The JCP reviewer wanted to rephrase it like that right ? but it sounds wrong to me. Maybe we can remove mentioning  level sets altogether, or we can say "Level sets are a common way (in SBM ?) to represent the domain boundary, and SBM uses closest-point projection algorithms to find for each point on $\tilde{\Gamma}$ a corresponding point on $\Gamma$."}
 boundary as the zero level set of a function, are often employed in unfitted methods like SBM to facilitate operations
 such as closest point projection~\cite{kuzmin2022unfitted, xue2021new}. Special treatment of domains with corners was
 analyzed in~\cite{atallah2021analysis}. \mwnote{maybe cite literature on closest point that is common in graphics?}
 
 % Algebraic challenges: Non-symmetry and indefiniteness
 However, the geometric flexibility of SBM comes at the cost of new computational challenges. The extrapolation of
-boundary conditions and the resulting modifications to the variational formulation often lead to linear systems with
-non-symmetric and potentially indefinite properties~\cite{wichrowski2025geometric}, particularly for higher-order
+boundary conditions and the resulting modifications to the variational formulation \aanote{can we say that it always lead to linear systems with non-symmetric properties?"The SBM utilizes closest-point projection algorithms to find for each point on $\tilde{\Gamma}$ a corresponding point on $\Gamma$, but other strategies could be used, such as level sets."} {often lead to linear systems with
+non-symmetric} and potentially indefinite properties~\cite{wichrowski2025geometric}, particularly for higher-order
 polynomial approximations. These properties make the efficient solution of the resulting system non-trivial and demand
 specialized preconditioning strategies.
 
@@ -204,8 +205,8 @@ we obtain:
 We next introduce a triangulation \( \mathcal{T}_h \) consisting of quadrilateral (2D) or hexahedral (3D) elements of
 size $h$, and define a finite element space $\mathbb{V}_h\subset H^1(\Omega)$ using Lagrange polynomial elements of
 degree \( p \). In classical finite element methods, the mesh conforms to the boundary (unlike the background mesh
-approach illustrated in Figure~\ref{fig:sbm_setup}), and test functions $v$ typically vanish on $\Gamma $ to strongly
-enforce the Dirichlet condition $u=g$. When function spaces do not necessarily satisfy essential boundary conditions
+approach illustrated in Figure~\ref{fig:sbm_setup}), and \aanote {this is only when we modify the problem so that g = 0 right ?}{ test functions $v$ typically vanish on $\Gamma $ to strongly
+enforce the Dirichlet condition $u=g$}. When function spaces do not necessarily satisfy essential boundary conditions
 strongly, boundary conditions must be enforced weakly through additional integral terms on $\Gamma$.
 
 Nitsche's method provides a way to weakly impose Dirichlet boundary conditions within a variational formulation without
