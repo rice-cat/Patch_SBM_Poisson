@@ -354,7 +354,7 @@ the approximation:
 \[
     u_h^{k+1} = u_h^k + P(f_h - A_h u_h^k).
 \]
-We decompose the space $\DGell$ into a sum of subspaces $\mathbb{V}_i$, i.e., $\DGell = \sum_{i=1}^N \mathbb{V}_i$. Let
+\aanote{I think its confusing to have both Multigrid levels  and subspace levels be denoted by V-subscript-integer}{We decompose the space $\DGell$ into a sum of subspaces $\mathbb{V}_i$, i.e., $\DGell = \sum_{i=1}^N \mathbb{V}_i$}. Let
 $A_i$ be the restriction of $A$ to the subspace $\mathbb{V}_i$. Then, the additive subspace correction preconditioner
 is defined as:
 \[
@@ -366,6 +366,7 @@ by applying one Richardson iteration with the preconditioner $P_i$ for each subs
 only one subspace is corrected, the residual only changes locally and an efficient implementation is possible. The
 preconditioner updates the solution by sequentially applying corrections for each subspace. For each subspace
 $\mathbb{V}_i$, a correction is computed and applied:
+\aanote{i dont think R\_i has been defined }
 \[
     u_h \leftarrow u_h + R_i^T A_i^{-1} R_i (f_h - A_h u_h).
 \]
