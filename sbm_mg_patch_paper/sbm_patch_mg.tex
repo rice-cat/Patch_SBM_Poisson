@@ -808,8 +808,9 @@ respect to the polynomial degree and does not rely on a hierarchy of nested mesh
 strategy. In this approach, the grid is fixed, and the multigrid hierarchy is constructed by coarsening the polynomial
 degree of the finite element space. The coarsest level corresponds to $p=1$, which is solved using a direct solver.
 Currently, this strategy is implemented only for 2D problems, as the direct solver for the $p=1$ system on the fine
-grid becomes prohibitively expensive in 3D. However, this limitation can be overcome by using an algebraic multigrid
-(AMG) solver for the coarse $p=1$ problem, which would extend the applicability of the p-multigrid method to 3D.
+grid becomes prohibitively expensive in 3D.\aanote{is it possible to do h multigrid on p=1 coarse grid, instead of AMG?} {However, this limitation can be overcome by using an algebraic multigrid
+(AMG) solver for the coarse $p=1$ problem, which would extend the applicability of the p-multigrid method to 3D.}
+
 
 Table~\ref{tab:pmg_iterations} presents the iteration counts for the p-multigrid solver for polynomial degrees $p=2, 3,
     4$ and varying mesh refinement levels. The results demonstrate excellent robustness with respect to both the mesh size
@@ -916,6 +917,7 @@ this marginal additional cost is well justified, particularly for higher polynom
     \caption{Comparison of throughput (DOF/s) for the proposed multigrid preconditioner with Full-Residual Shy Patch smoother ($\xi=3$, $s=3$) against
         an algebraic multigrid (AMG) preconditioner from \texttt{deal.II}'s interface to \texttt{Trilinos}. The tests are performed on the unit ball problem in 2D for polynomial degrees $p=1,2,3$ with $s=3$ smoothing steps. Timings obtained on a single core of an AMD EPYC 7282.}
     \label{fig:timing_solver}
+    \aanote{i think it would help if its explicit which figure is AMG and which is our patch smoother. And Also since we are comparing the two graphs, if the y axes are the same scale it would help in readability}
 \end{figure}
 
 \begin{figure}[htbp]
