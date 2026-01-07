@@ -266,11 +266,11 @@ entire domain $\Omega$ to the boundary $\Gamma$. While the choice of this functi
 from $\Gamma$ into $\Omega$) is not unique, we take $u^\star$ to be equal to the solution $u$ in the surrogate domain
 $\tilde{\Omega}$. For each point $\tilde{\mathbf{x}} \in \tilde{\Gamma}$, let $\mathbf{x} \in \Gamma$ be its closest
 point projection onto the true boundary, and let $\mathbf{d} = \mathbf{x} - \tilde{\mathbf{x}}$ be the shift vector.
-The function $u$ is extended from $\Gamma$ to $\tilde{\Gamma}$ using a Taylor expansion:
+The function $u$ is extended from $\Gamma$ to $\tilde{\Gamma}$ using a Taylor expansion:\aanote{this should be a plus sign in front of d, no?}{
 \[
     \mathcal{E}u^\star(\tilde{\mathbf{x}}) = u^\star(\mathbf{x}) - \mathbf{d} \cdot \nabla u (\tilde{\mathbf{x}}) +
     \cdots
-\]
+\]}
 where $\mathcal{E}u^\star$ denotes the extrapolated boundary condition. The function $u^\star$ is assumed to be smooth
 in a neighborhood of $\tilde{\Gamma}$, which allows for the Taylor expansion to be valid. By substituting it into the
 weak formulation, we obtain a variational formulation for the shifted boundary problem with the extrapolated boundary
@@ -283,7 +283,7 @@ all $v_h \in V_h$,
         - \alpha \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) \; \mathcal{E}u_h \, ds
         + \int_{\tilde{\Gamma}} \sigma \; \mathcal{E} u_h  \; v_h \, ds = \\
         = \int_{\tilde{\Omega}} f v_h \, dx
-        - \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) g^E \, ds
+        - \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) \aanote{I dont understand the puerpose of the 'E' here}{g^E} \, ds
         + \int_{\tilde{\Gamma}} \sigma g v_h \, ds.
     \end{split}
 \end{equation}
