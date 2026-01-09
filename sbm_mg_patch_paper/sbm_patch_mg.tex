@@ -81,19 +81,20 @@ preprocessing step. In contrast, methods like CutFEM require specialized quadrat
 on every cut cell. This makes SBM significantly more efficient in terms of computational throughput, especially in
 matrix-free implementations where the overhead of cut-cell quadrature would be incurred in every operator evaluation.
 The SBM utilizes closest-point projection algorithms to find for each point on $\tilde{\Gamma}$ a corresponding point
-on $\Gamma$, \mwerror{level set is just a very simple way to describe domain, so that statement should be
-    corrected}{but other strategies could be used, such as level sets}. Level set methods, which represent the domain
-\aanote{The JCP reviewer wanted to rephrase it like that right ? but it sounds wrong to me. Maybe we can remove mentioning  level sets altogether, or we can say "Level sets are a common way (in SBM ?) to represent the domain boundary, and SBM uses closest-point projection algorithms to find for each point on $\tilde{\Gamma}$ a corresponding point on $\Gamma$."}
-boundary as the zero level set of a function, are often employed in unfitted methods like SBM to facilitate operations
-such as closest point projection~\cite{kuzmin2022unfitted, xue2021new}. Special treatment of domains with corners was
-analyzed in~\cite{atallah2021analysis}. \mwnote{maybe cite literature on closest point that is common in graphics?}
+on $\Gamma$. Level sets,which represent the domain boundary as the zero level set of a function, are a common way to
+represent an embedded domain, and SBM uses closest-point projection algorithms to find for each point on
+$\tilde{\Gamma}$ a corresponding point on $\Gamma$. Level set methods, which represent the domain boundary as the zero
+level set of a function, are often employed in unfitted methods like SBM to facilitate operations such as closest point
+projection~\cite{kuzmin2022unfitted, xue2021new}. Special treatment of domains with corners was analyzed
+in~\cite{atallah2021analysis}. \mwnote{maybe cite literature on closest point that is common in graphics?}
 
 % Algebraic challenges: Non-symmetry and indefiniteness
 However, the geometric flexibility of SBM comes at the cost of new computational challenges. The extrapolation of
-boundary conditions and the resulting modifications to the variational formulation \aanote{can we say that it always lead to linear systems with non-symmetric properties?"The SBM utilizes closest-point projection algorithms to find for each point on $\tilde{\Gamma}$ a corresponding point on $\Gamma$, but other strategies could be used, such as level sets."} {often lead to linear systems with
-non-symmetric} and potentially indefinite properties~\cite{wichrowski2025geometric}, particularly for higher-order
-polynomial approximations. These properties make the efficient solution of the resulting system non-trivial and demand
-specialized preconditioning strategies.
+boundary conditions and the resulting modifications to the variational formulation \aanote{can we say that it always
+    lead to linear systems with non-symmetric properties? MW: No. fpr p=1 there exist symmetric formulation} {often lead to
+    linear systems with non-symmetric} and potentially indefinite properties~\cite{wichrowski2025geometric}, particularly
+for higher-order polynomial approximations. These properties make the efficient solution of the resulting system
+non-trivial and demand specialized preconditioning strategies.
 
 % Multigrid basics and failure of standard smoothers/AMG
 Multigrid methods~\cite{brandt1977multi, hackbusch1985multi} are renowned for their potential to solve large systems
@@ -205,9 +206,10 @@ we obtain:
 We next introduce a triangulation \( \mathcal{T}_h \) consisting of quadrilateral (2D) or hexahedral (3D) elements of
 size $h$, and define a finite element space $\mathbb{V}_h\subset H^1(\Omega)$ using Lagrange polynomial elements of
 degree \( p \). In classical finite element methods, the mesh conforms to the boundary (unlike the background mesh
-approach illustrated in Figure~\ref{fig:sbm_setup}), and \aanote {this is only when we modify the problem so that g = 0 right ?}{ test functions $v$ typically vanish on $\Gamma $ to strongly
-enforce the Dirichlet condition $u=g$}. When function spaces do not necessarily satisfy essential boundary conditions
-strongly, boundary conditions must be enforced weakly through additional integral terms on $\Gamma$.
+approach illustrated in Figure~\ref{fig:sbm_setup}), and test functions $v$ typically vanish on $\Gamma $ to strongly
+enforce the homogeneous Dirichlet condition $u=g$ for $g=0$. When function spaces do not necessarily satisfy essential
+boundary conditions strongly, boundary conditions must be enforced weakly through additional integral terms on
+$\Gamma$.
 
 Nitsche's method provides a way to weakly impose Dirichlet boundary conditions within a variational formulation without
 requiring the function space to satisfy the boundary conditions. It modifies the bilinear form by adding terms on the
@@ -266,11 +268,11 @@ entire domain $\Omega$ to the boundary $\Gamma$. While the choice of this functi
 from $\Gamma$ into $\Omega$) is not unique, we take $u^\star$ to be equal to the solution $u$ in the surrogate domain
 $\tilde{\Omega}$. For each point $\tilde{\mathbf{x}} \in \tilde{\Gamma}$, let $\mathbf{x} \in \Gamma$ be its closest
 point projection onto the true boundary, and let $\mathbf{d} = \mathbf{x} - \tilde{\mathbf{x}}$ be the shift vector.
-The function $u$ is extended from $\Gamma$ to $\tilde{\Gamma}$ using a Taylor expansion:\aanote{this should be a plus sign in front of d, no?}{
+The function $u$ is extended from $\Gamma$ to $\tilde{\Gamma}$ using a Taylor expansion:
 \[
-    \mathcal{E}u^\star(\tilde{\mathbf{x}}) = u^\star(\mathbf{x}) - \mathbf{d} \cdot \nabla u (\tilde{\mathbf{x}}) +
+    \mathcal{E}u^\star(\tilde{\mathbf{x}}) = u^\star(\mathbf{x}) + \mathbf{d} \cdot \nabla u (\tilde{\mathbf{x}}) +
     \cdots
-\]}
+\]
 where $\mathcal{E}u^\star$ denotes the extrapolated boundary condition. The function $u^\star$ is assumed to be smooth
 in a neighborhood of $\tilde{\Gamma}$, which allows for the Taylor expansion to be valid. By substituting it into the
 weak formulation, we obtain a variational formulation for the shifted boundary problem with the extrapolated boundary
@@ -283,7 +285,7 @@ all $v_h \in V_h$,
         - \alpha \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) \; \mathcal{E}u_h \, ds
         + \int_{\tilde{\Gamma}} \sigma \; \mathcal{E} u_h  \; v_h \, ds = \\
         = \int_{\tilde{\Omega}} f v_h \, dx
-        - \alpha\int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) \aanote{I dont understand the puerpose of the 'E' here}{g^E} \, ds
+        - \alpha\int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) {g} \, ds
         + \int_{\tilde{\Gamma}} \sigma g v_h \, ds.
     \end{split}
 \end{equation}
@@ -312,7 +314,7 @@ The SBM weak formulation with symmetrized stabilization seeks $u_h \in V_h$ such
         -  \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) \; \mathcal{E}u_h \, ds
         + \int_{\tilde{\Gamma}} \sigma_\Gamma \; \mathcal{E} u_h  \; \mathcal{E} v_h \, ds = \\
         = \int_{\tilde{\Omega}} f v_h \, dx
-        - \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) g^E \, ds
+        - \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) {g} \, ds
         + \int_{\tilde{\Gamma}} \sigma_\Gamma g v_h \, ds.
     \end{split}
 \end{equation}
@@ -354,19 +356,18 @@ the approximation:
 \[
     u_h^{k+1} = u_h^k + P(f_h - A_h u_h^k).
 \]
-\aanote{I think its confusing to have both Multigrid levels  and subspace levels be denoted by V-subscript-integer}{We decompose the space $\DGell$ into a sum of subspaces $\mathbb{V}_i$, i.e., $\DGell = \sum_{i=1}^N \mathbb{V}_i$}. Let
-$A_i$ be the restriction of $A$ to the subspace $\mathbb{V}_i$. Then, the additive subspace correction preconditioner
-is defined as:
+We decompose the space $\DGell$ into a sum of subspaces $\mathbb{W}_i$, i.e., $\DGell = \sum_{i=1}^N \mathbb{W}_i$. Let
+$R_i\colon \DGell \to \mathbb{W}_i$ be the restriction operator and $A_i$ be the restriction of $A$ to the subspace
+$\mathbb{W}_i$. Then, the additive subspace correction preconditioner is defined as:
 \[
-    B = \omega \sum_{i=1}^N A_i^{-1}
+    B = \omega \sum_{i=1}^N R_i^T A_i^{-1} R_i
 \]
 where $\omega$ is a relaxation parameter. Alternatively, the successive subspace correction method is a subspace
-correction method where the subspaces $\mathbb{V}_i$ are visited in a sequential manner. The procedure can be performed
-by applying one Richardson iteration with the preconditioner $P_i$ for each subspace $\mathbb{V}_i$. Since in each step
+correction method where the subspaces $\mathbb{W}_i$ are visited in a sequential manner. The procedure can be performed
+by applying one Richardson iteration with the preconditioner $P_i$ for each subspace $\mathbb{W}_i$. Since in each step
 only one subspace is corrected, the residual only changes locally and an efficient implementation is possible. The
 preconditioner updates the solution by sequentially applying corrections for each subspace. For each subspace
-$\mathbb{V}_i$, a correction is computed and applied:
-\aanote{i dont think R\_i has been defined }
+$\mathbb{W}_i$, a correction is computed and applied:
 \[
     u_h \leftarrow u_h + R_i^T A_i^{-1} R_i (f_h - A_h u_h).
 \]
@@ -633,8 +634,8 @@ true boundary passes through the diagonally opposite corner.
         the surrogate boundary
         for the unit disk problem with $p=3$.. The values $\pm\sqrt{2}$ represent the theoretical maximum possible
         normalized shift magnitude in 2D for a square cell.
-        }
-        \aanote{put that dashed and solid lines are the minimum and maximum shifts repsectively, ideally in the figure or somewhere in the caption}
+    }
+    \aanote{put that dashed and solid lines are the minimum and maximum shifts repsectively, ideally in the figure or somewhere in the caption}
     \label{fig:shift_distribution}
 \end{figure}
 
@@ -760,7 +761,8 @@ and smoothing steps $s=3$. In the 2D case (Table~\ref{tab:iter_2d_lambda}), for 
 relatively robust to $\lambda$, although $\lambda=1.0$ yields slightly lower iteration counts. However, for $p=3$,
 small values of $\lambda$ ($\lambda \le 0.5$) lead to increased iterations or failure, while $\lambda \ge 0.75$
 restores convergence. In the 3D case (Table~\ref{tab:iter_3d_lambda}), the sensitivity is more pronounced. For $p \ge
-    2$, $\lambda=0.5$ results in solver failure, while $\lambda=1.0$ provides robust convergence.
+    2$, $\lambda=0.5$ results in solver failure, while $\lambda=1.0$ provides robust convergence. This might be due to
+imaginary eigenvalues~\cite{wichrowski2025geometric} appearing when shifts are towards the interior of the domain.
 
 \begin{table}[htbp]
     \centering
@@ -797,8 +799,8 @@ restores convergence. In the 3D case (Table~\ref{tab:iter_3d_lambda}), the sensi
             \bottomrule
         \end{tabular}
     \end{subtable}
-    \end{table}
-    \aanote{wow im surprised that 1.0 is better than 0.5}
+\end{table}
+\aanote{wow im surprised that 1.0 is better than 0.5. MW: added a possible explantation: imaginary eigenvalues \cite{wichrowski2025geometric}}
 
 \subsection{p-Multigrid}
 
@@ -808,9 +810,9 @@ respect to the polynomial degree and does not rely on a hierarchy of nested mesh
 strategy. In this approach, the grid is fixed, and the multigrid hierarchy is constructed by coarsening the polynomial
 degree of the finite element space. The coarsest level corresponds to $p=1$, which is solved using a direct solver.
 Currently, this strategy is implemented only for 2D problems, as the direct solver for the $p=1$ system on the fine
-grid becomes prohibitively expensive in 3D.\aanote{is it possible to do h multigrid on p=1 coarse grid, instead of AMG?} {However, this limitation can be overcome by using an algebraic multigrid
-(AMG) solver for the coarse $p=1$ problem, which would extend the applicability of the p-multigrid method to 3D.}
-
+grid becomes prohibitively expensive in 3D. However, this limitation can be overcome by using a geometric or even
+algebraic multigrid solver for the coarse $p=1$ problem, which would extend the applicability of the p-multigrid method
+to 3D.
 
 Table~\ref{tab:pmg_iterations} presents the iteration counts for the p-multigrid solver for polynomial degrees $p=2, 3,
     4$ and varying mesh refinement levels. The results demonstrate excellent robustness with respect to both the mesh size
@@ -914,10 +916,10 @@ this marginal additional cost is well justified, particularly for higher polynom
 \begin{figure}[htbp]
     \centering
     \input{figures/timing_solve.tex}
-    \caption{Comparison of throughput (DOF/s) for the proposed multigrid preconditioner with Full-Residual Shy Patch smoother ($\xi=3$, $s=3$) against
-        an algebraic multigrid (AMG) preconditioner from \texttt{deal.II}'s interface to \texttt{Trilinos}. The tests are performed on the unit ball problem in 2D for polynomial degrees $p=1,2,3$ with $s=3$ smoothing steps. Timings obtained on a single core of an AMD EPYC 7282.}
+    \caption{Comparison of throughput (DOF/s) for the proposed multigrid preconditioner with Full-Residual Shy Patch smoother with  $\xi=3$, $s=3$ (solid line), against
+        an AMG preconditioner (dashed line) from \texttt{deal.II}'s interface to \texttt{Trilinos}. The tests are performed on the unit ball problem in 2D for polynomial degrees $p=1,2,3$ with $s=3$ smoothing steps. Timings obtained on a single core of an AMD EPYC 7282.}
     \label{fig:timing_solver}
-    \aanote{i think it would help if its explicit which figure is AMG and which is our patch smoother. And Also since we are comparing the two graphs, if the y axes are the same scale it would help in readability}
+    \aanote{i think it would help if its explicit which figure is AMG and which is our patch smoother. And Also since we are comparing the two graphs, if the y axes are the same scale it would help in readability MW: dashed line is AMG, the caption was updated}
 \end{figure}
 
 \begin{figure}[htbp]
