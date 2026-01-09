@@ -1,0 +1,13 @@
+folder                     dim  degree  refinements  shy  smoothing  threshold  gmg_iterations  gmg_solve_time  smoother_sweep_time  amg_iterations  amg_solve_time
+3D_p1_ref2_shy4_smo3_th1.  3    1       2            4    3          1.         1               0.00421755      0.00111061           20              0.0107762     
+3D_p1_ref3_shy4_smo3_th1.  3    1       3            4    3          1.         1               0.0862004       0.0102884            22              0.100743      
+3D_p1_ref4_shy4_smo3_th1.  3    1       4            4    3          1.         2               2.09126         0.0888855            24              1.08611       
+3D_p2_ref2_shy4_smo3_th1.  3    2       2            4    3          1.         5               0.181952        0.0128265                                          
+3D_p2_ref3_shy4_smo3_th1.  3    2       3            4    3          1.         6               2.13698         0.174291                                           
+3D_p2_ref4_shy4_smo3_th1.  3    2       4            4    3          1.         5               15.6161         1.2579                                             
+3D_p3_ref2_shy4_smo3_th1.  3    3       2            4    3          1.         5               1.70434         0.259397                                           
+3D_p3_ref3_shy4_smo3_th1.  3    3       3            4    3          1.         5               12.3765         1.43833                                            
+3D_p3_ref4_shy4_smo3_th1.  3    3       4            4    3          1.         6               142.982         16.8527                                            
+3D_p4_ref2_shy4_smo3_th1.  3    4       2            4    3          1.         100             129.9           1.48573                                            
+3D_p4_ref3_shy4_smo3_th1.  3    4       3            4    3          1.         100             1154.95         12.7856                                            
+3D_p4_ref4_shy4_smo3_th1.  3    4       4            4    3          1.                                                                                            
