@@ -14,7 +14,7 @@
 \begin{document}
 
 \begin{abstract}
-    The Shifted Boundary Method (SBM) trades some part of the burden of body-fitted meshing for increased algebraic complexity. While the resulting linear systems retain the standard $\mathcal{O}(h^{-2})$ conditioning of second-order operators, the non-symmetry and non-local boundary coupling render them resistant to standard Algebraic Multigrid (AMG) and simple smoothers for high-order discretizations. We present a geometric multigrid preconditioner that effectively tames these systems. At its core lies the \emph{Full-Residual Shy Patch} smoother: a subspace correction strategy that  filters out some patches while capturing the full physics of the shifted boundary. Unlike previous cell-wise approaches that falter at high polynomial degrees, our method delivers  convergence with low mesh dependence. We demonstrate performance for Continuous Galerkin approximations, maintaining low and stable iteration counts even up to polynomial degree $p=4$, proving that SBM can be both geometrically flexible and algebraically efficient.
+    The Shifted Boundary Method (SBM) trades some part of the burden of body-fitted meshing for increased algebraic complexity. While the resulting linear systems retain the standard $\mathcal{O}(h^{-2})$ conditioning of second-order operators, the non-symmetry and non-local boundary coupling render them resistant to standard Algebraic Multigrid (AMG) and simple smoothers for high-order discretizations. We present a geometric multigrid preconditioner that effectively tames these systems. At its core lies the \emph{Full-Residual Shy Patch} smoother: a subspace correction strategy that  filters out some patches while capturing the full physics of the shifted boundary. Unlike previous cell-wise approaches that falter at high polynomial degrees, our method delivers  convergence with low mesh dependence. We demonstrate performance for Continuous Galerkin approximations, maintaining low and stable iteration counts up to polynomial degree $p=3$ in 3D, proving that SBM can be both geometrically flexible and algebraically efficient.
 \end{abstract}
 \begin{keyword}
     immersed boundary methods \sep finite element methods \sep Shifted Boundary Method \sep
@@ -809,7 +809,7 @@ likely due to the properties of the transfer operators between the grid levels. 
 respect to the polynomial degree and does not rely on a hierarchy of nested meshes, we implemented a p-multigrid
 strategy. In this approach, the grid is fixed, and the multigrid hierarchy is constructed by coarsening the polynomial
 degree of the finite element space. The coarsest level corresponds to $p=1$, which is solved using a direct solver.
-Currently, this strategy is implemented only for 2D problems, as the direct solver for the $p=1$ system on the fine
+Currently, this strategy is limited to relatively coarse grids, as the direct solver for the $p=1$ system on the fine
 grid becomes prohibitively expensive in 3D. However, this limitation can be overcome by using a geometric or even
 algebraic multigrid solver for the coarse $p=1$ problem, which would extend the applicability of the p-multigrid method
 to 3D.
@@ -817,21 +817,45 @@ to 3D.
 Table~\ref{tab:pmg_iterations} presents the iteration counts for the p-multigrid solver for polynomial degrees $p=2, 3,
     4$ and varying mesh refinement levels. The results demonstrate excellent robustness with respect to both the mesh size
 $h$ and the polynomial degree $p$. The iteration counts are very low and remain nearly constant as the mesh is refined,
-confirming the effectiveness of the p-multigrid approach combined with the Shy Patch smoother.
+confirming the effectiveness of the p-multigrid approach combined with the Shy Patch smoother. In 2D for $p=5$, the
+solver starts to struggle. In 3D, the method remains robust for $p=2$ and $p=3$, but fails to converge for $p=4$ on the
+tested meshes, suggesting that additional improvements are needed to handle higher polynomial degrees in three
+dimensions.
 
 \begin{table}[htbp]
     \centering
-    \caption{Iteration counts for p-multigrid preconditioned GMRES solver with varying polynomial degree $p$ and mesh refinements. Shyness threshold $\xi=3$, smoothing steps $s=3$, cell threshold $\lambda=1.0$.}
+    \caption{Iteration counts for p-multigrid preconditioned GMRES solver with varying polynomial degree $p$ and mesh refinements. Shyness threshold $\xi=3$, smoothing steps $s=3$, cell threshold $\lambda=1.0$. Left: 2D results. Right: 3D results (from pmg\_3D.csv, gmg\_its). Dash --- indicate no converge within 100 iterations, empty entries indicate that the data is not available.}
     \label{tab:pmg_iterations}
-    \begin{tabular}{c|ccccccc}
-        \toprule
-        $p \setminus L$ & 2 & 3 & 4 & 5 & 6 & 7 & 8 \\
-        \midrule
-        2               & 4 & 4 & 4 & 4 & 4 & 3 & 3 \\
-        3               & 4 & 4 & 4 & 4 & 4 & 3 & 3 \\
-        4               & 4 & 4 & 5 & 5 & 5 & 5 & 5 \\
-        \bottomrule
-    \end{tabular}
+    \begin{subtable}{0.55\textwidth}
+        \centering
+        \caption{2D ($L$ = refinement level)}
+        \label{tab:pmg_iterations_2d}
+        \begin{tabular}{c|ccccccc}
+            \toprule
+            $p \setminus L$ & 2  & 3  & 4  & 5  & 6  & 7  & 8 \\
+            \midrule
+            2               & 4  & 4  & 4  & 4  & 4  & 3  & 3 \\
+            3               & 4  & 4  & 4  & 4  & 4  & 3  & 3 \\
+            4               & 4  & 4  & 5  & 5  & 5  & 5  & 5 \\
+            5               & 32 & 32 & 33 & 32 & 34 & 34 &   \\
+            \bottomrule
+        \end{tabular}
+    \end{subtable}
+    \hfill
+    \begin{subtable}{0.40\textwidth}
+        \centering
+        \caption{3D ($L$ = refinement level)}
+        \label{tab:pmg_iterations_3d}
+        \begin{tabular}{c|ccc}
+            \toprule
+            $p \setminus L$ & 2   & 3   & 4   \\
+            \midrule
+            2               & 5   & 6   & 5   \\
+            3               & 5   & 5   & 6   \\
+            4               & --- & --- & --- \\
+            \bottomrule
+        \end{tabular}
+    \end{subtable}
 \end{table}
 
 \subsection{Comparison with other methods}
