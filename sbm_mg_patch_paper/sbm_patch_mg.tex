@@ -86,15 +86,14 @@ represent an embedded domain, and SBM uses closest-point projection algorithms t
 $\tilde{\Gamma}$ a corresponding point on $\Gamma$. Level set methods, which represent the domain boundary as the zero
 level set of a function, are often employed in unfitted methods like SBM to facilitate operations such as closest point
 projection~\cite{kuzmin2022unfitted, xue2021new}. Special treatment of domains with corners was analyzed
-in~\cite{atallah2021analysis}. \mwnote{maybe cite literature on closest point that is common in graphics?}
+in~\cite{atallah2021analysis}.
 
 % Algebraic challenges: Non-symmetry and indefiniteness
 However, the geometric flexibility of SBM comes at the cost of new computational challenges. The extrapolation of
-boundary conditions and the resulting modifications to the variational formulation \aanote{can we say that it always
-    lead to linear systems with non-symmetric properties? MW: No. fpr p=1 there exist symmetric formulation} {often lead to
-    linear systems with non-symmetric} and potentially indefinite properties~\cite{wichrowski2025geometric}, particularly
-for higher-order polynomial approximations. These properties make the efficient solution of the resulting system
-non-trivial and demand specialized preconditioning strategies.
+boundary conditions and the resulting modifications to the variational formulation often lead to linear systems with
+non-symmetric and potentially indefinite properties~\cite{wichrowski2025geometric}, particularly for higher-order
+polynomial approximations. These properties make the efficient solution of the resulting system non-trivial and demand
+specialized preconditioning strategies.
 
 % Multigrid basics and failure of standard smoothers/AMG
 Multigrid methods~\cite{brandt1977multi, hackbusch1985multi} are renowned for their potential to solve large systems
@@ -236,21 +235,19 @@ skipped~\cite{baumann1999discontinuous}
     \input{figures/sbm_setup.tex}
     \caption{Schematic illustrating the background mesh, interior cells (green), the surrogate boundary
         $\tilde{\Gamma}$ (thick blue line) along the upper boundary of the interior cells, and the true boundary
-        $\partial\Omega$ (red).}
+        $\partial\Omega$ (red). Figure taken from~\cite{wichrowski2025geometric}.}
     \label{fig:sbm_setup}
 \end{figure}
 
 \subsection{Shifted Boundary Method}
-\mwerror{This section needs to be altered, for not it is a copy-paste from the previous paper.}
 In many applications, the domain $\Omega$ may have a complex geometry, making the generation of body-fitted meshes
 challenging. Non-body-fitted (unfitted) methods address this challenge by employing a background mesh $\mathcal{T}_h$
-that
-does not conform to the boundary of $\Omega$. The domain $\Omega$ is embedded within this background mesh, and cells of
-$\mathcal{T}_h$ are classified as active based on their intersection with $\Omega$. The computational domain
+that does not conform to the boundary of $\Omega$. The domain $\Omega$ is embedded within this background mesh, and
+cells of $\mathcal{T}_h$ are classified as active based on their intersection with $\Omega$. The computational domain
 $\tilde{\Omega}$ is defined as the union of these active cells. In the original SBM formulation~\cite{main2018shifted},
-only cells strictly contained in $\Omega$ were included, leading to the surrogate domain boundary
-depicted by the solid blue line in Figure~\ref{fig:sbm_setup}. Consequently, the surrogate domain $\tilde{\Omega}$ is
-generally a subset of $\Omega$, and its boundary $\tilde{\Gamma}$ does not coincide with the true boundary $\Gamma$.
+only cells strictly contained in $\Omega$ were included, leading to the surrogate domain boundary depicted by the solid
+blue line in Figure~\ref{fig:sbm_setup}. Consequently, the surrogate domain $\tilde{\Omega}$ is generally a subset of
+$\Omega$, and its boundary $\tilde{\Gamma}$ does not coincide with the true boundary $\Gamma$.
 
 Later extensions include intersected cells~\cite{yang2024optimal} with a volume fraction inside $\Omega$ greater than a
 threshold $\lambda\in [0,1]$. In Figure \ref{fig:sbm_setup}, this corresponds to including additional cells as
@@ -543,29 +540,31 @@ In this section, we present numerical results to evaluate the performance of the
 preconditioner for the Poisson equation. We investigate its effectiveness in terms of convergence rates, iteration
 counts under mesh refinement ($h$-refinement) and polynomial degree increase ($p$-refinement). To better illustrate the
 multigrid preconditioner's performance characteristics and enable meaningful comparison of iteration counts, we solve
-the system to high accuracy with a tolerance of $10^{-8}$ for the relative residual reduction.
+the system with a tolerance of $10^{-8}$ for the relative residual reduction in all experiments.
 Solver failure is defined as exceeding 100 GMRES iterations without reaching this tolerance.
 The initial background mesh is a square (or cube in 3D) domain covering the range $[-1.01, 1.01]$ in each dimension,
-subdivided into $4$ cells in each coordinate direction. We use a penalty parameter $\sigma = 5$ in the SBM
+subdivided into $4$ cells in each coordinate direction at refinement level $L=0$. We use a penalty parameter $\sigma = 5$ in the SBM
 formulation. This parameter is selected to be sufficiently large to ensure stability of the Nitsche coupling on the
 surrogate boundary.
 
-\mwnote{don't touc it for now. We might want lambda here}
-The majority of our tests are conducted on a unit sphere (a unit disk in 2D, depicted on the left panel of
-Fig.~\ref{fig:shift_distribution}). While geometrically simple, the unit
-sphere serves as an insightful benchmark. Any sufficiently smooth ($C^1$) complex boundary, when viewed at a fine
-enough mesh resolution, locally resembles a flat plane. The unit sphere, due to its uniform curvature, presents a
+The majority of our tests are conducted on a unit ball $\Omega = \{\mathbf{x} \in \mathbb{R}^d : \|\mathbf{x}\| < 1\}$,
+which corresponds to a unit disk in 2D and a unit ball in 3D (the 2D case is depicted on the left panel of
+Fig.~\ref{fig:shift_distribution}). We solve the Poisson equation \eqref{eq:poisson} with a constant right-hand side
+$f=1$ and homogeneous Dirichlet boundary conditions $u=0$ on $\Gamma = \partial\Omega$. While geometrically simple, the
+unit ball serves as an insightful benchmark. Any sufficiently smooth ($C^1$) complex boundary, when viewed at a fine
+enough mesh resolution, locally resembles a flat plane. The unit ball, due to its uniform curvature, presents a
 comprehensive range of intersection angles between the true boundary and the background mesh cells. Furthermore, the
 boundary intersects cells at various locations relative to cell centers and faces, leading to a diverse distribution of
 shift vector magnitudes and directions. This includes scenarios where the shift vector points from the surrogate
 boundary towards the interior of the true domain (which we denote as negative shifts if they oppose the outward normal
-of the surrogate boundary). The right panel of Figure~\ref{fig:shift_distribution}
-depicts the minimum and maximum shift magnitudes observed across the surrogate boundary for a typical
-discretization. The shift magnitudes are normalized by the cell size $h$; for a unit cell, the theoretically largest
-possible shift magnitude in 2D is $\sqrt{2}h$, occurring if the surrogate boundary point is at a cell corner and the
-true boundary passes through the diagonally opposite corner.
+of the surrogate boundary). The right panel of Figure~\ref{fig:shift_distribution} depicts the minimum and maximum
+shift magnitudes observed across the surrogate boundary for a typical discretization. The shift magnitudes are
+normalized by the cell size $h$; for a unit ball, the theoretically largest possible shift magnitude in 2D is
+$\sqrt{2}h$, occurring if the surrogate boundary point is at a cell corner and the true boundary passes through the
+diagonally opposite corner.
 
-\mwnote{TODO: describe the RHS}
+The results were computed on a machine with AMD Epyc 7282 with 256GB of RAM. Due to prohibitive memory requirements of
+high order discretizations in 3D, some of the larger problems could not be run to completion.
 
 \begin{figure}[h!]
     \centering
@@ -625,17 +624,16 @@ true boundary passes through the diagonally opposite corner.
             \end{axis}
         \end{tikzpicture}
     \end{subfigure}
-    \caption{Left: Exemplary numerical solution for the Poisson equation on a unit disc domain, visualized on the
-        surrogate domain ($\lambda=0.75$), obtained with the shifted  boundary method. The true boundary $\Gamma$ is
-        shown in black lines; connections between quadrature  points ($p=2$) on the surrogate boundary and their
+    \caption{Left: Exemplary numerical solution for the Poisson equation on a unit ball, visualized on the
+        surrogate domain ($\lambda=0.75$), obtained with the shifted boundary method. The true boundary $\Gamma$ is
+        shown in black lines; connections between quadrature points ($p=2$) on the surrogate boundary and their
         projections on the true boundary are illustrated with grey lines. Note that with $\lambda=0.75$,
-        some parts of the true boundary lie within the surrogate domain
+        some parts of the true boundary lie within the surrogate domain.
         Right: Illustrative distribution of minimum and maximum shift magnitudes (normalized by cell size $h$) on
-        the surrogate boundary
-        for the unit disk problem with $p=3$.. The values $\pm\sqrt{2}$ represent the theoretical maximum possible
-        normalized shift magnitude in 2D for a square cell.
+        the surrogate boundary for the unit ball problem with $p=3$. The values $\pm\sqrt{2}$ represent the
+        theoretical maximum possible normalized shift magnitude in 2D for a square cell. For $\lambda=1.0$ the maximum
+        shift magnitude was 1.3510, while for $\lambda=0.5$ it was 0.6436 and the minimum -0.6299.
     }
-    \aanote{put that dashed and solid lines are the minimum and maximum shifts repsectively, ideally in the figure or somewhere in the caption}
     \label{fig:shift_distribution}
 \end{figure}
 
@@ -644,8 +642,6 @@ initial residual by a factor of $10^{-8}$. If the threshold is not met within 10
 to have failed. All experiments are conducted using the implementation described in the previous section. As our solver
 depends on the value of the threshold parameter $\lambda$, we will first explore the solver performance on 2D problems
 as they are less computationally intensive and then show some results for 3D problems with tuned $\lambda$.
-
-\mwnote{we have two metrics: estimate of max eigenvalues of Smoother applied to A and number of GMRES iterations}
 
 \subsection{Iteration counts}
 
@@ -661,7 +657,7 @@ improvements may be possible with additional refinements to the smoother or the 
     \centering
     \input{figures/iter_shy3_smooth3.tex}
     \caption{Iteration counts for multigrid preconditioned GMRES solver using the Full-Residual Shy Patch smoother with
-        varying shyness thresholds equal to 3 on unit ball problem for polynomial degrees $p=1,2,3$. Number of smoothing steps is fixed to 3. Left panel presents results in 2D with shyness $3$, right panel in 3D with shyness $4$.}
+        varying shyness thresholds equal to 3 on unit ball problem for polynomial degrees $p=1,2,3$. Number of smoothing steps is fixed to 3. Left panel presents results in 2D with shyness $3$, right panel in 3D with shyness $4$. In 3D some data points are missing due to excessive memory requirements.}
     \label{fig:iteration_counts_shy3_smoothing3}
 \end{figure}
 
@@ -800,7 +796,6 @@ imaginary eigenvalues~\cite{wichrowski2025geometric} appearing when shifts are t
         \end{tabular}
     \end{subtable}
 \end{table}
-\aanote{wow im surprised that 1.0 is better than 0.5. MW: added a possible explantation: imaginary eigenvalues \cite{wichrowski2025geometric}}
 
 \subsection{p-Multigrid}
 
