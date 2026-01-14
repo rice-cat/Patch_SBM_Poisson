@@ -33,7 +33,7 @@
                 ymin=0,
                 xtick={0,1,2,3,4,5,6}]
 
-            \immediate\write18{python3 scripts/compute_sweep_ratio.py results/full_3D.csv 4 1. > results/tmp/ratio_3D.csv}
+            \immediate\write18{python3 scripts/compute_sweep_ratio.py results/full_3D.csv 4 0.0 > results/tmp/ratio_3D.csv}
 
             \newcommand{\addRatioPlotThree}[1]{%
                 \addplot+[thick] table[

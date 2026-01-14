@@ -249,7 +249,7 @@ only cells strictly contained in $\Omega$ were included, leading to the surrogat
 blue line in Figure~\ref{fig:sbm_setup}. Consequently, the surrogate domain $\tilde{\Omega}$ is generally a subset of
 $\Omega$, and its boundary $\tilde{\Gamma}$ does not coincide with the true boundary $\Gamma$.
 
-Later extensions include intersected cells~\cite{yang2024optimal} with a volume fraction inside $\Omega$ greater than a
+Later extensions include intersected cells~\cite{yang2024optimal} with a volume fraction outside $\Omega$ less than a
 threshold $\lambda\in [0,1]$. In Figure \ref{fig:sbm_setup}, this corresponds to including additional cells as
 indicated by the dashed blue line. This approach reduces the distance between true and surrogate boundaries, but can
 lead to ill-conditioning.
@@ -338,8 +338,9 @@ This represents an important difference from the work on a Discontinuous Galerki
 preconditioner~\cite{wichrowski2025geometric}, where an hp-multigrid strategy with lower polynomial degrees on coarser
 levels was necessary to achieve good performance. In the present continuous Galerkin context, we find that a simpler
 h-multigrid approach is enough. We note that while the background meshes are nested, the sets of active cells on
-different levels (determined by the fraction $\lambda$ of their volume inside the domain) are not necessarily nested.
-This lack of geometric nestedness can affect the efficiency of standard inter-grid transfer operators.
+different levels (determined by the threshold $\lambda$ for their volume fraction outside the domain) are not
+necessarily nested. This lack of geometric nestedness can affect the efficiency of standard inter-grid transfer
+operators.
 
 With this hierarchy of meshes and spaces established, the multigrid method is defined through three crucial components:
 a smoother, which reduces high-frequency error components on each level; transfer operators, which move information
@@ -593,21 +594,21 @@ high order discretizations in 3D, some of the larger problems could not be run t
                     grid=major,
                 ]
                 % Data from 2D_hp_stand_ball_p3.txt
-                % Lambda = 1.0
+                % Lambda = 0.0
                 \addplot+[mark=*,color=red, mark options={solid}, thick,forget plot,  dashed ] coordinates {
                         (1, 0.0000) (2, 0.0000) (3, 0.0000) (4, 0.0000) (5, 0.0000) (6, 0.0000) (7, 0.0000)
                     };
-                \addlegendentry{$\lambda=1.0$}
+                \addlegendentry{$\lambda=0.0$}
                 \addplot+[mark=*,color=red, mark options={solid}, thick ] coordinates {
                         (1, 1.0825) (2, 1.1813) (3, 1.0437) (4, 1.2373) (5, 1.3157) (6, 1.3304) (7, 1.3510)
                     };
 
-                % Lambda = 0.75
+                % Lambda = 0.25
                 % \addplot+[mark=square*,color=darkgreen, mark options={solid}, thick, forget plot,  dashed ] coordinates
                 %     {
                 %         (1, -0.2334) (2, -0.3089) (3, -0.3904) (4, -0.3152) (5, -0.4135) (6, -0.4265) (7, -0.4302)
                 %     };
-                % \addlegendentry{$\lambda=0.75$}
+                % \addlegendentry{$\lambda=0.25$}
                 % \addplot+[mark=square*,color=darkgreen, mark options={solid}, thick] coordinates {
                 %         (1, 0.7755) (2, 0.8005) (3, 0.7998) (4, 0.8367) (5, 0.8399) (6, 0.8450) (7, 0.8609)
                 %     };
@@ -625,13 +626,13 @@ high order discretizations in 3D, some of the larger problems could not be run t
         \end{tikzpicture}
     \end{subfigure}
     \caption{Left: Exemplary numerical solution for the Poisson equation on a unit ball, visualized on the
-        surrogate domain ($\lambda=0.75$), obtained with the shifted boundary method. The true boundary $\Gamma$ is
+        surrogate domain ($\lambda=0.25$), obtained with the shifted boundary method. The true boundary $\Gamma$ is
         shown in black lines; connections between quadrature points ($p=2$) on the surrogate boundary and their
-        projections on the true boundary are illustrated with grey lines. Note that with $\lambda=0.75$,
+        projections on the true boundary are illustrated with grey lines. Note that with $\lambda=0.25$,
         some parts of the true boundary lie within the surrogate domain.
         Right: Illustrative distribution of minimum and maximum shift magnitudes (normalized by cell size $h$) on
         the surrogate boundary for the unit ball problem with $p=3$. The values $\pm\sqrt{2}$ represent the
-        theoretical maximum possible normalized shift magnitude in 2D for a square cell. For $\lambda=1.0$ the maximum
+        theoretical maximum possible normalized shift magnitude in 2D for a square cell. For $\lambda=0.0$ the maximum
         shift magnitude was 1.3510, while for $\lambda=0.5$ it was 0.6436 and the minimum -0.6299.
     }
     \label{fig:shift_distribution}
@@ -754,10 +755,10 @@ quality of the smoother.
 We also examine the influence of the cell threshold parameter $\lambda$ on the solver performance.
 Table~\ref{tab:iter_lambda} presents the iteration counts for varying $\lambda$ with fixed shyness threshold $\xi=3$
 and smoothing steps $s=3$. In the 2D case (Table~\ref{tab:iter_2d_lambda}), for $p=1$ and $p=2$, the solver is
-relatively robust to $\lambda$, although $\lambda=1.0$ yields slightly lower iteration counts. However, for $p=3$,
-small values of $\lambda$ ($\lambda \le 0.5$) lead to increased iterations or failure, while $\lambda \ge 0.75$
+relatively robust to $\lambda$, although $\lambda=0.0$ yields slightly lower iteration counts. However, for $p=3$,
+large values of $\lambda$ ($\lambda \ge 0.5$) lead to increased iterations or failure, while $\lambda \le 0.25$
 restores convergence. In the 3D case (Table~\ref{tab:iter_3d_lambda}), the sensitivity is more pronounced. For $p \ge
-    2$, $\lambda=0.5$ results in solver failure, while $\lambda=1.0$ provides robust convergence. This might be due to
+    2$, $\lambda=0.5$ results in solver failure, while $\lambda=0.0$ provides robust convergence. This might be due to
 imaginary eigenvalues~\cite{wichrowski2025geometric} appearing when shifts are towards the interior of the domain.
 
 \begin{table}[htbp]
@@ -771,11 +772,11 @@ imaginary eigenvalues~\cite{wichrowski2025geometric} appearing when shifts are t
         \label{tab:iter_2d_lambda}
         \begin{tabular}{c|cccc}
             \toprule
-            $p \setminus \lambda$ & 0.25 & 0.5 & 0.75 & 1.0 \\
+            $p \setminus \lambda$ & 0.0 & 0.25 & 0.5 & 0.75 \\
             \midrule
-            1                     & 13   & 13  & 13   & 11  \\
-            2                     & 12   & 11  & 11   & 11  \\
-            3                     & ---  & 27  & 14   & 16  \\
+            1                     & 11  & 13   & 13  & 13   \\
+            2                     & 11  & 11   & 11  & 12   \\
+            3                     & 16  & 14   & 27  & ---  \\
             \bottomrule
         \end{tabular}
     \end{subtable}
@@ -787,11 +788,11 @@ imaginary eigenvalues~\cite{wichrowski2025geometric} appearing when shifts are t
         \label{tab:iter_3d_lambda}
         \begin{tabular}{c|cc}
             \toprule
-            $p \setminus \lambda$ & 0.5 & 1.0 \\
+            $p \setminus \lambda$ & 0.0 & 0.5 \\
             \midrule
-            1                     & 13  & 10  \\
-            2                     & --- & 9   \\
-            3                     & --- & 11  \\
+            1                     & 10  & 13  \\
+            2                     & 9   & --- \\
+            3                     & 11  & --- \\
             \bottomrule
         \end{tabular}
     \end{subtable}
@@ -819,7 +820,7 @@ dimensions.
 
 \begin{table}[htbp]
     \centering
-    \caption{Iteration counts for p-multigrid preconditioned GMRES solver with varying polynomial degree $p$ and mesh refinements. Shyness threshold $\xi=3$, smoothing steps $s=3$, cell threshold $\lambda=1.0$. Left: 2D results. Right: 3D results (from pmg\_3D.csv, gmg\_its). Dash --- indicate no converge within 100 iterations, empty entries indicate that the data is not available.}
+    \caption{Iteration counts for p-multigrid preconditioned GMRES solver with varying polynomial degree $p$ and mesh refinements. Shyness threshold $\xi=3$, smoothing steps $s=3$, cell threshold $\lambda=0.0$. Left: 2D results. Right: 3D results (from pmg\_3D.csv, gmg\_its). Dash --- indicate no converge within 100 iterations, empty entries indicate that the data is not available.}
     \label{tab:pmg_iterations}
     \begin{subtable}{0.55\textwidth}
         \centering
@@ -857,8 +858,8 @@ dimensions.
 
 \begin{table}[h!]
     \centering
-    \caption{GMRES iteration counts (tolerance $10^{-8}$) for the Poisson problem. Comparison of the continuous SBM ($\lambda=1$) preconditioned with the Full-Residual Shy Patch smoother (shyness $\xi=3$, $s=3$, 2D) against DG-SBM with a cellwise SSOR smoother ($s=3$) and algebraic multigrid (AMG). Solver failures (no convergence within 100 iterations) are indicated by ``---''. Empty entries indicate that the data is not available.}
-    %DG-SBM results for lambda 0.75: choice of lambda because it gives better results than 1.0
+    \caption{GMRES iteration counts (tolerance $10^{-8}$) for the Poisson problem. Comparison of the continuous SBM ($\lambda=0$) preconditioned with the Full-Residual Shy Patch smoother (shyness $\xi=3$, $s=3$, 2D) against DG-SBM with a cellwise SSOR smoother ($s=3$) and algebraic multigrid (AMG). Solver failures (no convergence within 100 iterations) are indicated by ``---''. Empty entries indicate that the data is not available.}
+    %DG-SBM results for lambda 0.25: choice of lambda because it gives better results than 0.0
     \label{tab:comparison_cutfem}
     \begin{tabular}{lll|ccccccc}
         \hline
@@ -866,7 +867,7 @@ dimensions.
                                                 &                                                              &        & 2                                   & 3 & 4  & 5  & 6  & 7  & 8  \\
         \hline
         %data source: results/full_2D.csv
-        \multirow{7}{*}{SBM, $\lambda=1$}       & \multirow{3}{*}{h-MG,Shy-Patch smoother}                     & $1$    & 5                                   & 5 & 7  & 8  & 9  & 10 & 11 \\
+        \multirow{7}{*}{SBM, $\lambda=0$}       & \multirow{3}{*}{h-MG,Shy-Patch smoother}                     & $1$    & 5                                   & 5 & 7  & 8  & 9  & 10 & 11 \\
                                                 &                                                              & $2$    & 4                                   & 6 & 7  & 7  & 8  & 9  & 10 \\
                                                 &                                                              & $3$    & 5                                   & 7 & 8  & 9  & 11 & 13 & 15 \\
         %data source: results/pmg_2d.csv
@@ -877,7 +878,7 @@ dimensions.
         \cline{2-10}
                                                 & \multirow{1}{*}{AMG}                                         & $1$    & 2                                   & 2 & 12 & 13 & 14 & 15 & 17 \\
         \cline{1-10}
-        \multirow{2}{*}{DG-SBM, $\lambda=0.75$} & {cellwise-SSOR,}                                             & $1$    & 5                                   & 6 & 7  & 8  & 9  & 9  & 11 \\
+        \multirow{2}{*}{DG-SBM, $\lambda=0.25$} & {cellwise-SSOR,}                                             & $1$    & 5                                   & 6 & 7  & 8  & 9  & 9  & 11 \\
                                                 & $hp$-multigrid                                               & $2$    & 7                                   & 9 & 10 & 12 & 14 & 14 & 16 \\
         \cline{1-10}
         \multirow{3}{*}{cutFEM}                 & \multirow{3}{*}{h-MG, Patch smoother\cite{cui2025multigrid}}
@@ -945,7 +946,7 @@ this marginal additional cost is well justified, particularly for higher polynom
 \begin{figure}[htbp]
     \centering
     \input{figures/timing_sweeps.tex}
-    \caption{Relative increase in time per iteration when using two smoothing steps versus one, computed as $(T_{s=2}/T_{s=1})-1$, measured on the unit ball with shyness $\xi=4$ and cell threshold $\lambda=1$. Additional sweeps are restricted to boundary patches. Timings obtained on a single core of an AMD EPYC 7282.}
+    \caption{Relative increase in time per iteration when using two smoothing steps versus one, computed as $(T_{s=2}/T_{s=1})-1$, measured on the unit ball with shyness $\xi=4$ and cell threshold $\lambda=0$. Additional sweeps are restricted to boundary patches. Timings obtained on a single core of an AMD EPYC 7282.}
     %2D results are skipped here because the timings are too small to be meaningful: too much pollution and the ratio went negative for some runs, so I guess there were measurement errors. Anyway, the 3D results are more relevant.
     \label{fig:timing_sweeps}
 \end{figure}

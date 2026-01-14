@@ -9,7 +9,7 @@
                 legend pos=north west,
                 paperplot]
 
-            \immediate\write18{python3 scripts/compute_iterations.py results/full_2D.csv 3 3. 1. > results/tmp/iterations_2D.csv}
+            \immediate\write18{python3 scripts/compute_iterations.py results/full_2D.csv 3 3. 0.0 > results/tmp/iterations_2D.csv}
 
             \newcommand{\addIterPlot}[1]{%
                 \addplot+[thick] table[
@@ -37,7 +37,7 @@
                 legend pos=north west,
                 paperplot]
 
-            \immediate\write18{python3 scripts/compute_iterations.py results/full_3D.csv 3 3. 1. > results/tmp/iterations_3D.csv}
+            \immediate\write18{python3 scripts/compute_iterations.py results/full_3D.csv 3 3. 0.0 > results/tmp/iterations_3D.csv}
 
             \newcommand{\addIterPlotThree}[1]{%
                 \addplot+[thick] table[
