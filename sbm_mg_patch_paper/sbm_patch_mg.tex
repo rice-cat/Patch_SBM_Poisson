@@ -34,10 +34,10 @@ element methods offer a liberating alternative by employing a fixed background m
 physical boundary. Among these, the Shifted Boundary Method (SBM)~\cite{main2018shifted} adopts a distinct strategy:
 instead of the mesh chasing the boundary, the boundary is mathematically shifted to meet the mesh. By defining the
 problem on a surrogate domain and extrapolating boundary conditions, SBM avoids the complex geometric intersections of
-methods like CutFEM~\cite{burman2015cutfem}. However, in a display of the "conservation of difficulty," SBM essentially
-shifts part of the challenge from the mesh generator to the linear solver. The resulting linear systems are burdened
-with extrapolation terms that introduce non-symmetry and potential indefiniteness, proving that a simple mesh does not
-necessarily guarantee a simple matrix. While conditioning issues scale like
+methods like CutFEM~\cite{burman2015cutfem}. However, in a display of the \emph{conservation of difficulty}, SBM
+essentially shifts part of the challenge from the mesh generator to the linear solver. The resulting linear systems are
+burdened with extrapolation terms that introduce non-symmetry and potential indefiniteness, proving that a simple mesh
+does not necessarily guarantee a simple matrix. While conditioning issues scale like
 $\mathcal{O}(h^{-2})$~\cite{atallah2021shifted}, similar to body-fitted methods~\cite{collins2023penalty}, the
 efficient numerical solution of algebraic systems emanating from high-order SBM formulations remains somewhat
 unexplored.
@@ -63,13 +63,13 @@ operators~\cite{zorrilla2024shifted}, and enforced in a Nitsche-like manner~\cit
 Shifted Boundary Method has evolved from its first formulation~\cite{main2018shifted, main2018shiftedVol2}, which used
 cells strictly within the considered domain, to a recent approach~\cite{yang2024optimal} that often includes
 intersected cells based on a volume fraction threshold. It has been extended to high-order discretizations
-\cite{atallah2022high}, various physical problems including Stokes flow~\cite{atallah2020analysis}, solid
-mechanics~\cite{atallah2021shifted, atallah2024nonlinear}, and significantly, to problems with embedded
-interfaces~\cite{li2020shifted, xu2024weighted}. These latter works demonstrate the capability of SBM to handle
-discontinuities across internal boundaries by appropriately modifying the formulation to impose jump conditions,
-extending the method's applicability to multiphysics and multi-material problems. Other innovations include
-penalty-free variants~\cite{collins2023penalty} and integration with level set methods~\cite{kuzmin2022unfitted,
-    xue2021new}.
+\cite{atallah2022high}, including Isogeometric Analysis (IGA) SBM~\cite{ANTONELLI2024shiftedIGA}, various physical
+problems including Stokes flow~\cite{atallah2020analysis}, solid mechanics~\cite{atallah2021shifted,
+    atallah2024nonlinear}, and significantly, to problems with embedded interfaces~\cite{li2020shifted, xu2024weighted}.
+These latter works demonstrate the capability of SBM to handle discontinuities across internal boundaries by
+appropriately modifying the formulation to impose jump conditions, extending the method's applicability to multiphysics
+and multi-material problems. Other innovations include penalty-free variants~\cite{collins2023penalty} and integration
+with level set methods~\cite{kuzmin2022unfitted, xue2021new}.
 
 % Comparison with CutFEM: Geometric flexibility vs. Quadrature efficiency
 While SBM avoids the complexities of generating body-fitted meshes, the primary geometric task shifts to accurately
@@ -81,10 +81,8 @@ preprocessing step. In contrast, methods like CutFEM require specialized quadrat
 on every cut cell. This makes SBM significantly more efficient in terms of computational throughput, especially in
 matrix-free implementations where the overhead of cut-cell quadrature would be incurred in every operator evaluation.
 The SBM utilizes closest-point projection algorithms to find for each point on $\tilde{\Gamma}$ a corresponding point
-on $\Gamma$. Level sets,which represent the domain boundary as the zero level set of a function, are a common way to
-represent an embedded domain, and SBM uses closest-point projection algorithms to find for each point on
-$\tilde{\Gamma}$ a corresponding point on $\Gamma$. Level set methods, which represent the domain boundary as the zero
-level set of a function, are often employed in unfitted methods like SBM to facilitate operations such as closest point
+on $\Gamma$. Level set methods, which represent the domain boundary as the zero level set of a function, are often
+employed in unfitted methods like SBM to facilitate operations such as closest point
 projection~\cite{kuzmin2022unfitted, xue2021new}. Special treatment of domains with corners was analyzed
 in~\cite{atallah2021analysis}.
 
@@ -172,16 +170,16 @@ its comprehensive tools for finite element methods and multigrid.
 The remainder of this paper is organized as follows. In Section~\ref{sec:method}, we briefly review the Shifted
 Boundary Method formulation to establish the necessary notation and context. Section~\ref{sec:mg_preconditioner}
 details the core of our contribution: the construction of the Full-Residual Shy Patch smoother and the associated
-multigrid hierarchy. The key concept of \emph{Shy Patches}, which ensures robustness by avoiding ill-conditioned
-slivers near the boundary, is formally introduced in Section~\ref{sec:shy_patches}. We then present numerical evidence
-in Section~\ref{sec:numerical_results}, demonstrating the effectiveness of the method and providing comparisons with
-AMG and CutFEM. In essence, this work demonstrates that while SBM matrices can be notoriously difficult to handle at
-high polynomial degrees, they can be effectively tamed by our \emph{Shy Patch} smoothers. By solving local problems on
-vertex patches while carefully avoiding ill-conditioned regions, we achieve a solver that remains robust in both mesh
-size $h$ and polynomial degree $p$. This robustness is clearly illustrated by the stable iteration counts presented in
-Figure~\ref{fig:iteration_counts_shy3_smoothing3} and Table~\ref{tab:pmg_iterations}, while the comparative performance
-against other methods is summarized in Table~\ref{tab:comparison_cutfem}. Finally, Section~\ref{sec:conclusion} offers
-concluding remarks.
+multigrid hierarchy, including the key concept of \emph{Shy Patches}, which ensures robustness by avoiding
+ill-conditioned slivers near the boundary. Section~\ref{sec:implementation} discusses implementation details. We then
+present numerical evidence in Section~\ref{sec:numerical_results}, demonstrating the effectiveness of the method and
+providing comparisons with AMG and CutFEM. In essence, this work demonstrates that while SBM matrices can be
+notoriously difficult to handle at high polynomial degrees, they can be effectively tamed by our \emph{Shy Patch}
+smoothers. By solving local problems on vertex patches while carefully avoiding ill-conditioned regions, we achieve a
+solver that remains robust in both mesh size $h$ and polynomial degree $p$. This robustness is clearly illustrated by
+the stable iteration counts presented in Figure~\ref{fig:iteration_counts_shy3_smoothing3} and
+Table~\ref{tab:pmg_iterations}, while the comparative performance against other methods is summarized in
+Table~\ref{tab:comparison_cutfem}. Finally, Section~\ref{sec:conclusion} offers concluding remarks.
 
 \section{Method formulation}
 \label{sec:method}
@@ -202,7 +200,7 @@ we obtain:
     \int_\Omega f \, v \, dx.
 \]
 
-We next introduce a triangulation \( \mathcal{T}_h \) consisting of quadrilateral (2D) or hexahedral (3D) elements of
+We next introduce a discretization \( \mathcal{T}_h \) consisting of quadrilateral (2D) or hexahedral (3D) elements of
 size $h$, and define a finite element space $\mathbb{V}_h\subset H^1(\Omega)$ using Lagrange polynomial elements of
 degree \( p \). In classical finite element methods, the mesh conforms to the boundary (unlike the background mesh
 approach illustrated in Figure~\ref{fig:sbm_setup}), and test functions $v$ typically vanish on $\Gamma $ to strongly
@@ -222,10 +220,10 @@ $\Gamma$ seeks $u_h \in V_h$ such that for all $v_h \in \mathbb{V}_h$:
         + \int_{\Gamma} \sigma u_h v_h \, ds =                          \\
           & = \int_\Omega f v_h \, dx
         - \alpha\int_{\Gamma} (\nabla v_h \cdot \mathbf{n}) g \, ds
-        + \int_{\Gamma} \sigma_\Gamma g v_h \, ds.
+        + \int_{\Gamma} \sigma g v_h \, ds.
     \end{split}
 \end{equation*}
-Here, $\sigma_\Gamma$ is a penalty parameter, typically chosen as $\sigma_\Gamma = \mathcal{O}(p^2 h^{-1})$ for mesh
+Here, $\sigma$ is a penalty parameter, typically chosen as $\sigma = \mathcal{O}(p^2 h^{-1})$ for mesh
 size $h$, and
 $\mathbf{n}$ is the outward unit normal vector to $\Gamma$.  The choice of parameter $\alpha=1$ leads to a symmetric
 formulation, while $\alpha=-1$ results in a non-symmetric formulation in which the penalty term can be
@@ -243,11 +241,12 @@ skipped~\cite{baumann1999discontinuous}
 In many applications, the domain $\Omega$ may have a complex geometry, making the generation of body-fitted meshes
 challenging. Non-body-fitted (unfitted) methods address this challenge by employing a background mesh $\mathcal{T}_h$
 that does not conform to the boundary of $\Omega$. The domain $\Omega$ is embedded within this background mesh, and
-cells of $\mathcal{T}_h$ are classified as active based on their intersection with $\Omega$. The computational domain
-$\tilde{\Omega}$ is defined as the union of these active cells. In the original SBM formulation~\cite{main2018shifted},
-only cells strictly contained in $\Omega$ were included, leading to the surrogate domain boundary depicted by the solid
-blue line in Figure~\ref{fig:sbm_setup}. Consequently, the surrogate domain $\tilde{\Omega}$ is generally a subset of
-$\Omega$, and its boundary $\tilde{\Gamma}$ does not coincide with the true boundary $\Gamma$.
+cells of $\mathcal{T}_h$ are in our case classified as active based on their intersection with $\Omega$. The
+computational domain $\tilde{\Omega}$ is defined as the union of these active cells. In the original SBM
+formulation~\cite{main2018shifted}, only cells strictly contained in $\Omega$ were included, leading to the surrogate
+domain boundary depicted by the solid blue line in Figure~\ref{fig:sbm_setup}. Consequently, the surrogate domain
+$\tilde{\Omega}$ is generally a subset of $\Omega$, and its boundary $\tilde{\Gamma}$ does not coincide with the true
+boundary $\Gamma$.
 
 Later extensions include intersected cells~\cite{yang2024optimal} with a volume fraction outside $\Omega$ less than a
 threshold $\lambda\in [0,1]$. In Figure \ref{fig:sbm_setup}, this corresponds to including additional cells as
@@ -296,8 +295,8 @@ true boundary lies inside the surrogate domain.
 
 In the context of DG methods, it was found that the choice of stabilization did not have a dramatic impact on the
 overall multigrid performance, as the cell-based nature of the DG smoother effectively handled local
-issues~\cite{wichrowski2025geometric}. However, in the DG formulation the cellwise smoother experienced singifficant
-challenges for $p=3$. For continuous finite elements, where our smoother operate on larger, overlapping patches of
+issues~\cite{wichrowski2025geometric}. However, in the DG formulation the cellwise smoother experienced signifficant
+challenges for $p=3$. For continuous finite elements, where our smoother operates on larger, overlapping patches of
 elements (i.e. vertex or edge patches), the choice of stabilization becomes far more critical. The non-standard terms
 introduced by SBM are not well-contained within these patches, and an inappropriate stabilization can introduce
 spectral properties that standard smoothers cannot handle effectively, a problem that is exacerbated for higher-order
@@ -309,13 +308,13 @@ The SBM weak formulation with symmetrized stabilization seeks $u_h \in V_h$ such
         \int_{\tilde{\Omega}} \nabla u_h \cdot \nabla v_h \, dx
         - \int_{\tilde{\Gamma}} (\nabla u_h \cdot \tilde{\mathbf{n}}) v_h \, ds
         -  \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) \; \mathcal{E}u_h \, ds
-        + \int_{\tilde{\Gamma}} \sigma_\Gamma \; \mathcal{E} u_h  \; \mathcal{E} v_h \, ds = \\
+        + \int_{\tilde{\Gamma}} \sigma \; \mathcal{E} u_h  \; \mathcal{E} v_h \, ds = \\
         = \int_{\tilde{\Omega}} f v_h \, dx
         - \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) {g} \, ds
-        + \int_{\tilde{\Gamma}} \sigma_\Gamma g v_h \, ds.
+        + \int_{\tilde{\Gamma}} \sigma g v_h \, ds.
     \end{split}
 \end{equation}
-where $\tilde{\mathbf{n}}$ is the outward normal to $\tilde{\Gamma}$ and $\sigma_\Gamma$ is a penalty parameter.
+where $\tilde{\mathbf{n}}$ is the outward normal to $\tilde{\Gamma}$ and $\sigma$ is a penalty parameter.
 We notice that our discrete solution $u_h$ is a piecewise polynomial function defined on the
 background mesh $\mathcal{T}_h$, hence its Taylor expansion can be computed directly by evaluating the
 function values at the points on the true boundary $\Gamma$. This allows us to avoid computation of higher-order
@@ -543,7 +542,7 @@ counts under mesh refinement ($h$-refinement) and polynomial degree increase ($p
 multigrid preconditioner's performance characteristics and enable meaningful comparison of iteration counts, we solve
 the system with a tolerance of $10^{-8}$ for the relative residual reduction in all experiments.
 Solver failure is defined as exceeding 100 GMRES iterations without reaching this tolerance.
-The initial background mesh is a square (or cube in 3D) domain covering the range $[-1.01, 1.01]$ in each dimension,
+The initial background mesh is a square (or cube in 3D) domain covering the range $[-1.01, 1.01]$ in each dimension; this ensures that the closest point on the true boundary $\Gamma$ can be reliably found for all points on the surrogate boundary $\tilde{\Gamma}$ when using level set representation. The background mesh is
 subdivided into $4$ cells in each coordinate direction at refinement level $L=0$. We use a penalty parameter $\sigma = 5$ in the SBM
 formulation. This parameter is selected to be sufficiently large to ensure stability of the Nitsche coupling on the
 surrogate boundary.
@@ -634,6 +633,7 @@ high order discretizations in 3D, some of the larger problems could not be run t
         the surrogate boundary for the unit ball problem with $p=3$. The values $\pm\sqrt{2}$ represent the
         theoretical maximum possible normalized shift magnitude in 2D for a square cell. For $\lambda=0.0$ the maximum
         shift magnitude was 1.3510, while for $\lambda=0.5$ it was 0.6436 and the minimum -0.6299.
+        Dashed lines indicate the maximum negative shift magnitude (multiplied by $-1$).
     }
     \label{fig:shift_distribution}
 \end{figure}
@@ -820,7 +820,7 @@ dimensions.
 
 \begin{table}[htbp]
     \centering
-    \caption{Iteration counts for p-multigrid preconditioned GMRES solver with varying polynomial degree $p$ and mesh refinements. Shyness threshold $\xi=3$, smoothing steps $s=3$, cell threshold $\lambda=0.0$. Left: 2D results. Right: 3D results (from pmg\_3D.csv, gmg\_its). Dash --- indicate no converge within 100 iterations, empty entries indicate that the data is not available.}
+    \caption{Iteration counts for p-multigrid preconditioned GMRES solver with varying polynomial degree $p$ and mesh refinements. Shyness threshold $\xi=3$, smoothing steps $s=3$, cell threshold $\lambda=0.0$. Left: 2D results. Right: 3D results (from pmg\_3D.csv, gmg\_its). Dash --- indicate solver failure, empty entries indicate that the data is not available.}
     \label{tab:pmg_iterations}
     \begin{subtable}{0.55\textwidth}
         \centering
@@ -858,7 +858,7 @@ dimensions.
 
 \begin{table}[h!]
     \centering
-    \caption{GMRES iteration counts (tolerance $10^{-8}$) for the Poisson problem. Comparison of the continuous SBM ($\lambda=0$) preconditioned with the Full-Residual Shy Patch smoother (shyness $\xi=3$, $s=3$, 2D) against DG-SBM with a cellwise SSOR smoother ($s=3$) and algebraic multigrid (AMG). Solver failures (no convergence within 100 iterations) are indicated by ``---''. Empty entries indicate that the data is not available.}
+    \caption{GMRES iteration counts (tolerance $10^{-8}$) for the Poisson problem. Comparison of the continuous SBM ($\lambda=0$) preconditioned with the Full-Residual Shy Patch smoother (shyness $\xi=3$, $s=3$, 2D) against DG-SBM with a cellwise SSOR smoother ($s=3$) and algebraic multigrid (AMG). Solver failures are indicated by ``---''. Empty entries indicate that the data is not available.}
     %DG-SBM results for lambda 0.25: choice of lambda because it gives better results than 0.0
     \label{tab:comparison_cutfem}
     \begin{tabular}{lll|ccccccc}
@@ -965,9 +965,9 @@ this complexity can be effectively managed through a geometric multigrid precond
 The core innovation of this approach lies in the construction of local smoothing problems that are faithful
 representations of the global SBM formulation. By defining subspaces over vertex patches and incorporating the full
 global residual, we ensure that the non-local boundary coupling introduced by the SBM extension operators is correctly
-resolved. Crucially, the introduction of the *shyness* criterion—which prevents the formation of patches around
-isolated or insufficiently supported vertices—guarantees the stability of these local problems. This strategy avoids
-the numerical instability associated with small cut elements that often plagues unfitted methods.
+resolved. Crucially, the introduction of the \emph{shyness} criterion --- which prevents the formation of patches
+around isolated or insufficiently supported vertices—guarantees the stability of these local problems. This strategy
+avoids the numerical instability associated with small cut elements that often plagues unfitted methods.
 
 A significant advancement of this work is the method's performance at higher polynomial degrees. Unlike previous
 attempts with Discontinuous Galerkin formulations where cell-wise smoothers failed to converge efficiently at $p=3$,
@@ -984,9 +984,10 @@ Consequently, this work lays the foundation for future high-performance, matrix-
 modern hardware architectures while retaining the geometric flexibility of unfitted methods.
 %%
 \section*{Acknowledgments}
-% Optional: Acknowledge funding sources, helpful discussions, etc.
-The author declares the use of language models (ChatGPT, Gemini, and Claude) to improve the clarity and readability of
-the manuscript. All scientific content and technical claims are solely the responsibility of the author.
+
+The authors declare the assistance of two cats (Micro and Konda) and language models (ChatGPT, Gemini, and Claude) in
+the preparation of the manuscript text. Following these interventions, the final version was checked by the authors,
+who take sole responsibility for all scientific content and technical claims.
 
 \FloatBarrier
 \bibliographystyle{siam} % Or any other style
