@@ -1,0 +1,81 @@
+\centering
+\begin{tikzpicture}[scale=1.1,
+        dof/.style={circle, fill=black, inner sep=0.8pt}]
+    \usetikzlibrary{calc}
+    \newcommand{\drawCubicDoFsAt}[2]{%
+        \foreach \xi in {0,0.33,0.66,1} {%
+                \foreach \eta in {0,0.33,0.66,1}  {%
+                        \node[dof, minimum size=4pt, inner sep=0pt, fill=orange] at ($(#1,#2) + (\xi,\eta)$) {};%
+                    }%
+            }%
+    }
+    % Markers are hardcoded per scenario below; no marker macros used.
+
+    % --- SCENARIO 1: Flat boundary (Vertex on boundary) ---
+    \begin{scope}[xshift=0.0cm]
+        \draw[line width=2pt, blue] (-0.2,2) -- (2.,2) -- (2.,2.4);
+        \draw[step=1cm, gray, very thin] (-0.2,-0.2) grid (2.2,2.5);
+
+        \fill[green, opacity=0.3] (-0.2 ,-0.2) rectangle (2,2);
+        \fill[green, opacity=0.3] (2 , -0.2) rectangle (2.2,2.4);
+        \foreach \x/\y in {0/0, 1/0, 0/1, 1/1} {
+                \fill[green, opacity=0.4] (\x,\y) rectangle (\x+1,\y+1);
+                \drawCubicDoFsAt{\x}{\y}
+            }
+
+        % marker (confident) at (1,1): small cross
+        \draw[line width=2pt, gray, rounded corners=6pt, line join=round] (0.15,0.15) -- (1.85,0.15) -- (1.85,2.15) -- (0.15,2.15) -- cycle;
+    \end{scope}
+
+    % --- SCENARIO 2: Flat boundary (Vertex one cell away) ---
+    \begin{scope}[xshift=3.5cm]
+        \draw[line width=2pt, blue] (-0.,2.4)-- (-0.,2) -- (2.,2) -- (2.,1) -- (2.2,1);
+        \draw[step=1cm, gray, very thin] (-0.2,-0.2) grid (2.2,2.5);
+
+        \fill[green, opacity=0.3] (-0.2 ,-0.2) rectangle (0, 2.4);
+        \fill[green, opacity=0.3] (0. ,-0.2) rectangle (2,2);
+        \fill[green, opacity=0.3] (2. , -0.2) rectangle (2.2,1);
+        \foreach \x/\y in {0/0, 1/0, 0/1, 1/1} {
+                \fill[green, opacity=0.4] (\x,\y) rectangle (\x+1,\y+1);
+                \drawCubicDoFsAt{\x}{\y}
+            }
+
+        % marker (confident) at (1,1): small cross
+        \draw[line width=2pt, gray, rounded corners=6pt, line join=round]  (0.15, 1.85 ) --(0.15,0.15) -- (1.85,0.15)  -- (1.85, 0.75)-- (2.15, 0.85) -- (2.15,2.15) -- (0.15,2.15) -- cycle;
+    \end{scope}
+
+    % --- SCENARIO 3: Concave corner ---
+    \begin{scope}[xshift=7.0cm]
+        \draw[line width=2pt, blue] (-0.2,1) -- (1,1) -- (1,2) -- (2, 2)-- (2,1) -- (2.2,1);
+        \draw[step=1cm, gray, very thin] (-0.2,-0.2) grid (2.2,2.5);
+
+        \fill[green, opacity=0.3] (-0.2 ,-0.2) rectangle (2.2,1);
+        \fill[green, opacity=0.3] (1 ,1) rectangle (2,2);
+        \foreach \x/\y in {0/0, 1/0, 1/1} {
+                \fill[green, opacity=0.4] (\x,\y) rectangle (\x+1,\y+1);
+                \drawCubicDoFsAt{\x}{\y}
+            }
+
+        \draw[line width=2pt, gray, rounded corners=6pt, line join=round] (0.15,0.15) -- (1.9,0.15)-- (1.85, 0.75) -- (2.15, 0.9) -- (2.15,2.15) -- (0.85,2.15) -- (0.85,1.15) -- (0.15,1.15) -- cycle;
+    \end{scope}
+
+    % --- SCENARIO 4: Convex corner (Vertex on corner) ---
+    \begin{scope}[xshift=10.5cm]
+        \draw[step=1cm, gray, very thin] (-0.2,-0.2) grid (2.2,2.2);
+
+        \fill[green, opacity=0.3] (-0.2 , -0.2) rectangle (0,1);
+        \fill[green, opacity=0.3] (0 , -0.2) rectangle (2,2);
+        \fill[green, opacity=0.3] (2, -0.2) rectangle (2.2,1);
+        % Surrogate boundary forming convex corner at (2,2)
+        \draw[line width=2pt, blue] (-0.2, 1)-- (0, 1) -- (0,2) -- (2,2) -- (2,1) -- (2.2, 1);
+        % Interior cells - 4 cells in a 2x2 grid
+        \foreach \x/\y in {0/0, 1/0, 0/1, 1/1} {
+                \fill[green, opacity=0.4] (\x,\y) rectangle (\x+1,\y+1);
+                \drawCubicDoFsAt{\x}{\y}
+            }
+
+        % Patch boundary covering all 4 cells
+        \draw[line width=2pt, gray, rounded corners=6pt, line join=round] (-0.15, 0.9)--(0.15, 0.85) -- (0.15,0.15) -- (1.85,0.15) -- (1.85, 0.85)  -- (2.15, 0.9)--  (2.15,2.15)   -- (-0.15,2.15) -- cycle;
+    \end{scope}
+
+\end{tikzpicture}
