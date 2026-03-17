@@ -273,10 +273,10 @@ weak formulation seeks $u_h \in V_h$ such that for all $v_h \in V_h$,
         \int_{\tilde{\Omega}} \nabla u_h \cdot \nabla v_h \, dx
         - \int_{\tilde{\Gamma}} (\nabla u_h \cdot \tilde{\mathbf{n}}) v_h \, ds
         - \alpha \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) \; \mathcal{E}u_h \, ds
-        + \int_{\tilde{\Gamma}} \sigma \; \mathcal{E} u_h  \; v_h \, ds = \\
+        + \int_{\tilde{\Gamma}} \sigma \; \mathcal{E} u_h  \; \mathcal{E} v_h \, ds = \\
         = \int_{\tilde{\Omega}} f v_h \, dx
         - \alpha\int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) {g} \, ds
-        + \int_{\tilde{\Gamma}} \sigma g v_h \, ds.
+        + \int_{\tilde{\Gamma}} \sigma g \mathcal{E} v_h \, ds.
     \end{split}
 \end{equation}
 where $\tilde{\mathbf{n}}$ is the outward normal to $\tilde{\Gamma}$ and $\sigma$ is a penalty parameter.
@@ -305,14 +305,13 @@ The SBM weak formulation with symmetrized stabilization seeks $u_h \in V_h$ such
         + \int_{\tilde{\Gamma}} \sigma \; \mathcal{E} u_h  \; \mathcal{E} v_h \, ds = \\
         = \int_{\tilde{\Omega}} f v_h \, dx
         - \int_{\tilde{\Gamma}} (\nabla v_h \cdot \tilde{\mathbf{n}}) {g} \, ds
-        + \int_{\tilde{\Gamma}} \sigma g v_h \, ds.
+        + \int_{\tilde{\Gamma}} \sigma g \mathcal{E} v_h \, ds.
     \end{split}
 \end{equation}
 where $\tilde{\mathbf{n}}$ is the outward normal to $\tilde{\Gamma}$ and $\sigma$ is a penalty parameter.
 We notice that our discrete solution $u_h$ is a piecewise polynomial function defined on the
-background mesh $\mathcal{T}_h$, hence its Taylor expansion can be computed directly by evaluating the
-function values at the points on the true boundary $\Gamma$. This allows us to avoid computation of higher-order
-derivatives of $u_h$. Note that the resulting form is not symmetric due to the presence of the extrapolated
+surrogate domain $\tilde{\Omega}$ which can be extended to the background mesh $\mathcal{T}_h$. Specifically, the extrapolation is implemented by evaluating the shape functions at the points on the true boundary $\Gamma$ (which may lie outside the unit cell of the respective active elements). This allows us to avoid the explicit computation of high-order
+derivatives of $u_h$ that would be required for a direct Taylor expansion implementation. Note that the resulting form is not symmetric due to the presence of the extrapolated boundary conditions.
 boundary condition.
 
 \section{Multigrid Preconditioner}

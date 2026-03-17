@@ -3,7 +3,6 @@
 > We would like to sincerely thank the reviewers and the editor for their exceptionally fast and constructive feedback. The promptness of this review process is greatly appreciated and has allowed us to improve the manuscript significantly.
 
 ## Reviewer #2:
-<!-- I bet that this is Gugliermo. -->
  The manuscript presents a geometric multigrid preconditioner for high-order SBM discretizations, introducing a novel "shy" patch smoother to effectively address the algebraic challenges induced by the inherent features of the SBM. The approach is demonstrated to yield robust and mesh-independent convergence up to polynomial degree p = 3 in both two- and three-dimensional settings. The paper tackles a timely and relevant problem, and will be interesting for the unfitted mesh and multigrid communities. The results indicate the potential of the contribution.
 
  However, the current presentation lacks sufficient methodological detail and clarity to meet the standards of CMAME. In particular, the description of the smoother and multigrid components is in my opinion too concise, limiting reproducibility and accessibility. I strongly encourage the authors to substantially expand and clarify the methodological section, including more detailed explanations, algorithmic descriptions, and illustrative figures, in order to make the paper more didactic and self-contained. I am convinced that with these improvements, the manuscript could become a strong and valuable contribution to the field.
@@ -34,15 +33,13 @@
     > We have refined the definition of the high-order Taylor expansion in the manuscript. The formulation now explicitly includes the polynomial summation form up to degree $k$ and formally describes the $\mathcal{O}(\|\mathbf{d}\|^{k+1})$ truncation error, ensuring a rigorous mathematical description of the boundary condition extrapolation.
 
 7. In Eq. 3, shouldn't the penalty Nitsche terms (those with $\sigma$) be tested against the expansion of the test function? (and not the test function as in current version of the manuscript).
-    > 
-<!-- there are options, we chose one of them, look it up in literaure. copilot: don't touch that.-->
+    > We thank the reviewer for identifying this oversight. We have corrected Equations 3 and 4; the penalty terms are now correctly tested against the extrapolation of the test function, $\mathcal{E}v_h$.
 
 8. In Eq. 4, the notation for the penalty constant changes from $\sigma$ to $\sigma_\Gamma$. Please keep consistency. Besides, the authors define again some terms already defined before.
     > We have standardized the notation, using $\sigma$ for the penalty parameter throughout the manuscript, and eliminated redundant definitions.
 
 9. As far as I understand from the paragraph right after Eq. 4, the values in the true boundary $\Gamma$ are computed by direct evaluation in order to skip high order derivatives. Does this mean that the values are interpolated in $\Gamma$ by using the discretization of the intersected elements? If so, this would imply to add all the DOFs of the intersected cells (not only those attached to the surrogate boundary) to the linear system but without performing the integration of such cells, something that, if I am not wrong, would result in zero entries in the left hand side matrix and thus in an ill-conditioned problem. I think that the authors should better explain this.
-> 
-<!-- Add a brief clarification note on DOF handling for intersected cells to address the reviewer's concern about zero entries. -->
+    > We have added a clarification to the implementation description after Equation 4. The values at the true boundary are indeed computed using the discretization of the cells within the surrogate domain. For each point on the surrogate boundary, we find its closest point on the true boundary and evaluate the shape functions at that point. Importantly, since the shape functions are polynomials defined globally per element, this evaluation is performed by mapping the physical point in the background mesh to the reference unit cell of the respective active element—meaning we are essentially computing shape function values at points that may lie slightly outside the standard $[0,1]^d$ unit cell. This approach avoids the need for explicit high-order derivative computations while maintaining the efficiency of the method, and does not require adding DOFs for excluded intersected cells to the linear system.
 
 10. In Figure 2, I think that some of the intersected cells must be active according to the $\lambda$ criterion.
 > 
