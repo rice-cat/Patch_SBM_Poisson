@@ -45,8 +45,7 @@
     > In that figure $\lambda=0$, we clarified that in the caption.  
 
 11. Section 3.2. What is a central vertice? Indeed, I think that this section will greatly benefit from some figures to support the discussion.
-    > 
-<!-- Provide a defining sentence for "central vertex" and consider adding a supporting 2D schematic diagram of a patch centered on a vertex. -->
+    > Central vertex has been defined. Additional figure illustrating various configurations of vertices has been added.
 
 12. Section 4.1. Which is the motivation to add all the cells' DOFs to the linear system and get an ill-conditioned problem. I would understand paying this price in the case of moving boundaries to avoid resetting the sparse matrix graph each time $\Gamma$ changes but I do not see the point in this case. Can the authors clarify this?
     > Our approach of assigning degrees of freedom to all cells, including non-active ones, is primarily motivated by implementation simplicity and efficiency. It allows us to maintain a consistent sparsity pattern, which is crucial for high-performance solvers and would be particularly beneficial for moving boundary problems. While this introduces zero rows in the global matrix, the iterative GMRES solver handles this naturally as both the right-hand side and matrix entries are zero for these DOFs, meaning they do not affect the physical solution. We ensure the coarsest level system is invertible by constraining these DOFs (setting the diagonal to one). Critically, this unified treatment allows us to reuse standard, highly-optimized multigrid transfer operators from the \texttt{deal.II} library, permitting us to focus on the development of the specialized smoother. In a fully optimized implementation, the number of inactive cells could be significantly reduced by refining only the regions actually occupied by the domain. We have clarified these motivations in Section 4.1.

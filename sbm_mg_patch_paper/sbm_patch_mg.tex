@@ -373,8 +373,9 @@ boundary of the single-vertex \emph{patch}, which conflicts with the non-standar
 fact confirmed by our preliminary experiments.
 
 This suggests that the subspaces must be large enough to capture the local behavior of the SBM formulation. We
-therefore construct local problems on larger subspaces, defined by patches of elements centered around a vertex, as
-illustrated in Figure~\ref{fig:single_patch_boundaries}. By solving a local problem on this patch that includes the
+therefore construct local problems on larger subspaces, defined by patches of elements centered around a vertex, which
+we refer to as the \emph{central vertex} of the patch, as illustrated in
+Figure~\ref{fig:single_patch_boundaries}. By solving a local problem on this patch that includes the
 relevant SBM boundary terms where applicable, we can compute a more effective correction. This approach aims to make
 the local problem on the patch a more consistent approximation of the global problem, leading to a more robust
 smoother.
@@ -406,8 +407,9 @@ smoother.
 \label{sec:shy_patches}
 The idea behind our proposed smoother is to construct local problems on patches of cells that are consistent with
 the global problem, particularly in handling the non-standard terms introduced by the SBM. We start by constructing
-vertex patches, where a patch consists of all active cells connected to a given vertex. The subspace for the smoother
-correction is then defined by the degrees of freedom (DoFs) supported by the cells within this patch.
+vertex patches, where a patch consists of all active cells connected to a given vertex (the central vertex). The
+subspace for the smoother correction is then defined by the degrees of freedom (DoFs) supported by the cells within
+this patch.
 
 Next we ensure that the local problem solved on the patch is a faithful representation of the global problem. To
 achieve this, we only include DoFs for which the complete residual can be evaluated using information solely from the
