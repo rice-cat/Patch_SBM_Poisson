@@ -9,7 +9,7 @@
  However, the current presentation lacks sufficient methodological detail and clarity to meet the standards of CMAME. In particular, the description of the smoother and multigrid components is in my opinion too concise, limiting reproducibility and accessibility. I strongly encourage the authors to substantially expand and clarify the methodological section, including more detailed explanations, algorithmic descriptions, and illustrative figures, in order to make the paper more didactic and self-contained. I am convinced that with these improvements, the manuscript could become a strong and valuable contribution to the field.
  
  > *limiting reproducibility* We have released the source code.
-
+ >
  > Added a short, self-contained subsection "Algorithm for Patch Generation" with two algorithm floats (main routine and `CollectFullResidualDoFs`) that follow the implementation.
 
 
@@ -22,22 +22,20 @@
 
 
 3. In the introduction, after having reviewed the SBM and multigrid literature, which I acknowledge is precise, the authors include two paragraphs about the CutFEM, which I think add no value to the discussion. If the authors really consider it necessary, I think it should appear before the core of the section.
-    > We have significantly compacted the comparison with CutFEM and moved it earlier in the introduction to provide a more concise context for our method.
+    > We have compacted the comparison with CutFEM and moved it earlier in the introduction to provide a more concise context for our method.
 
 4. When describing unfitted methods the authors state that "cells of $\mathcal{T}_h$ are classified as active based on their intersection with $\Omega$." This is customary but not always true (think on CutFEM with thin-walled bodies in which all cells are active). Based on this, I'd suggest to subtly change the statement.
     > We agree, and have changed the statement.
 
 5. I'd suggest to refer to the $\lambda = 0.5$ as the optimal surrogate boundary approach. Besides, the authors say that this may lead to ill conditioning. I'd like to ask the authors about this statement and to be more specific about it in the manuscript.
-    > 
-<!-- We could add a brief paragraph explaining that lambda=0.5 can lead to poor conditioning because it might select very small cut elements (slivers) as part of the surrogate domain, inflating the matrix condition number without stabilization. -->
-<!-- Not ill-conditioning, but there may appear imagnary eigenvalues. to be clarifies.  -->
+    > We have updated the text to refer to $\lambda=0.5$ as the "optimal surrogate boundary approach". Furthermore, we have refined the statement regarding ill-conditioning. Instead of indicating formal ill-posedness, we clarified that this behavior is linked to the appearance of complex eigenvalues with non-zero imaginary parts for higher polynomial degrees associated with negative shifts, as revealed by the 1D experiments detailed in [34].
+
 6. I would provide a more rigorous description of the high-order Taylor expansion considering that the paper targets order higher than one. Besides, I'd also include the truncation error in the definition.
-    > 
-<!-- Briefly expand the Taylor expansion definition to explicitly show higher-order terms and the O(h^(k+1)) truncation error bound. -->
+    > We have refined the definition of the high-order Taylor expansion in the manuscript. The formulation now explicitly includes the polynomial summation form up to degree $k$ and formally describes the $\mathcal{O}(\|\mathbf{d}\|^{k+1})$ truncation error, ensuring a rigorous mathematical description of the boundary condition extrapolation.
 
 7. In Eq. 3, shouldn't the penalty Nitsche terms (those with $\sigma$) be tested against the expansion of the test function? (and not the test function as in current version of the manuscript).
     > 
-<!-- there are options, look it up in literaure. copilot: don't touch that.-->
+<!-- there are options, we chose one of them, look it up in literaure. copilot: don't touch that.-->
 
 8. In Eq. 4, the notation for the penalty constant changes from $\sigma$ to $\sigma_\Gamma$. Please keep consistency. Besides, the authors define again some terms already defined before.
     > We have standardized the notation, using $\sigma$ for the penalty parameter throughout the manuscript, and eliminated redundant definitions.
@@ -70,8 +68,7 @@
 <!-- Add a trace in the caption specifying that dashed lines denote theoretical/expected slopes or references, if applicable. -->
 
 16. Though explained in [34], I think that the readers would appreciate a more detailed remark on the fact that using the optimal surrogate boundary (i.e., $\lambda=0.5$) results in negative eigenvalues that affect the convergence as, a priori, one may easily think that $\lambda=0.5$ is always the best.
-    > 
-<!-- Not negative but imaginary eigenvalues. NO AI inreventions here!  -->
+    > We have expanded our discussion on this phenomenon in the numerical results section. As you pointed out, while it is intuitive to expect the optimal surrogate boundary geometrically ($\lambda=0.5$) to perform best, doing so leads to shifts that point inwards to the true domain. Following our earlier investigation (Ref [34]), we explicitly clarified in the text that these negative shifts result in complex eigenvalues with non-zero *imaginary* (not negative) parts for higher-order elements, which disrupts the smoothing properties of the multigrid preconditioner and causes failures.
 
 ### Minor comments
 - Use Latex format quotes (i.e., `` '')

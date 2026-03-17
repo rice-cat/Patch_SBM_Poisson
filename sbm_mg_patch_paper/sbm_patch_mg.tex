@@ -239,9 +239,12 @@ $\tilde{\Omega}$ is generally a subset of $\Omega$, and its boundary $\tilde{\Ga
 boundary $\Gamma$.
 
 Later extensions include intersected cells~\cite{yang2024optimal} with a volume fraction outside $\Omega$ less than a
-threshold $\lambda\in [0,1]$. In Figure \ref{fig:sbm_setup}, this corresponds to including additional cells as
-indicated by the dashed blue line. This approach reduces the distance between true and surrogate boundaries, but can
-lead to ill-conditioning.
+threshold $\lambda\in [0,1]$. Setting $\lambda = 0.5$ corresponds to the so-called optimal surrogate boundary approach,
+which minimizes the average distance between the true and surrogate boundaries. In Figure \ref{fig:sbm_setup}, adopting
+a non-zero threshold corresponds to including additional cells as indicated by the dashed blue line. While this
+approach improves the geometrical accuracy, it can cause challenges for iterative solvers. This behavior could be
+linked to the appearance of imaginary eigenvalues for higher-order polynomials associated with shifts directed towards
+the interior of the domain, as revealed by a simple 1D experiment in~\cite{wichrowski2025geometric}.
 
 To impose boundary conditions on $\tilde{\Gamma}$, the Dirichlet condition prescribed on the true boundary $\Gamma$ is
 extrapolated to the surrogate boundary. This is typically accomplished by projecting points from $\tilde{\Gamma}$ onto
@@ -253,17 +256,18 @@ We assume that the Dirichlet boundary condition $g$ is given as a restriction of
 entire domain $\Omega$ to the boundary $\Gamma$. While the choice of this function $u^\star$ (as an extension of $g$
 from $\Gamma$ into $\Omega$) is not unique, we take $u^\star$ to be equal to the solution $u$ in the surrogate domain
 $\tilde{\Omega}$. For each point $\tilde{\mathbf{x}} \in \tilde{\Gamma}$, let $\mathbf{x} \in \Gamma$ be its closest
-point projection onto the true boundary, and let $\mathbf{d} = \mathbf{x} - \tilde{\mathbf{x}}$ be the shift vector.
-The function $u$ is extended from $\Gamma$ to $\tilde{\Gamma}$ using a Taylor expansion:
+point projection onto the true boundary, and let $\mathbf{d} = \mathbf{x} - \tilde{\mathbf{x}}$ be the shift vector. To
+extrapolate the boundary condition, a function defined on the surrogate domain is extended from $\tilde{\Gamma}$ to
+$\Gamma$ using a Taylor expansion. For a discretization of polynomial degree $k$, the extension operator $\mathcal{E}$
+is defined as
 \[
-    \mathcal{E}u^\star(\tilde{\mathbf{x}}) = u^\star(\mathbf{x}) + \mathbf{d} \cdot \nabla u (\tilde{\mathbf{x}}) +
-    \cdots
+    \mathcal{E}u_h(\tilde{\mathbf{x}}) = u_h(\tilde{\mathbf{x}}) + \sum_{j=1}^k \frac{1}{j!} (\mathbf{d} \cdot \nabla)^j u_h (\tilde{\mathbf{x}}).
 \]
-where $\mathcal{E}u^\star$ denotes the extrapolated boundary condition. The function $u^\star$ is assumed to be smooth
-in a neighborhood of $\tilde{\Gamma}$, which allows for the Taylor expansion to be valid. By substituting it into the
-weak formulation, we obtain a variational formulation for the shifted boundary problem with the extrapolated boundary
-condition on $\tilde{\Gamma}$ enforced in a Nitsche-like manner; the weak formulation seeks $u_h \in V_h$ such that for
-all $v_h \in V_h$,
+Due to the smoothness assumed in a neighborhood of $\tilde{\Gamma}$, this expansion matches the true boundary value
+$u^\star(\mathbf{x})$ up to a truncation error of $\mathcal{O}(\|\mathbf{d}\|^{k+1})$. By substituting the extrapolated
+boundary condition $\mathcal{E}u_h$ into the weak formulation, we obtain a variational formulation for the shifted
+boundary problem with the extrapolated boundary condition on $\tilde{\Gamma}$ enforced in a Nitsche-like manner; the
+weak formulation seeks $u_h \in V_h$ such that for all $v_h \in V_h$,
 \begin{equation}
     \begin{split}
         \int_{\tilde{\Omega}} \nabla u_h \cdot \nabla v_h \, dx
@@ -838,8 +842,14 @@ and smoothing steps $s=3$. In the 2D case (Table~\ref{tab:iter_2d_lambda}), for 
 relatively robust to $\lambda$, although $\lambda=0.0$ yields slightly lower iteration counts. However, for $p=3$,
 large values of $\lambda$ ($\lambda \ge 0.5$) lead to increased iterations or failure, while $\lambda \le 0.25$
 restores convergence. In the 3D case (Table~\ref{tab:iter_3d_lambda}), the sensitivity is more pronounced. For $p \ge
-    2$, $\lambda=0.5$ results in solver failure, while $\lambda=0.0$ provides robust convergence. This might be due to
-imaginary eigenvalues~\cite{wichrowski2025geometric} appearing when shifts are towards the interior of the domain.
+    2$, $\lambda=0.5$ results in solver failure, while $\lambda=0.0$ provides robust convergence. A priori, one might
+naturally expect the optimal surrogate boundary approach ($\lambda=0.5$) to be the most robust choice, as it minimizes
+the geometric discrepancy between the true and surrogate domains on average. However, using $\lambda > 0$ introduces
+negative shifts---situations where the surrogate boundary lies outside the true domain. As demonstrated by a 1D
+spectral analysis in~\cite{wichrowski2025geometric}, such negative shifts lead to the appearance of complex eigenvalues
+with non-zero imaginary parts in the SBM operator for higher polynomial degrees. The presence of these imaginary
+eigenvalues severely deteriorates the smoothing properties of the multigrid preconditioner, ultimately leading to
+solver stagnation or failure.
 
 \begin{table}[htbp]
     \centering
