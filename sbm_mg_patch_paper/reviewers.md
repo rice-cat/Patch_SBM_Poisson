@@ -99,8 +99,9 @@ On the basis of that, I recommend publication after a minor revision according t
 
 ### Major remarks
 1. While the numerical evidence is strong, the paper would benefit from additional theoretical insight into why the Full-Residual Shy Patch smoother is effective. Even a qualitative spectral or error-propagation discussion (e.g., local vs. global error components, relation to Schwarz theory) would strengthen the contribution.
-> 
-<!-- Add a paragraph in the methodology section drawing a brief parallel to overlapping Schwarz theory and discussing how the patch design captures high-frequency error components near the complicated surrogate boundary. -->
+    >  We agree. Unfortunately we were not able to derive a convergence proof for the SBM patch smoother.
+    >  We have added some discussion in Section 3.2 (just before Section 3.2.1).
+
 
 2. Several parameters (penalty \sigma, shyness threshold \xi, number of smoothing steps s, and cell threshold \lambda) are explored empirically. While this is reasonable, a more explicit discussion or practical guidelines for choosing these parameters in general problems would be useful for practitioners.
     > We have added a dedicated subsection "Parameter selection and practical guidelines" in Section 3 to address the choice of key parameters. This section provides explicit recommendations based on our research and highlights how the computational effort associated with these parameters can be balanced by using efficient local solvers and localized smoothing strategies on different parts of the mesh.

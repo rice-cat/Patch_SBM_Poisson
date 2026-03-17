@@ -445,6 +445,14 @@ contain cells adjacent to the surrogate boundary. This focuses the computational
 where the SBM introduces non-standard terms and where the error is often most difficult to resolve. These
 boundary-adjacent patches are identified once during the construction of the smoother.
 
+From the perspective of overlapping Schwarz theory and error propagation, the effectiveness of the Full-Residual Shy
+Patch smoother can be understood qualitatively by how it handles high-frequency error components near the complicated
+surrogate boundary. Standard smoothers (like Gauss-Seidel) implicitly impose artificial zero-correction conditions on
+the boundary of their local support. For the SBM, where boundary coupling is non-local and non-symmetric due to the
+Nitsche-like Taylor extrapolation, truncating this coupling injects highly oscillatory spurious errors back into the
+system rather than damping them. Additionally, by enforcing the full-residual property, the residual evaluation is
+limited to DoFs on the given patch.
+
 \subsubsection{Algorithm for Patch Generation}
 \label{sec:patch_algorithm}
 To formalize the construction of the full-residual shy patches, we provide an algorithmic description of the procedure. The method is primarily divided into two stages: the identification of valid vertex patches based on the shyness threshold, and the subsequent population of these patches with appropriate degrees of freedom to ensure the full residual property. The overall method is presented in Algorithm~\ref{alg:patch_generation}, which internally utilizes Algorithm~\ref{alg:dof_collection} to enforce the full residual constraint.
