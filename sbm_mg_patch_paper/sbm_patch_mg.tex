@@ -402,15 +402,6 @@ smoother.
     \label{fig:single_patch_boundaries}
 \end{figure}
 
-\begin{figure}[!ht]
-    \centering
-    \input{figures/patches_examples.tex}
-    \caption{
-        Examples of shy vertex patches and the corresponding degrees of freedom included in the patch subspace.
-    }
-    \label{fig:examples_patches}
-\end{figure}
-
 \subsection{Full-Residual Shy Patches}
 \label{sec:shy_patches}
 The idea behind our proposed smoother is to construct local problems on patches of cells that are consistent with
@@ -441,6 +432,8 @@ associated with that vertex might not be included in any other patch if their re
 \emph{shy}. To guarantee that every DoF belongs to at least one patch, the shyness threshold $\xi$ must be at most 3 in
 2D, while in 3D it must be at most 4. This ensures that even if a vertex is too shy to form its own patch, its
 associated DoFs are guaranteed to be included in the patch of a sufficiently \emph{sociable} neighboring vertex.
+Figure~\ref{fig:examples_patches} shows examples of vertics that are always confident enough to form a patch and the
+corresponding DoFs included in the patch subspace.
 
 % While it is theoretically possible
 % for some DoFs to be left out with a lower threshold, which would hinder convergence, setting the minimum shyness to 3
@@ -453,6 +446,15 @@ step is applied to all patches in the domain. Subsequent steps are then selectiv
 contain cells adjacent to the surrogate boundary. This focuses the computational effort of the smoother on the region
 where the SBM introduces non-standard terms and where the error is often most difficult to resolve. These
 boundary-adjacent patches are identified once during the construction of the smoother.
+
+\begin{figure}[!ht]
+    \centering
+    \input{figures/patches_examples.tex}
+    \caption{
+        Examples of confident vertex patches and the corresponding degrees of freedom included in the patch subspace.
+    }
+    \label{fig:examples_patches}
+\end{figure}
 
 From the perspective of overlapping Schwarz theory and error propagation, the effectiveness of the Full-Residual Shy
 Patch smoother can be understood qualitatively by how it handles high-frequency error components near the complicated
