@@ -104,8 +104,7 @@ On the basis of that, I recommend publication after a minor revision according t
 <!-- Add a paragraph in the methodology section drawing a brief parallel to overlapping Schwarz theory and discussing how the patch design captures high-frequency error components near the complicated surrogate boundary. -->
 
 2. Several parameters (penalty \sigma, shyness threshold \xi, number of smoothing steps s, and cell threshold \lambda) are explored empirically. While this is reasonable, a more explicit discussion or practical guidelines for choosing these parameters in general problems would be useful for practitioners.
-> 
-<!-- Add a subsection or a concluding table/paragraph offering practical heuristics, e.g., default choices for these parameters based on polynomial degree p. -->
+    > We have added a dedicated subsection "Parameter selection and practical guidelines" in Section 3 to address the choice of key parameters. This section provides explicit recommendations based on our research and highlights how the computational effort associated with these parameters can be balanced by using efficient local solvers and localized smoothing strategies on different parts of the mesh.
 
 ### Minor remarks
 1. Page 5, correct "singifficant challenges"

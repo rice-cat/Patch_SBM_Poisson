@@ -555,6 +555,31 @@ This lack of nestedness can impair the effectiveness of standard transfer operat
 Information from an active region on the fine grid might be restricted to a non-active region on the coarse grid, where
 it is essentially discarded, breaking the flow of information required for an efficient multigrid cycle.
 
+\subsection{Parameter selection and practical guidelines}
+\label{sec:parameter_selection}
+The performance of the proposed geometric multigrid preconditioner depends on several parameters: the SBM penalty parameter $\sigma$, the shyness threshold $\xi$ for patch selection, the number of smoothing steps $s$, and the cell activation threshold $\lambda$.
+
+For the penalty parameter $\sigma$, we found that values in the range $5$--$10$ provide sufficient stability for
+high-order Nitsche-like enforcement while avoiding excessive ill-conditioning. A default choice of $\sigma=5$ is
+generally robust for $p \le 3$. The shyness threshold $\xi$ controls the robustness of local patch problems by
+excluding vertices that are too close to the surrogate boundary. We recommend $\xi \in \{3, 4\}$ for 2D and 3D
+problems; larger values further improve robustness but slightly increase iteration counts by leaving more boundary DoFs
+with only global smoothing.
+
+The optimal number of smoothing steps $s$ depends strongly on the problem settings, implementation, and available
+computational resources. While one or two steps are often sufficient for convergence, we recommend at least $s=2$ as a
+balanced default. Crucially, if the vast majority of patches in the mesh are located in the interior (away from the
+surrogate boundary), additional smoothing sweeps on these interior patches may come at almost negligeable additional
+cost when using optimized matrix-free implementations. On the other hand, the computational effort for patches strictly
+inside the domain can be mitigated through the use of highly efficient local solvers, such as those exploiting fast
+tensor-product inverses or local $p$-multigrid techniques~\cite{wichrowski2025smoothers, wichrowski2025local,
+    wichrowski2026towards}.
+
+Regarding the cell activation threshold $\lambda$, for the time being we recommend a value of $\lambda=0$ (including
+only cells strictly within the domain) for high-order discretizations to avoid the spectral issues associated with
+negative shifts and imaginary eigenvalues, as discussed in Section~\ref{sec:numerical_results}. We hope that future
+research resolves these issues, which would improve the geometrical accuracy of the surrogate boundary.
+
 \section{Implementation details}
 \label{sec:implementation}
 The numerical implementation of our multigrid solver is based on the open-source finite element library
@@ -580,8 +605,8 @@ for problems with moving boundaries. While this approach introduces zero rows an
 for degrees of freedom associated only with inactive cells, it does not adversely affect the convergence of the
 iterative GMRES solver, as the corresponding entries in both the matrix and the right-hand side are zero. For the
 coarsest level, where a direct solver is employed, we ensure invertibility by constraining these inactive degrees of
-freedom, effectively placing $1$ on the diagonal of each such row. Furthermore, this unified treatment allows to
-reuse standard, highly-optimized multigrid transfer operators, focusing our implementation efforts on the specialized
+freedom, effectively placing $1$ on the diagonal of each such row. Furthermore, this unified treatment allows to reuse
+standard, highly-optimized multigrid transfer operators, focusing our implementation efforts on the specialized
 smoother. In an optimized production implementation, the computational overhead of these inactive regions could be
 minimized by restricting mesh refinement strictly to the vicinity of the active domain.
 
