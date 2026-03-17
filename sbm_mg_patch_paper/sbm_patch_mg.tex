@@ -574,11 +574,16 @@ threshold $\lambda$. This is handled using non-matching quadrature rules impleme
 based on the techniques described in~\cite{saye2015high}.
 
 In our approach, degrees of freedom are formally assigned to all cells of the background mesh, including those that are
-classified as non-active. In the matrix assembly we ignore the contributions from these non-active cells, effectively
-removing them from the system. This results in a singular global matrix; however, since the corresponding degrees of
-freedom do not influence the solution in the active domain, this does not pose a problem for the iterative solver. The
-only affected part of the multigrid is the coarse-grid solver, which we handle by using a direct solver. To make the
-coarse system invertible, we set one on the diagonal entries of zero rows corresponding to non-active DoFs.
+classified as non-active. This strategy aims to simplify the implementation by maintaining a consistent sparsity
+pattern and avoiding the need to frequently re-calculate the global matrix graph, which is particularly advantageous
+for problems with moving boundaries. While this approach introduces zero rows and columns into the global system matrix
+for degrees of freedom associated only with inactive cells, it does not adversely affect the convergence of the
+iterative GMRES solver, as the corresponding entries in both the matrix and the right-hand side are zero. For the
+coarsest level, where a direct solver is employed, we ensure invertibility by constraining these inactive degrees of
+freedom, effectively placing $1$ on the diagonal of each such row. Furthermore, this unified treatment allows to
+reuse standard, highly-optimized multigrid transfer operators, focusing our implementation efforts on the specialized
+smoother. In an optimized production implementation, the computational overhead of these inactive regions could be
+minimized by restricting mesh refinement strictly to the vicinity of the active domain.
 
 \subsection{Processing surrogate boundary and matrix assembly}
 \label{sec:sbm_assembly}
@@ -594,8 +599,14 @@ boundary. While this does not guarantee that the closest point is found inside t
 even if the closest point is outside the cell, the extrapolation will still yield a good approximation of the boundary
 condition.
 
-The extension of the function values from the surrogate boundary to the true boundary is implemented by evaluating the shape functions of the active elements at the projected points on the true boundary $\Gamma$. Since the finite element basis functions are defined as polynomials over each element, this evaluation is performed by mapping the physical coordinates of the points on $\Gamma$ to the reference unit cell of the respective element. This effectively evaluates the shape functions at points that may lie slightly outside the standard $[0,1]^d$ range of the unit cell, naturally providing the necessary extrapolation without requiring the explicit computation of high-order derivatives. The assembly of the cell contributions and interior faces to the system matrix and right-hand side vector is
-performed using the standard finite element assembly process provided by \texttt{deal.II}.
+The extension of the function values from the surrogate boundary to the true boundary is implemented by evaluating the
+shape functions of the active elements at the projected points on the true boundary $\Gamma$. Since the finite element
+basis functions are defined as polynomials over each element, this evaluation is performed by mapping the physical
+coordinates of the points on $\Gamma$ to the reference unit cell of the respective element. This effectively evaluates
+the shape functions at points that may lie slightly outside the standard $[0,1]^d$ range of the unit cell, naturally
+providing the necessary extrapolation without requiring the explicit computation of high-order derivatives. The
+assembly of the cell contributions and interior faces to the system matrix and right-hand side vector is performed
+using the standard finite element assembly process provided by \texttt{deal.II}.
 
 \subsection{Multigrid structures}
 

@@ -50,15 +50,7 @@
 <!-- Provide a defining sentence for "central vertex" and consider adding a supporting 2D schematic diagram of a patch centered on a vertex. -->
 
 12. Section 4.1. Which is the motivation to add all the cells' DOFs to the linear system and get an ill-conditioned problem. I would understand paying this price in the case of moving boundaries to avoid resetting the sparse matrix graph each time $\Gamma$ changes but I do not see the point in this case. Can the authors clarify this?
-    > 
-<!-- Clarify. We keep zero rows in the sparse matrix for code simplicity. Explain the exact mechanism.
-This would be an issue in case of direct solver, and indeed we had to address it on the coarsest level where direct solver is used. This is resolved by contraining those degrees of freedom. On the fine level, we have iterative solver (GMRes) and since both the RHS and the matrix are zeroes for those rows it resutls in passing around some zoroes, but does not impact the convergence. Itreative solvers are known to handle some singular systems.
-
-This also allowed us to just reuse the existing multigrid transfers so that we only had to implement the smoother. Since transfers can be heavily optimized reusing existing methods is important.
-
-In an optimized implementation the number of those inactive cells could be greatly reduced by refining only cells that are at least partially inside the domain. 
-
- -->
+    > Our approach of assigning degrees of freedom to all cells, including non-active ones, is primarily motivated by implementation simplicity and efficiency. It allows us to maintain a consistent sparsity pattern, which is crucial for high-performance solvers and would be particularly beneficial for moving boundary problems. While this introduces zero rows in the global matrix, the iterative GMRES solver handles this naturally as both the right-hand side and matrix entries are zero for these DOFs, meaning they do not affect the physical solution. We ensure the coarsest level system is invertible by constraining these DOFs (setting the diagonal to one). Critically, this unified treatment allows us to reuse standard, highly-optimized multigrid transfer operators from the \texttt{deal.II} library, permitting us to focus on the development of the specialized smoother. In a fully optimized implementation, the number of inactive cells could be significantly reduced by refining only the regions actually occupied by the domain. We have clarified these motivations in Section 4.1.
 
 13. Section 4.2. The idea described in "The extrapolation of the function values..." is not clear at all for me. I think this is very much related to my observation 9. Can the authors clarify this.
     > We have rephrased the respective paragraph in Section 4.2 to clarify the implementation details of the extrapolation mechanism, aligning it with the response to Comment 9. We now explicitly state that the extension is performed by evaluating shape functions at points projected onto the true boundary $\Gamma$, which may lie outside the standard unit cell of the active elements. This provides a direct polynomial extrapolation without the need for manual derivative computations.
@@ -79,10 +71,10 @@ In an optimized implementation the number of those inactive cells could be great
 <!-- @Copilot: resolve that, reply to the reviewer. Also in general prefer \emph instead of qoutes. -->
 - The authors define the acronyms several times. This happens recursively for Continuous Galerkin, Discontinuous Galerkin, Shifted Boundary Method, Degrees of Freedom, etc.
     > We have reviewed the manuscript and removed redundant acronym definitions.
-<!-- @Copilot: Resolve that. reply to the reviewer   -->
+
 - I think the authors missed section 4 in the paper outline at the end of the introduction.
     > Thank you for catching this omission. We have added the implementation details section to the outline.
-<!-- @Copilot: resolve that, reply to the reviewer -->
+
 - When defining the FE discretization, the authors state "triangulation consisting of quads. and hexas.". I think that discretization is more suitable than triangulation here.
     > We agree, and have updated the terminology from triangulation to discretization.
 
