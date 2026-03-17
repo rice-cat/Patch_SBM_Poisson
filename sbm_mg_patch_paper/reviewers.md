@@ -42,8 +42,7 @@
     > We have added a clarification to the implementation description after Equation 4. The values at the true boundary are indeed computed using the discretization of the cells within the surrogate domain. For each point on the surrogate boundary, we find its closest point on the true boundary and evaluate the shape functions at that point. Importantly, since the shape functions are polynomials defined globally per element, this evaluation is performed by mapping the physical point in the background mesh to the reference unit cell of the respective active element—meaning we are essentially computing shape function values at points that may lie slightly outside the standard $[0,1]^d$ unit cell. This approach avoids the need for explicit high-order derivative computations while maintaining the efficiency of the method, and does not require adding DOFs for excluded intersected cells to the linear system.
 
 10. In Figure 2, I think that some of the intersected cells must be active according to the $\lambda$ criterion.
-> 
-<!-- We should add shading or a caption note to clarify which intersected cells are active vs inactive. -->
+    > In that figure $\lambda=0$, we clarified that in the caption.  
 
 11. Section 3.2. What is a central vertice? Indeed, I think that this section will greatly benefit from some figures to support the discussion.
     > 
