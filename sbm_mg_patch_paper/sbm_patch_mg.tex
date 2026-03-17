@@ -86,6 +86,16 @@ employed in unfitted methods like SBM to facilitate operations such as closest p
 projection~\cite{kuzmin2022unfitted, xue2021new}. Special treatment of domains with corners was analyzed
 in~\cite{atallah2021analysis}.
 
+In the broader context of unfitted methods, CutFEM~\cite{burman2015cutfem} is a prominent alternative that discretizes
+directly on the physical domain by cutting background cells. While SBM retains the efficiency of standard
+tensor-product quadrature, CutFEM ensures robust conditioning via geometry-adapted quadrature and stabilization such as
+the ghost penalty~\cite{burman2010ghost, wichrowski2025matrix}, which has been applied to various
+problems~\cite{burman2014fictitious, hansbo2017cut, claus2019cutfem, gurkan2019stabilized, bergbauer2024high} but may
+require care to avoid locking~\cite{badia2022linking,bergbauer2024high,burman2022design}. Preconditioning CutFEM also
+remains challenging; while optimal mesh-independent methods exist~\cite{gross2023analysis, gross2021optimal}, iteration
+counts can be high, and multigrid strategies using cell-wise smoothers~\cite{bergbauer2024high} may require numerous
+matrix-vector products.
+
 % Algebraic challenges: Non-symmetry and indefiniteness
 However, the geometric flexibility of SBM comes at the cost of new computational challenges. The extrapolation of
 boundary conditions and the resulting modifications to the variational formulation often lead to linear systems with
@@ -132,28 +142,8 @@ GPUs~\cite{cui2025multigrid} validate the effectiveness of such vertex-patch smo
 promising iteration counts and demonstrating that performing multiple smoothing sweeps specifically on boundary patches
 is a viable strategy to ensure robustness. Thus, while this work utilizes matrix-based implementations to demonstrate
 the robustness of the multigrid approach, the proposed smoother is designed to align with future high-performance,
-matrix-free solvers that avoid expensive matrix assembly~\cite{kronbichler2019fast,wichrowski2025largeStrain,
-    witte2021fast}.
-
-% Context: CutFEM and stabilization
-In the broader context of unfitted methods, CutFEM~\cite{burman2015cutfem} is a prominent alternative with theoretical
-results for preconditioners already developed. It discretizes directly on the physical domain by cutting background
-cells, requiring specialized quadrature. Due to inherent difficulties with small cuts, proper stabilization seems to be
-an unavoidable part of CutFEM. The so-called ghost penalty~\cite{burman2010ghost, wichrowski2025matrix} solves the
-issue of ill-conditioning but may require additional care to avoid
-locking~\cite{badia2022linking,bergbauer2024high,burman2022design}. CutFEM has been applied to various problems,
-including Stokes~\cite{burman2014fictitious}, elasticity~\cite{hansbo2017cut}, or two-phase
-flows~\cite{claus2019cutfem}. Furthermore, Discontinuous Galerkin methods have also been combined with
-CutFEM~\cite{gurkan2019stabilized, bergbauer2024high}. While CutFEM ensures robust conditioning via geometry-adapted
-quadrature, SBM retains the efficiency comparable to standard tensor-product quadrature.
-
-% Context: CutFEM preconditioners
-Concerning preconditioning, CutFEM seems to pose challenges. Results providing optimal
-preconditioners~\cite{gross2023analysis, gross2021optimal} have been developed. Although these methods are shown to be
-mesh-independent, iteration counts can be high. In~\cite{bergbauer2024high} DG-CutFEM was considered, and a multigrid
-preconditioner based on cell-wise Additive Schwarz smoother was used. Although the paper mostly focuses on matrix-free
-implementation, the preconditioner seems promising. However, the smoothing step requires a rather high number of
-matrix-vector products.
+matrix-free solvers that avoid expensive matrix
+assembly~\cite{kronbichler2019fast,wichrowski2025largeStrain,witte2021fast}.
 
 % Contribution of this paper: Full-Residual Shy Patch Smoother for CG-SBM
 This paper addresses the computational challenges of solving linear systems arising from Continuous Galerkin SBM
@@ -451,6 +441,96 @@ step is applied to all patches in the domain. Subsequent steps are then selectiv
 contain cells adjacent to the surrogate boundary. This focuses the computational effort of the smoother on the region
 where the SBM introduces non-standard terms and where the error is often most difficult to resolve. These
 boundary-adjacent patches are identified once during the construction of the smoother.
+
+\subsubsection{Algorithm for Patch Generation}
+\label{sec:patch_algorithm}
+To formalize the construction of the full-residual shy patches, we provide an algorithmic description of the procedure. The method is primarily divided into two stages: the identification of valid vertex patches based on the shyness threshold, and the subsequent population of these patches with appropriate degrees of freedom to ensure the full residual property. The overall method is presented in Algorithm~\ref{alg:patch_generation}, which internally utilizes Algorithm~\ref{alg:dof_collection} to enforce the full residual constraint.
+
+\begin{algorithm}[ht]
+    \caption{Generation of Full-Residual Shy Patches}
+    \label{alg:patch_generation}
+    \DontPrintSemicolon
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+
+    \Input{Set of active elements $\tilde{\mathcal{T}}_h$, shyness threshold $\xi$, polynomial degree $p$, number of boundary passes $N_b$}
+    \Output{Ordered list of patches $\mathcal{P}$, where each patch is a set of DoFs}
+
+    \tcc{Step 1: Cell Connectivity Mappings}
+    Initialize mappings $C_v$: Vertex $\to$ Set of Active Cells \\
+    Initialize mappings $C_d$: DoF $\to$ Set of Active Cells \\
+    \For{$T \in \tilde{\mathcal{T}}_h$}{
+    \For{\text{each vertex} $v \in T$}{
+    $C_v[v] \gets C_v[v] \cup \{T\}$
+    }
+    \For{\text{each DoF} $d \in T$}{
+    $C_d[d] \gets C_d[d] \cup \{T\}$
+    }
+    }
+
+    \tcc{Step 2: Identify Vertex Patches}
+    Initialize list of valid vertex patches $V_{\text{valid}} \gets \emptyset$ \\
+    \For{\text{each vertex} $v$ \text{in} $C_v$}{
+    \If{$|C_v[v]| \ge \xi$}{
+    $V_{\text{valid}} \gets V_{\text{valid}} \cup \{v\}$
+    }
+    }
+
+    \tcc{Step 3: Populate Patches with DoFs}
+    Initialize sets of DoFs for each patch $P_v \gets \emptyset$ for $v \in V_{\text{valid}}$ \\
+    \For{$v \in V_{\text{valid}}$}{
+        $P_v \gets \text{CollectFullResidualDoFs}(v, C_v, C_d)$ \tcp*{See Algorithm \ref{alg:dof_collection}}
+    }
+
+    \tcc{Step 4: Identify Boundary Patches and Assemble Final List}
+    $\mathcal{P} \gets \emptyset$ \\
+    $N_{\text{std}} \gets (2p-1)^{\text{dim}}$ \tcp*{Standard number of DoFs in a regular patch}
+    \For{$v \in V_{\text{valid}}$}{
+        Add $P_v$ to $\mathcal{P}$ \tcp*{First pass: all valid patches}
+    }
+
+    \For{$k \gets 2$ \KwTo $N_b$}{
+        \For{$v \in V_{\text{valid}}$}{
+            \If{$|P_v| \neq N_{\text{std}}$}{
+                Add $P_v$ to $\mathcal{P}$ \tcp*{Subsequent passes: only boundary patches}
+            }
+        }
+    }
+    \Return $\mathcal{P}$
+\end{algorithm}
+
+\begin{algorithm}[ht]
+    \caption{CollectFullResidualDoFs (Enforce Full Residual Property)}
+    \label{alg:dof_collection}
+    \DontPrintSemicolon
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+
+    \Input{Vertex $v$, Cell connectivity of vertices $C_v$, Cell connectivity of DoFs $C_d$}
+    \Output{Set of DoFs $P$ that can be evaluated fully within the patch centered at $v$}
+
+    $P \gets \emptyset$ \\
+    Initialize candidate DoFs $D_{\text{cand}} \gets \emptyset$ \\
+    \For{$T \in C_v[v]$}{
+    \For{\text{each DoF} $d \in T$}{
+        $D_{\text{cand}} \gets D_{\text{cand}} \cup \{d\}$
+    }
+    }
+
+    \For{$d \in D_{\text{cand}}$}{
+    $is\_full\_residual \gets \text{true}$ \\
+    \For{$T \in C_d[d]$}{
+    \If{$T \notin C_v[v]$}{
+    $is\_full\_residual \gets \text{false}$ \\
+    \textbf{break}
+    }
+    }
+    \If{$is\_full\_residual$}{
+        $P \gets P \cup \{d\}$
+    }
+    }
+    \Return $P$
+\end{algorithm}
 
 \subsection{Transfer Operators}
 \label{sec:transfer_operators}

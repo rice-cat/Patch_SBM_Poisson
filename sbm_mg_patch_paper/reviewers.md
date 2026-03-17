@@ -3,11 +3,14 @@
 > We would like to sincerely thank the reviewers and the editor for their exceptionally fast and constructive feedback. The promptness of this review process is greatly appreciated and has allowed us to improve the manuscript significantly.
 
 ## Reviewer #2:
+<!-- I bet that this is Gugliermo. -->
  The manuscript presents a geometric multigrid preconditioner for high-order SBM discretizations, introducing a novel "shy" patch smoother to effectively address the algebraic challenges induced by the inherent features of the SBM. The approach is demonstrated to yield robust and mesh-independent convergence up to polynomial degree p = 3 in both two- and three-dimensional settings. The paper tackles a timely and relevant problem, and will be interesting for the unfitted mesh and multigrid communities. The results indicate the potential of the contribution.
 
  However, the current presentation lacks sufficient methodological detail and clarity to meet the standards of CMAME. In particular, the description of the smoother and multigrid components is in my opinion too concise, limiting reproducibility and accessibility. I strongly encourage the authors to substantially expand and clarify the methodological section, including more detailed explanations, algorithmic descriptions, and illustrative figures, in order to make the paper more didactic and self-contained. I am convinced that with these improvements, the manuscript could become a strong and valuable contribution to the field.
  
- > *limiting reproducibility* We have released the souce code.
+ > *limiting reproducibility* We have released the source code.
+
+ > Added a short, self-contained subsection "Algorithm for Patch Generation" with two algorithm floats (main routine and `CollectFullResidualDoFs`) that follow the implementation.
 
 
 ### Main comments & suggestions
@@ -19,9 +22,7 @@
 
 
 3. In the introduction, after having reviewed the SBM and multigrid literature, which I acknowledge is precise, the authors include two paragraphs about the CutFEM, which I think add no value to the discussion. If the authors really consider it necessary, I think it should appear before the core of the section.
-    > 
-<!-- Shorten -->
-<!-- Consider trimming the CutFEM comparison down to two sentences summarizing that while CutFEM offers robust conditioning through specialized quadrature, SBM shifts this complexity to the linear solver, making our preconditioner essential. -->
+    > We have significantly compacted the comparison with CutFEM and moved it earlier in the introduction to provide a more concise context for our method.
 
 4. When describing unfitted methods the authors state that "cells of $\mathcal{T}_h$ are classified as active based on their intersection with $\Omega$." This is customary but not always true (think on CutFEM with thin-walled bodies in which all cells are active). Based on this, I'd suggest to subtly change the statement.
     > We agree, and have changed the statement.
@@ -50,15 +51,15 @@
 <!-- We should add shading or a caption note to clarify which intersected cells are active vs inactive. -->
 
 11. Section 3.2. What is a central vertice? Indeed, I think that this section will greatly benefit from some figures to support the discussion.
-> 
+    > 
 <!-- Provide a defining sentence for "central vertex" and consider adding a supporting 2D schematic diagram of a patch centered on a vertex. -->
 
 12. Section 4.1. Which is the motivation to add all the cells' DOFs to the linear system and get an ill-conditioned problem. I would understand paying this price in the case of moving boundaries to avoid resetting the sparse matrix graph each time $\Gamma$ changes but I do not see the point in this case. Can the authors clarify this?
-> 
+    > 
 <!-- Clarify whether we actually assemble zero-rows for inactive DOFs, or just keep a unified sparsity pattern for code simplicity. Explain the exact mechanism. -->
 
 13. Section 4.2. The idea described in "The extrapolation of the function values..." is not clear at all for me. I think this is very much related to my observation 9. Can the authors clarify this.
-> 
+    > 
 <!-- Rephrase the extrapolation mechanism sentence to connect it better with the answers from observation 9. -->
 
 14. In the numerical results, the authors set a computational domain ranging from -1.01 to 1.01 in each direction. I think this is so to avoid zero values of the level set describing the surface. This is something likely happening in industrial applications, so I would state the reasoning behind this choice as this is not resolved in the author's paper.
