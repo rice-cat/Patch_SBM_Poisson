@@ -594,9 +594,7 @@ boundary. While this does not guarantee that the closest point is found inside t
 even if the closest point is outside the cell, the extrapolation will still yield a good approximation of the boundary
 condition.
 
-The extrapolation of the function values from the true boundary to the surrogate boundary required for the matrix
-assembly process is accomplished by evaluating the values of the basis functions at the points on the surrogate
-boundary. The assembly of the cell contributions and interior faces to the system matrix and right-hand side vector is
+The extension of the function values from the surrogate boundary to the true boundary is implemented by evaluating the shape functions of the active elements at the projected points on the true boundary $\Gamma$. Since the finite element basis functions are defined as polynomials over each element, this evaluation is performed by mapping the physical coordinates of the points on $\Gamma$ to the reference unit cell of the respective element. This effectively evaluates the shape functions at points that may lie slightly outside the standard $[0,1]^d$ range of the unit cell, naturally providing the necessary extrapolation without requiring the explicit computation of high-order derivatives. The assembly of the cell contributions and interior faces to the system matrix and right-hand side vector is
 performed using the standard finite element assembly process provided by \texttt{deal.II}.
 
 \subsection{Multigrid structures}

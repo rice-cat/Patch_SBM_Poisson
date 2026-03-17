@@ -51,11 +51,17 @@
 
 12. Section 4.1. Which is the motivation to add all the cells' DOFs to the linear system and get an ill-conditioned problem. I would understand paying this price in the case of moving boundaries to avoid resetting the sparse matrix graph each time $\Gamma$ changes but I do not see the point in this case. Can the authors clarify this?
     > 
-<!-- Clarify whether we actually assemble zero-rows for inactive DOFs, or just keep a unified sparsity pattern for code simplicity. Explain the exact mechanism. -->
+<!-- Clarify. We keep zero rows in the sparse matrix for code simplicity. Explain the exact mechanism.
+This would be an issue in case of direct solver, and indeed we had to address it on the coarsest level where direct solver is used. This is resolved by contraining those degrees of freedom. On the fine level, we have iterative solver (GMRes) and since both the RHS and the matrix are zeroes for those rows it resutls in passing around some zoroes, but does not impact the convergence. Itreative solvers are known to handle some singular systems.
+
+This also allowed us to just reuse the existing multigrid transfers so that we only had to implement the smoother. Since transfers can be heavily optimized reusing existing methods is important.
+
+In an optimized implementation the number of those inactive cells could be greatly reduced by refining only cells that are at least partially inside the domain. 
+
+ -->
 
 13. Section 4.2. The idea described in "The extrapolation of the function values..." is not clear at all for me. I think this is very much related to my observation 9. Can the authors clarify this.
-    > 
-<!-- Rephrase the extrapolation mechanism sentence to connect it better with the answers from observation 9. -->
+    > We have rephrased the respective paragraph in Section 4.2 to clarify the implementation details of the extrapolation mechanism, aligning it with the response to Comment 9. We now explicitly state that the extension is performed by evaluating shape functions at points projected onto the true boundary $\Gamma$, which may lie outside the standard unit cell of the active elements. This provides a direct polynomial extrapolation without the need for manual derivative computations.
 
 14. In the numerical results, the authors set a computational domain ranging from -1.01 to 1.01 in each direction. I think this is so to avoid zero values of the level set describing the surface. This is something likely happening in industrial applications, so I would state the reasoning behind this choice as this is not resolved in the author's paper.
     > The background mesh covering $[-1.01, 1.01]$ ensures that the closest point projection onto the true boundary $\Gamma$ can be reliably computed for all points on the surrogate boundary $\tilde{\Gamma}$ within our level set framework. We have clarified this in the text.
