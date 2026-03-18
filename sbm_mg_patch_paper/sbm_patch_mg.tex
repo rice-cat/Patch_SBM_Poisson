@@ -7,7 +7,7 @@
 \input{preamble.tex}
 
 \title{A Geometric Multigrid Preconditioner for Shifted Boundary Method}
-\author{Micha\l{} Wichrowski\footnote{Heidelberg University, Germany, mt.wichrowsk@uw.edu.pl}, Ajay Ajith
+\author{Micha\l{} Wichrowski\footnote{Heidelberg University, Germany, mt.wichrowsk@uw.edu.pl}, Ajith  Ajay
     \footnote{Heidelberg University, Germany}}
 % \\date{\\today}
 
@@ -242,9 +242,11 @@ Later extensions include intersected cells~\cite{yang2024optimal} with a volume 
 threshold $\lambda\in [0,1]$. Setting $\lambda = 0.5$ corresponds to the so-called optimal surrogate boundary approach,
 which minimizes the average distance between the true and surrogate boundaries. In Figure \ref{fig:sbm_setup}, adopting
 a non-zero threshold corresponds to including additional cells as indicated by the dashed blue line. While this
-approach improves the geometrical accuracy, it can cause challenges for iterative solvers. This behavior could be
-linked to the appearance of imaginary eigenvalues for higher-order polynomials associated with shifts directed towards
-the interior of the domain, as revealed by a simple 1D experiment in~\cite{wichrowski2025geometric}.
+approach improves the geometrical accuracy, it can cause challenges for iterative solvers. Although the continuous
+system remains formally well-posed, the resulting discrete system exhibits algebraic difficulties. Specifically, this
+behavior is linked to the appearance of complex eigenvalues with non-zero imaginary parts for higher-order polynomials
+associated with shifts directed towards the interior of the domain, as revealed by a simple 1D experiment
+in~\cite{wichrowski2025geometric}.
 
 To impose boundary conditions on $\tilde{\Gamma}$, the Dirichlet condition prescribed on the true boundary $\Gamma$ is
 extrapolated to the surrogate boundary. This is typically accomplished by projecting points from $\tilde{\Gamma}$ onto
@@ -374,11 +376,10 @@ fact confirmed by our preliminary experiments.
 
 This suggests that the subspaces must be large enough to capture the local behavior of the SBM formulation. We
 therefore construct local problems on larger subspaces, defined by patches of elements centered around a vertex, which
-we refer to as the \emph{central vertex} of the patch, as illustrated in
-Figure~\ref{fig:single_patch_boundaries}. By solving a local problem on this patch that includes the
-relevant SBM boundary terms where applicable, we can compute a more effective correction. This approach aims to make
-the local problem on the patch a more consistent approximation of the global problem, leading to a more robust
-smoother.
+we refer to as the \emph{central vertex} of the patch, as illustrated in Figure~\ref{fig:single_patch_boundaries}. By
+solving a local problem on this patch that includes the relevant SBM boundary terms where applicable, we can compute a
+more effective correction. This approach aims to make the local problem on the patch a more consistent approximation of
+the global problem, leading to a more robust smoother.
 
 \begin{figure}[!ht]
     \centering
@@ -1127,7 +1128,8 @@ matrix-based, the patch-based design is inherently compatible with tensor-produc
 Consequently, this work lays the foundation for future high-performance, matrix-free SBM solvers that can fully exploit
 modern hardware architectures while retaining the geometric flexibility of unfitted methods.
 %%
-\section*{Acknowledgments}
+
+\section*{Declarations}
 
 The authors declare the assistance of two cats (Micro and Konda) and language models (ChatGPT, Gemini, and Claude) in
 the preparation of the manuscript text. Following these interventions, the final version was checked by the authors,
