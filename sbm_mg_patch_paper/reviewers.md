@@ -83,9 +83,9 @@
 - In the conclusion, I think that the authors wanted to use italics in *shyness*.
     > Indeed. Fixed.
 - I think that the authors meant to write an AI declaration statement (or something of this sort) rather than Acknowledgements.
-    > 
+    > Changed to declaration. 
 - The formatting of some of the references is wrong.
-    > 
+    > Fixed.
 
 ---
 
