@@ -47,7 +47,7 @@
 
         % marker (confident) at (1,1)
         \drawConfidentSquareAt{1}{1}
-        \draw[line width=2pt, gray, rounded corners=6pt, line join=round]  (0.15, 1.85 ) --(0.15,0.15) -- (1.85,0.15)  -- (1.85, 0.75)-- (2.15, 0.85) -- (2.15,2.15) -- (0.15,2.15) -- cycle;
+        \draw[line width=2pt, gray, rounded corners=6pt, line join=round]  (0.15, 1.85 ) --(0.15,0.15) -- (1.85,0.15)  -- (1.85, 1.15)-- (2.15, 1.15) -- (2.15,2.15) -- (0.15,2.15) -- cycle;
     \end{scope}
 
     % --- SCENARIO 3: Concave corner ---
@@ -64,7 +64,7 @@
         % marker (confident) at (1,1):
         \drawConfidentSquareAt{1}{1}
 
-        \draw[line width=2pt, gray, rounded corners=6pt, line join=round] (0.15,0.15) -- (1.9,0.15)-- (1.85, 0.75) -- (2.15, 0.9) -- (2.15,2.15) -- (0.85,2.15) -- (0.85,1.15) -- (0.15,1.15) -- cycle;
+        \draw[line width=2pt, gray, rounded corners=6pt, line join=round] (0.15,0.15) -- (1.9,0.15)-- (1.85, 1.15) -- (2.15, 1.15) -- (2.15,2.15) -- (0.85,2.15) -- (0.85,1.15) -- (0.15,1.15) -- cycle;
     \end{scope}
 
     % --- SCENARIO 4: Convex corner (Vertex on corner) ---
@@ -86,7 +86,7 @@
         \drawConfidentSquareAt{1}{1}
 
         % Patch boundary covering all 4 cells
-        \draw[line width=2pt, gray, rounded corners=6pt, line join=round] (-0.15, 0.9)--(0.15, 0.85) -- (0.15,0.15) -- (1.85,0.15) -- (1.85, 0.85)  -- (2.15, 0.9)--  (2.15,2.15)   -- (-0.15,2.15) -- cycle;
+        \draw[line width=2pt, gray, rounded corners=6pt, line join=round] (-0.15, 1.15)--(0.15, 1.15) -- (0.15,0.15) -- (1.85,0.15) -- (1.85, 1.15)  -- (2.15, 1.15)--  (2.15,2.15)   -- (-0.15,2.15) -- cycle;
     \end{scope}
 
 \end{tikzpicture}
