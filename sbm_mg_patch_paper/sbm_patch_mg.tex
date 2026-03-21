@@ -154,8 +154,9 @@ to ensure robustness and avoid ill-conditioning on small patches. We demonstrate
 combined with a multi-stage strategy, leads to a highly effective $h$-multigrid preconditioner. Numerical experiments
 demonstrate the preconditioner's effectiveness under mesh refinement and compare our results with an algebraic
 multigrid (AMG) preconditioner, highlighting the limitations of AMG for higher-order SBM discretizations. The
-implementation is built on the \texttt{deal.II} finite element library~\cite{dealii2019design, dealii2024}, leveraging
-its comprehensive tools for finite element methods and multigrid.
+implementation is built on the \texttt{deal.II} finite element library~\cite{dealii2019design,
+    dealii2024}\footnote{Source code available at \url{https://github.com/rice-cat/Patch_SBM_Poisson}}, leveraging its
+comprehensive tools for finite element methods and multigrid.
 
 The remainder of this paper is organized as follows. In Section~\ref{sec:method}, we briefly review the Shifted
 Boundary Method formulation to establish the necessary notation and context. Section~\ref{sec:mg_preconditioner}
@@ -1134,6 +1135,8 @@ modern hardware architectures while retaining the geometric flexibility of unfit
 The authors declare the assistance of two cats (Micro and Konda) and language models (ChatGPT, Gemini, and Claude) in
 the preparation of the manuscript text. Following these interventions, the final version was checked by the authors,
 who take sole responsibility for all scientific content and technical claims.
+
+The source code used for producing the results is available at \url{https://github.com/rice-cat/Patch_SBM_Poisson}.
 
 \FloatBarrier
 \bibliographystyle{siam} % Or any other style
