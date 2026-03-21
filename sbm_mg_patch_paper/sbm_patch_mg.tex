@@ -454,7 +454,7 @@ boundary-adjacent patches are identified once during the construction of the smo
     \centering
     \input{figures/patches_examples.tex}
     \caption{
-        Examples of confident vertex patches and the corresponding degrees of freedom included in the patch subspace.
+        Examples of patches of confident vertices and the corresponding degrees of freedom included in the patch subspace.
     }
     \label{fig:examples_patches}
 \end{figure}
@@ -482,8 +482,8 @@ To formalize the construction of the full-residual shy patches, we provide an al
     \Output{Ordered list of patches $\mathcal{P}$, where each patch is a set of DoFs}
 
     \tcc{Step 1: Cell Connectivity Mappings}
-    Initialize mappings $C_v$: Vertex $\to$ Set of Active Cells \\
-    Initialize mappings $C_d$: DoF $\to$ Set of Active Cells \\
+    Initialize mappings $C_v$: Vertex $\to$ Set of Active Cells, with $C_v[v] \gets \emptyset$ \\
+    Initialize mappings $C_d$: DoF $\to$ Set of Active Cells, with $C_d[d] \gets \emptyset$ \\
     \For{$T \in \tilde{\mathcal{T}}_h$}{
     \For{\text{each vertex} $v \in T$}{
     $C_v[v] \gets C_v[v] \cup \{T\}$
@@ -502,7 +502,7 @@ To formalize the construction of the full-residual shy patches, we provide an al
     }
 
     \tcc{Step 3: Populate Patches with DoFs}
-    Initialize sets of DoFs for each patch $P_v \gets \emptyset$ for $v \in V_{\text{valid}}$ \\
+    Initialize mapping $P$: Valid Vertex $\to$ Set of DoFs, with $P_v \gets \emptyset$ for $v \in V_{\text{valid}}$ \\
     \For{$v \in V_{\text{valid}}$}{
         $P_v \gets \text{CollectFullResidualDoFs}(v, C_v, C_d)$ \tcp*{See Algorithm \ref{alg:dof_collection}}
     }
@@ -1003,7 +1003,7 @@ dimensions.
 
 \begin{table}[h!]
     \centering
-    \caption{GMRES iteration counts (tolerance $10^{-8}$) for the Poisson problem. Comparison of the continuous SBM ($\lambda=0$) preconditioned with the Full-Residual Shy Patch smoother (shyness $\xi=3$, $s=3$, 2D) against DG-SBM with a cellwise SSOR smoother ($s=3$) and algebraic multigrid (AMG). Solver failures are indicated by ``---''. Empty entries indicate that the data is not available.}
+    \caption{GMRES iteration counts (tolerance $10^{-8}$) for the Poisson problem. Comparison of the continuous SBM ($\lambda=0$) preconditioned with the Full-Residual Shy Patch smoother (shyness $\xi=3$, $s=3$, 2D) against DG-SBM with a cellwise SSOR smoother ($s=3$) and algebraic multigrid (AMG). Empty entries indicate that the data is not available.}
     %DG-SBM results for lambda 0.25: choice of lambda because it gives better results than 0.0
     \label{tab:comparison_cutfem}
     \begin{tabular}{lll|ccccccc}
