@@ -503,7 +503,7 @@ To formalize the construction of the full-residual shy patches, we provide an al
     }
 
     \tcc{Step 3: Populate Patches with DoFs}
-    Initialize mapping $P$: Valid Vertex $\to$ Set of DoFs, with $P_v \gets \emptyset$ for $v \in V_{\text{valid}}$ \\
+    Initialize mapping $P$: Valid Vertex Patches $\to$ Set of DoFs, with $P_v \gets \emptyset$ for $v \in V_{\text{valid}}$ \\
     \For{$v \in V_{\text{valid}}$}{
         $P_v \gets \text{CollectFullResidualDoFs}(v, C_v, C_d)$ \tcp*{See Algorithm \ref{alg:dof_collection}}
     }
