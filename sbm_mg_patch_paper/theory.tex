@@ -1,320 +1,440 @@
 % ==========================================================================
-% theory.tex -- working notes: why the patch smoother degrades for p=3,4,
-% why additive variants fail, and whether cutting corner cells would help.
+% theory.tex -- working notes: why the smoother degrades at p=3 (sometimes)
+% and p=4 (always), why additive variants fail, and what actually fixes it.
 % \input{theory.tex} at the end of sbm_patch_mg.tex to compile.
+% All numerical values reproducible via theory_certificates.py (numpy only).
 % ==========================================================================
 
-\section*{Appendix (working notes): Corner effects on the surrogate boundary and smoother robustness}
+\section*{Appendix (working notes): definiteness of the SBM boundary terms at the surrogate staircase, and consequences for smoothers}
 
-\subsection*{N.1 Setting and the two distinct corner mechanisms}
+\subsection*{N.0 Executive summary}
 
-The surrogate boundary $\tilde\Gamma$ produced by selecting active cells of a
-Cartesian mesh is a \emph{staircase}: away from axis-aligned portions of
-$\Gamma$ it consists of $O(h^{-1})$ segments of length $O(h)$ meeting at right
-angles. Half of these corners are \emph{reentrant} with respect to
-$\tilde\Omega$ (interior angle $\omega = 3\pi/2$). Two separate mechanisms are
-at play, and it is worth keeping them apart because they respond differently
-to remedies:
+Write $s := \|\mathbf d\|/h$ for the shift length in units of the mesh size.
+On a staircase surrogate ($\lambda = 0$) the flat faces have $s \lesssim 1$
+and the cells at staircase steps carry \emph{two} extrapolated faces with
+$s$ up to $\sqrt 2$ at reentrant pockets. The findings of these notes:
 
 \begin{enumerate}
-  \item \textbf{Elliptic corner singularities} of the surrogate problem
-        (an $h$-independent regularity statement about the operator on
-        $\tilde\Omega$);
-  \item \textbf{Loss of coercivity / definiteness of the Nitsche--Taylor
-        boundary terms} at corner cells, where the shift $\|\mathbf d\|$ is
-        maximal and two faces with different shift directions couple through
-        the same DoFs (a discrete, $p$-dependent statement).
+  \item The Taylor extension of a degree-$p$ polynomial over distance $sh$
+        is polynomial extrapolation; its sharp amplification is the
+        Chebyshev factor $T_p(1+2s)$, which grows by a factor
+        $\rho(s)^2 = \big(\sqrt s + \sqrt{1+s}\big)^2$ \emph{per polynomial
+        degree} ($\approx 3.7$ at $s=\tfrac12$, $\approx 7.5$ at
+        $s=\sqrt2$). This scaling is confirmed to within a few percent by
+        the computed spectra (N.4).
+  \item In 1D the method is provably healthy: $p=1$ is unconditionally
+        coercive for outward shifts (Lemma N.2), and $p=2$ remains coercive
+        up to the absurd shift $s \approx 2.5$ (Lemma N.4). \emph{The
+        breakdown is intrinsically multi-dimensional.}
+  \item Computable \emph{global indefiniteness certificates} (N.4): the
+        symmetric part of the SBM bilinear form is indefinite ---
+        on functions supported in a single boundary cell, hence on any mesh
+        containing that configuration --- for
+        \[
+          p = 3:\ \text{only at two-face step cells with } s \to \sqrt 2
+          \quad\text{(deep reentrant pockets)},
+        \]
+        \[
+          p = 4:\ \text{from } s \approx 0.5 \text{ at step cells, } s
+          \approx 1 \text{ even at flat faces.}
+        \]
+        This reproduces the empirical pattern exactly: $p\le2$ robust,
+        $p=3$ fails \emph{sometimes} (only when the geometry creates deep
+        pockets), $p=4$ fails \emph{always} (every staircase contains
+        $s \ge 0.5$ step cells). Increasing the penalty $\sigma$ does
+        \textbf{not} help (N.4, item v): the offending modes nearly
+        annihilate $\mathcal E$, so they do not feel the penalty.
+  \item Inward shifts ($\lambda > 0$, true boundary inside the surrogate)
+        are far worse: indefinite for all $p \ge 3$ at \emph{every} shift
+        length tested, and not repaired by any of the fixes below. For
+        $p \ge 3$ the threshold $\lambda$ should be $0$.
+  \item Chamfering the staircase with triangles (the proposal of these
+        notes' earlier draft) \textbf{rescues $p=3$ but not $p=4$}: it
+        removes exactly the deep-pocket configurations where $p=3$ fails,
+        but $p=4$ is already indefinite at flat faces with $s \approx 1$,
+        which chamfering does not shorten. There is no sliver problem
+        (cuts are mesh-defined, all cells uniformly shape-regular), but a
+        triangle is thin in the extrapolation direction, which eats part
+        of the benefit (N.6).
+  \item The effective fix for $p=4$ is \emph{truncating the Taylor
+        extrapolation order} $k$ on the offending faces: $k=2$ restores
+        definiteness at step cells up to $s \approx 0.75$, and $k=1$
+        restores it everywhere with a wide margin (N.7). Combining
+        chamfer (which caps $s$ at $\approx 0.7$) with $k=2$ is the
+        predicted robust $p=4$ configuration that keeps $O(h^3)$ boundary
+        consistency.
 \end{enumerate}
 
-Mechanism 2 is, in our assessment, the primary suspect for the $p=4$
-breakdown; mechanism 1 explains why the difficulty is localized at the
-boundary and why coarse-grid correction cannot repair what the smoother
-misses there.
+\subsection*{N.1 Setting}
 
-\subsection*{N.2 Mechanism 1: reentrant corners and local regularity}
-
-For the Poisson operator on a domain with a corner of interior angle
-$\omega$, the solution admits the Kondrat'ev expansion
-\[
-  u = c\, r^{\pi/\omega} \sin\!\big(\tfrac{\pi}{\omega}\theta\big) + u_{\mathrm{smooth}},
-  \qquad u \in H^{1+\pi/\omega-\epsilon}
-\]
-in local polar coordinates $(r,\theta)$ at the corner. For $\omega = 3\pi/2$
-the singular exponent is $\pi/\omega = 2/3$, so \emph{the residual equation
-solved by the smoother and the coarse-grid correction lives, locally, in
-barely more than $H^{5/3}$}. Two consequences:
-
-\begin{itemize}
-  \item \textbf{High-order polynomials gain nothing at corners.} The local
-        approximation order of degree-$p$ elements near an $r^{2/3}$
-        singularity saturates at $O(h^{2/3})$ in the energy norm regardless
-        of $p$. All the extra resolution of $p=3,4$ elements is spent
-        representing an unresolvable singular function --- the local stiffness
-        blocks at corner patches become increasingly ill-conditioned in
-        exactly the modes the smoother must damp.
-  \item \textbf{The singularities are $h$-dependent in position and number.}
-        Unlike a fixed L-shaped domain, refining the mesh creates \emph{new}
-        corners at new locations spaced $O(h)$ apart. The error components
-        they generate are therefore high-frequency \emph{by construction}
-        (wavelength $O(h)$) and invisible to the coarse grid, whose own
-        surrogate boundary has corners elsewhere (the active-cell sets are
-        not nested, cf.\ Section~\ref{sec:mg_preconditioner}). The entire
-        burden falls on the smoother at the finest level.
-\end{itemize}
-
-One caveat keeps mechanism 1 from being the whole story: the SBM boundary
-condition on $\tilde\Gamma$ is not a plain Dirichlet trace but the
-extrapolated $\mathcal E u_h = g$, whose \emph{purpose} is to make the
-discrete solution behave like the restriction of the smooth $u$ on $\Omega$,
-not like the singular solution of a genuine boundary-value problem on the
-staircase domain. If the extrapolation were exact, no $r^{2/3}$ component
-would be excited. The singular behavior therefore enters through the
-\emph{consistency error} of the Taylor extension, which is largest precisely
-at corners --- this hands over to mechanism 2.
-
-\subsection*{N.3 Mechanism 2: the Taylor extension at corners and the $p$-explosion}
-
-\paragraph{Size of the shift at corners.}
-On a flat portion of $\Gamma$ the shift satisfies $\|\mathbf d\| \le h$
-(with $\lambda=0$; $\le h/2$ on average with the optimal surrogate
-$\lambda=1/2$). At a reentrant staircase corner the nearest point of the
-corner cell to $\Gamma$ can be at distance up to $\sqrt{d}\,h$ (diagonal),
-and --- worse --- the \emph{two faces} meeting at the corner carry shift
-vectors $\mathbf d$ pointing in different, non-normal directions, both acting
-on the same corner-cell polynomial.
-
-\paragraph{Operator norm of the extension.}
-Write the degree-$k$ Taylor extension on a face $F$ of a cell $K$ as
-\[
-  \mathcal E u_h = \sum_{j=0}^{k} \frac{1}{j!} (\mathbf d\cdot\nabla)^j u_h .
-\]
-Each directional derivative of a degree-$p$ polynomial on $K$ obeys the
-Markov-type inverse estimate
-$\|(\mathbf d\cdot\nabla) v\|_{L^\infty(K)} \le C\, p^2 \frac{\|\mathbf d\|}{h}\, \|v\|_{L^\infty(K)}$,
-hence
+Model: cell $K = (0,h)^d$, $\mathbb Q_p$ Lagrange polynomials, SBM form
+restricted to $K$ and its surrogate faces $F$:
 \begin{equation}
-  \|\mathcal E\|_{L^\infty(K)\to L^\infty(F)}
-  \;\le\; \sum_{j=0}^{k} \frac{1}{j!} \Big( C\, p^2 \tfrac{\|\mathbf d\|}{h} \Big)^{j}
-  \;\le\; \exp\!\Big( C\, p^2 \tfrac{\|\mathbf d\|}{h} \Big).
-  \label{eq:ext_norm}
+  a_K(u,v) = \int_K \nabla u\cdot\nabla v
+  - \int_F (\partial_n u)\, v
+  - \int_F (\partial_n v)\, \mathcal E u
+  + \sigma \int_F \mathcal E u\, \mathcal E v,
+  \qquad \sigma = \gamma\, p^2/h,
+  \label{eq:cellform}
 \end{equation}
-This is the key quantity. Define the \emph{extension amplification}
-$\eta := C\,p^2 \|\mathbf d\|/h$. Equivalently, extrapolating a degree-$p$
-polynomial a distance $\delta$ outside its cell amplifies it by roughly the
-Chebyshev growth factor $T_p(1+2\delta/h)\approx e^{2p\sqrt{\delta/h}}$ for
-$\delta \lesssim h$; both estimates carry the same message:
+with $\mathcal E u(\mathbf x) = \sum_{j=0}^{k} \tfrac1{j!} (\mathbf
+d\cdot\nabla)^j u(\mathbf x)$. Throughout, $s = \|\mathbf d\|/h$ and we set
+$h=1$ in computations; $\gamma = 4$ unless stated (results are insensitive
+to $\gamma$, see N.4).
+
+Two mechanisms could plausibly cause the observed breakdown: (i) elliptic
+corner singularities of the surrogate domain (reentrant staircase corners,
+interior angle $3\pi/2$, Kondrat'ev exponent $r^{2/3}$), and (ii) loss of
+definiteness of the discrete boundary terms. The results below show that
+(ii) is dominant and quantitatively predictive; (i) is discussed briefly in
+N.8.
+
+\subsection*{N.2 Sharp extrapolation amplification}
+
+\paragraph{Lemma N.1 (extension = extrapolation; sharp growth).}
+\emph{Let $q$ be a polynomial of degree $p$ on $[0,h]$ and let the shift be
+axis-aligned. For $k \ge p$ the Taylor extension is exact point evaluation,
+$\mathcal E q(0) = q(-\delta)$, and}
+\[
+  \sup\Big\{ |q(-\delta)| \,:\, \|q\|_{L^\infty(0,h)} \le 1 \Big\}
+  \;=\; T_p\!\big(1 + 2s\big), \qquad s = \delta/h,
+\]
+\emph{attained by the Chebyshev polynomial. Moreover, with
+$\rho(s) := \sqrt s + \sqrt{1+s}$,}
+\[
+  T_p(1+2s) \;=\; \tfrac12\Big( \rho(s)^{2p} + \rho(s)^{-2p} \Big).
+\]
+
+\emph{Proof.} Exactness: the Taylor polynomial of order $k\ge p$ of a
+degree-$p$ polynomial is the polynomial itself. Extremality of $T_p$
+outside $[-1,1]$ is classical (Chebyshev; see Rivlin). The identity follows
+from $T_p(\cosh\theta) = \cosh(p\theta)$ with
+$1+2s = \cosh\big(2\,\mathrm{arcsinh}\sqrt s\big)$ and
+$e^{\mathrm{arcsinh}\sqrt s} = \sqrt s + \sqrt{1+s}$. $\square$
+
+The quantity $\rho(s)^2$ is the \emph{amplification per polynomial degree}:
 
 \begin{center}
-\begin{tabular}{lcccc}
+\begin{tabular}{lccccc}
 \hline
- & $p=1$ & $p=2$ & $p=3$ & $p=4$ \\
+ & $s=\tfrac14$ & $s=\tfrac12$ & $s=\tfrac34$ & $s=1$ & $s=\sqrt2$ \\
 \hline
-flat face, $\|\mathbf d\|/h = 1/2$        & $\sim 2$ & $\sim 7$  & $\sim 90$   & $\sim 3000$ \\
-corner cell, $\|\mathbf d\|/h = \sqrt 2$  & $\sim 4$ & $\sim 300$ & $\sim 10^5$ & $\sim 10^9$ \\
+$\rho(s)^2$ (per degree)      & $2.6$ & $3.7$ & $4.8$ & $5.8$ & $7.5$ \\
+$T_1(1+2s)$ & $1.5$ & $2$ & $2.5$ & $3$ & $3.8$ \\
+$T_2(1+2s)$ & $3.5$ & $7$ & $11.5$ & $17$ & $28$ \\
+$T_3(1+2s)$ & $9$ & $26$ & $55$ & $99$ & $214$ \\
+$T_4(1+2s)$ & $24.5$ & $97$ & $265$ & $577$ & $1611$ \\
 \hline
 \end{tabular}
 \end{center}
-\noindent (orders of magnitude from \eqref{eq:ext_norm} with $C=1$; the
-constants are pessimistic but the \emph{ratios} between $p$ levels and
-between flat and corner faces are the point).
 
-\paragraph{Consequence for the bilinear form.}
-The Nitsche-type coercivity argument for SBM (cf.\ the analyses of
-Atallah, Canuto \& Scovazzi, and the optimal-surrogate analysis
-in~\cite{yang2024optimal}) needs
+The penalty and consistency terms in \eqref{eq:cellform} are bilinear in
+$\mathcal E$, so the boundary block scales like $\sigma\, T_p^2$ relative to
+the $O(1)$ (in $h^{d-2}$ units) volume stiffness. This is confirmed by the
+computed largest eigenvalues $\lambda_{\max}$ of the symmetric part: e.g.\
+for the flat configuration at $p=4$, the measured ratios
+$\lambda_{\max}(s{=}1)/\lambda_{\max}(s{=}\tfrac12) = 34$ and
+$\lambda_{\max}(s{=}\sqrt2)/\lambda_{\max}(s{=}1) = 7.6$ match the predicted
+$\big(T_4(3)/T_4(2)\big)^2 = 35$ and $\big(T_4(3.83)/T_4(3)\big)^2 = 7.8$.
+At $p=4$, $s=1$ the local block condition number already exceeds $10^7$.
+Conditioning alone, however, is not the failure mode --- definiteness is,
+as the next two subsections show.
+
+\subsection*{N.3 Exact one-dimensional results}
+
+On $K=(0,h)$ with surrogate face at $x=0$ and true boundary at $-\delta$
+(outward shift), $\mathcal E v(0) = v(-\delta)$, form \eqref{eq:cellform}.
+
+\paragraph{Lemma N.2 ($p=1$, closed form).} \emph{For $v = a + bx$:}
 \[
-  \sigma \int_{\tilde\Gamma} |\mathcal E v_h|^2
-  \;\gtrsim\; \text{(flux terms)}
-  \qquad\text{with}\qquad
-  \int_{\tilde\Gamma} |\mathcal E v_h|^2 \lesssim \eta^2\, \tfrac{p^2}{h}\|v_h\|^2_{K},
+  a_K(v,v) = b^2 (h+\delta) + 2bw + \sigma w^2, \qquad w := v(-\delta),
 \]
-so the boundary part of the local (patch) operator carries entries scaled by
-$\eta^2$ relative to the $O(1)$ volumetric stiffness. As soon as
-$\eta \gtrsim 1$ the boundary term is no longer a perturbation:
-\begin{itemize}
-  \item the symmetric part of the corner-cell block can become indefinite
-        (the $-\!\int (\nabla u_h\cdot\tilde{\mathbf n})\,\mathcal E v_h$
-        cross terms are $O(\eta p^2/h)$ and only controllable by the penalty
-        when $\eta$ is moderate);
-  \item the skew-symmetric part (the formulation is genuinely nonsymmetric,
-        Section~\ref{sec:method}) grows with $\eta$, producing eigenvalues
-        with large imaginary parts localized at corner cells --- consistent
-        with the 1D observations in~\cite{wichrowski2025geometric};
-  \item at a \emph{reentrant corner two such faces overlap on one cell},
-        adding their contributions with different $\mathbf d$-directions; the
-        composite boundary operator on the corner cell is roughly twice as
-        large and its field of values rotates further into the left/complex
-        half-plane.
-\end{itemize}
-The empirical pattern is then exactly what \eqref{eq:ext_norm} predicts:
-$p=1,2$ ($\eta<1$ even at corners) robust; $p=3$ marginal --- fails only when
-the geometry produces the worst corner configurations; $p=4$ ($\eta\gg 1$ at
-every reentrant corner) fails systematically. Note that this also matches
-the DG experience in~\cite{wichrowski2025geometric} where cell-wise smoothing
-already struggled at $p=3$.
+\emph{which is positive definite iff $\sigma (h + \delta) > 1$. For the
+inward shift ($\Gamma$ at $+\delta$ inside the cell) the same computation
+gives $b^2(h-\delta) + 2bw + \sigma w^2$, positive definite iff
+$\sigma (h - \delta) > 1$.}
 
-\subsection*{N.4 Why additive patch smoothers suffer disproportionately}
+Consequences: $p=1$ with outward shifts is unconditionally coercive (any
+$\sigma \ge 1/h$, any $\delta > 0$) --- matching the total robustness of
+$p=1$ in practice. Inward shifts lose coercivity as $\delta \to h$; with
+$\sigma = 4/h$ the threshold is $\delta = 3h/4$, reproduced to machine
+precision by the 2D code (a useful cross-validation of both).
 
-Let $B_{\mathrm{ad}} = \omega \sum_i R_i^T A_i^{-1} R_i$. Three separate
-strikes against the additive version, all sharpened by corners:
+\paragraph{Lemma N.3 (kernel escape).} \emph{On the subspace
+$\{v : \mathcal E v = 0 \text{ on } F\}$ the penalty and one flux term
+vanish identically and \eqref{eq:cellform} reduces to the
+\emph{unpenalized half-Nitsche} form}
+\[
+  F(v) = \|\nabla v\|_{L^2(K)}^2 - \int_F (\partial_n v)\, v .
+\]
+Definiteness on this kernel is a sign-correlation property between $v$ and
+$\partial_n v$ on $F$, forced by $v$ vanishing at the shifted points; the
+penalty is powerless there, no matter how large. This is the structural
+reason for the $\gamma$-insensitivity observed in N.4.
 
+\paragraph{Lemma N.4 ($p=2$, 1D, explicit threshold).} \emph{For $v$
+quadratic with $v(-\delta) = 0$ (kernel of $\mathcal E$), writing
+$c = v'(0) $-parametrization $v = (x+\delta)(a+bx)$, $h=1$:}
+\[
+  F(v) = (1+s)\,c^2 + (2 - s^2)\,cb + \tfrac43\, b^2, \qquad c = a + bs,
+\]
+\emph{positive definite iff $(2-s^2)^2 < \tfrac{16}{3}(1+s)$, i.e.\ for all
+$s \lesssim 2.5$.}
+
+So in 1D even $p=2$ survives shifts of two and a half cells; the observed
+2D breakdown at $s \le \sqrt2$ cannot be a 1D phenomenon. What 1D misses:
+at a staircase step, \emph{two} faces with orthogonal shift directions load
+the same cell polynomial, and the sign-correlation of Lemma N.3 cannot be
+satisfied for both directions simultaneously once $p$ gives the polynomial
+enough freedom to oscillate between the cell and the shifted evaluation
+points.
+
+\subsection*{N.4 Numerical definiteness certificates in 2D}
+
+\paragraph{Certificate construction.} Let $K$ be a boundary cell in one of
+the configurations below and let $v \in \mathbb Q_p(K)$ vanish on the edges
+of $K$ shared with active neighbors. Extending $v$ by zero yields a
+conforming global function whose global energy equals $a_K(v,v)$: volume
+terms of neighbors vanish, and all other surrogate-face terms vanish
+because $\mathcal E$ on a face of cell $K'$ uses only the polynomial of
+$K'$. Hence
+\[
+  \lambda_{\min}\Big( \tfrac12 (A_K + A_K^T)\big|_{S} \Big) < 0
+  \;\Longrightarrow\;
+  \text{the \emph{global} symmetric part is indefinite}
+\]
+on every mesh containing the configuration, where $S$ is the zero-extension
+subspace. Configurations ($h=1$, exact extrapolation $=$ Taylor with $k=p$
+for the axis-aligned shifts):
+\emph{flat} (one face $\{y{=}1\}$, $\mathbf d = (0,s)$; $S$: $v=0$ on the
+three interior edges), \emph{step} (two faces $\{y{=}1\},\{x{=}1\}$,
+$\mathbf d = (0,s),(s,0)$; the staircase step cell; $S$: $v=0$ on two
+interior edges), \emph{step-diag} (as step but both shifts
+$s(1,1)/\sqrt2$, modeling pocket-directed closest-point projections), and
+\emph{chamfer} variants in N.6.
+
+\paragraph{Results ($\gamma = 4$).} Minimal eigenvalue of the symmetric
+part on $S$ (negative $=$ certified global indefiniteness; the volume
+stiffness is $O(1)$ in these units, so magnitudes are meaningful):
+
+\begin{center}
+\begin{tabular}{llcccc}
+\hline
+config & $p$ & $s=0.5$ & $s=0.75$ & $s=1$ & $s=\sqrt2$ \\
+\hline
+flat  & 3 & $+1.22$ & $+0.91$ & $+0.75$ & $+0.61$ \\
+flat  & 4 & $+0.28$ & $+0.08$ & $\mathbf{-0.03}$ & $\mathbf{-0.13}$ \\
+step  & 3 & $+0.27$ & $+0.09$ & $+0.02$ & $\mathbf{-0.05}$ \\
+step  & 4 & $\mathbf{-0.04}$ & $\mathbf{-0.13}$ & $\mathbf{-0.18}$ & $\mathbf{-0.24}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+Findings:
 \begin{enumerate}
-  \item \textbf{Nonsymmetry breaks the standard theory.} Additive Schwarz
-        convergence for nonsymmetric problems (Cai--Widlund / GMRES
-        Eisenstat--Elman-type conditions) requires the skew part to be a
-        \emph{small} perturbation of an SPD dominant part, uniformly over
-        subspaces. Section N.3 shows the skew part on corner patches is
-        $O(\eta)$ --- not small for $p\ge 3$. Multiplicative (successive)
-        correction does not need this: each local solve sees the
-        \emph{updated} residual, so a bad correction from one patch is partly
-        repaired by its overlapping neighbors within the same sweep. The
-        additive sum has no such self-correction; the corner error is
-        amplified simultaneously by every patch containing the corner cell.
-  \item \textbf{Overlap multiplicity is maximal exactly at corners.} A
-        corner-cell DoF belongs to up to $2^d$ vertex patches (fewer are
-        excluded by shyness, but reentrant-corner cells are the sociable
-        ones). Additive smoothing effectively multiplies the (already
-        oscillatory, possibly wrong-signed) corner correction by the
-        multiplicity; the usual fix $\omega \le 1/N_{\mathrm{colors}}$ then
-        over-damps the interior where the smoother was fine. There is no
-        single $\omega$ that serves both regimes --- with field-of-values
-        excursions into $\mathrm{Re}<0$ at corners there may be \emph{no}
-        real $\omega$ giving contraction at all.
-  \item \textbf{Cell-wise additive DG + SBM diverging is the limit case.}
-        A cell-wise (block-Jacobi) smoother enforces zero correction on all
-        neighbor cells while the SBM extrapolation couples the corner cell
-        to its neighbors with $O(\eta)$ weights. The error-propagation
-        factor of damped Jacobi on such a block is bounded below by the
-        ratio of off-block to in-block coupling; once that exceeds $1$
-        (i.e.\ $\eta \gtrsim 1$) divergence is expected, not just slow
-        convergence. This is a cleaner statement of why the full-residual
-        patch construction (Section~\ref{sec:shy_patches}) matters: it puts
-        the \emph{entire} extrapolation stencil of the corner faces inside
-        one local solve, so the local problem inherits the (well-posed)
-        global corner behavior instead of an artificially truncated,
-        indefinite one --- but only the multiplicative composition
-        propagates the repaired residual outward.
+  \item[(i)] $p \le 2$: positive in every configuration and shift tested
+        (not shown; margins $O(1)$).
+  \item[(ii)] $p=3$: indefinite \emph{only} at the two-face step cell with
+        $s \to \sqrt2$, i.e.\ at deep reentrant pockets. Whether a given
+        geometry produces such pockets depends on how $\Gamma$ cuts the
+        grid --- hence ``$p=3$ sometimes breaks''.
+  \item[(iii)] $p=4$: indefinite from $s \approx 0.5$ at step cells and
+        from $s \approx 1$ at flat faces. Every staircase surrogate of a
+        generic $\Gamma$ contains such cells --- hence ``$p=4$ always
+        breaks''.
+  \item[(iv)] The nonsymmetric spectra show only small imaginary parts for
+        outward shifts: for $\lambda = 0$ the pathology is
+        \emph{indefiniteness of the symmetric part}, not complex
+        eigenvalues (those belong to inward shifts, consistent with the 1D
+        study in~\cite{wichrowski2025geometric}).
+  \item[(v)] Penalty insensitivity (Lemma N.3 in action), step cell,
+        $s=1$: for $p=4$, $\lambda_{\min}|_S = -0.191, -0.184, -0.178,
+        -0.177$ at $\gamma = 2, 4, 16, 64$. No penalty tuning can repair
+        this.
+  \item[(vi)] Inward shifts (flat face, $\mathbf d = (0,-s)$, corrected
+        certificate): $p=2$ positive at all $s$; $p=3$ and $p=4$
+        \emph{negative at every} $s \in \{0.25, 0.5, 0.75\}$ (e.g.\ $-0.63$
+        and $-1.13$ at $s=0.25$). Intersected-cell surrogates
+        ($\lambda>0$) are therefore incompatible with $p \ge 3$
+        independently of corner effects.
 \end{enumerate}
 
-\emph{What can honestly be justified vs.\ conjectured:} the inverse-estimate
-bound \eqref{eq:ext_norm}, the resulting $\eta^2$-scaling of the boundary
-block, the overlap-multiplicity argument, and the Jacobi lower bound in
-item 3 are provable at the level of rigor of standard Schwarz theory
-(assembled from Markov inequalities and trace estimates; no new tools
-needed). The statement ``the field of values of the global preconditioned
-operator leaves the right half-plane at $\eta \approx \eta_0$'' is a
-conjecture we can support numerically: computing the eigenvalues of the
-patch blocks $A_i$ at corner vs.\ flat patches for $p=1,\dots,4$ would make
-Table N.3 quantitative and is a cheap, high-value experiment.
+\subsection*{N.5 Consequences for smoothers}
 
-\subsection*{N.5 Would chamfering corner cells with triangles help?}
+Let $v_\star$ be a certified negative mode ($a(v_\star,v_\star) < 0$,
+supported in one boundary cell).
 
-Proposal: at each reentrant staircase corner, split the corner quad along its
-diagonal (vertex to vertex) and keep only the interior triangle, i.e.\
-\emph{chamfer} the staircase. The SBM extrapolation is kept, now acting from
-the diagonal surrogate faces. Crucially, the cut position is fixed by the
-mesh, not by $\Gamma$: every cut cell is exactly half a quad, uniformly
-shape-regular. \textbf{There is no small-cut / sliver problem} --- the
-classical CutFEM conditioning disease does not apply, and no ghost penalty
-or agglomeration is needed.
-
-\paragraph{What it fixes:}
 \begin{itemize}
-  \item \textbf{Reentrant corners are blunted, not removed.} Chamfering a
-        $3\pi/2$ corner produces two corners of interior angle $5\pi/4$
-        each. The singular exponent improves from $\pi/\omega = 2/3$ to
-        $4/5$, i.e.\ local regularity $H^{5/3} \to H^{9/5}$: milder
-        singularities, better damped by local solves, but not the smooth
-        $\pi + O(h\kappa)$ situation a $\Gamma$-interpolating cut would
-        give.
-  \item \textbf{The worst-case shift shrinks by a constant factor.} The
-        corner-cell shift drops from up to $\sqrt{2}\,h$ (deep reentrant
-        pocket) to roughly $h/\sqrt2$, and --- at least as important for
-        N.3 --- the pathological configuration of \emph{two} boundary faces
-        with different shift directions loading one cell disappears: the
-        chamfer face is a single face with a single, near-normal
-        $\mathbf d$. Effect on the amplification: $\eta$ decreases by a
-        factor $\approx 2$--$3$ at the former corners.
-  \item By the scaling in the table above, a $2$--$3\times$ reduction of
-        $\eta$ is worth roughly one polynomial degree: it should make
-        $p=3$ uniformly robust and plausibly rescues $p=4$, and it should
-        markedly help the additive variants (the overlap-multiplicity
-        amplification of N.4 acts on a much tamer corner block).
+  \item \textbf{All energy-based convergence theory is void.} Both the
+        Schwarz theory for additive/multiplicative smoothers and the
+        field-of-values GMRES bounds (Eisenstat--Elman--Schultz,
+        Cai--Widlund) presuppose a definite symmetric part. On staircase
+        SBM with $p \ge 3$ this hypothesis \emph{fails as a matter of
+        fact}, not of proof technique.
+  \item \textbf{Pointwise and cell-wise additive smoothers.} For
+        (block-)Jacobi-type methods the local blocks themselves become
+        indefinite (the single-cell Neumann blocks go negative one degree
+        earlier than the certificates, already $p=3$, $s \ge 0.75$).
+        Damped Richardson with an indefinite block-diagonal preconditioner
+        has no admissible damping: the modes with negative Rayleigh
+        quotient are amplified for every $\omega > 0$ of either sign
+        globally. This is the cleanest available explanation for the
+        observed \emph{divergence} (not merely stagnation) of the
+        cell-wise additive DG+SBM smoother.
+  \item \textbf{Why multiplicative full-residual patches still work at
+        $p \le 3$.} The negative mode $v_\star$ is supported in one cell,
+        hence entirely inside at least one vertex patch (the full-residual
+        construction guarantees its whole residual row is visible there).
+        An \emph{exact} local solve needs only invertibility, not
+        definiteness, of $A_i$; visiting that patch removes $v_\star$'s
+        error component exactly, and the sequential sweep propagates the
+        repaired residual outward. In the additive version the $2^d$
+        overlapping patches containing $v_\star$ each compute a correction
+        against an indefinite, non-normal block and their \emph{sum} is
+        applied blindly; there is no self-correction within the sweep, and
+        the usual multiplicity damping $\omega \le 1/N_c$ cannot produce
+        contraction where the field of values crosses zero.
+  \item \textbf{Why $p=4$ defeats even the multiplicative smoother.} The
+        indefinite modes are no longer isolated: at $p=4$ they exist at
+        \emph{every} boundary cell with $s \gtrsim 0.5$--$1$, they couple
+        to neighboring patches through off-block entries of size
+        $O(\sigma T_p^2)$ ($\ge 10^6$ at $s = 1$), and the error injected
+        across a patch boundary is re-amplified faster than the sweep
+        damps it. Locality of the repair mechanism is lost.
 \end{itemize}
 
-\paragraph{Honest limitation.} Because the chamfer is mesh-defined, the
-surrogate remains a distance $O(h)$ from $\Gamma$: $\|\mathbf d\|/h$ does
-\emph{not} vanish under refinement, so $\eta = O(p^2)$ still holds uniformly
-in $h$ --- the improvement is a constant, not an asymptotic one. If $p=4$
-sits far beyond the stability threshold rather than marginally past it,
-chamfering alone may not suffice; the escalation path is then a
-$\Gamma$-interpolating cut ($\|\mathbf d\| = O(\kappa h^2)$, hence
-$\eta = O(p^2\kappa h) \to 0$), which \emph{does} reintroduce the sliver
-problem and its CutFEM machinery. The corner-block eigenvalue experiment of
-N.6 discriminates between these two situations cheaply, before any
-implementation.
+\subsection*{N.6 Chamfer (mesh-defined triangular cuts): rescues $p=3$, not $p=4$}
 
-\paragraph{Implementation cost (modest):}
+The chamfer splits staircase corner quads along the vertex-to-vertex
+diagonal. The cut position is fixed by the mesh: every cut cell is exactly
+half a quad, uniformly shape-regular --- \emph{there is no small-cut/sliver
+problem and no ghost penalty is needed}, in contrast to
+$\Gamma$-interpolating CutFEM cuts. Reentrant $3\pi/2$ corners become pairs
+of $5\pi/4$ corners (regularity exponent $2/3 \to 4/5$), and the worst
+shift drops from $s \approx \sqrt2$ to $s \approx 0.7$ with a single,
+near-normal face replacing the two-face loading.
+
+Certificates for the chamfered cell (hypotenuse face, shift
+$s(1,1)/\sqrt2$), two variants: $\mathbb P_p$ on the triangle (remeshed)
+and $\mathbb Q_p$ on the parent quad integrated over the triangle
+(cut-quadrature):
+
+\begin{center}
+\begin{tabular}{llccc}
+\hline
+variant & $p$ & $s=0.5$ & $s=0.707$ & $s=1$ \\
+\hline
+$\mathbb P_p$ triangle & 3 & $+0.91$ & $+0.62$ & $+0.42$ \\
+$\mathbb P_p$ triangle & 4 & $\mathbf{-0.15}$ & $\mathbf{-0.34}$ & $\mathbf{-0.48}$ \\
+$\mathbb Q_p$ cut      & 3 & $\mathbf{-0.01}$ & $\approx\mathbf{-0.03}$ & $\mathbf{-0.02}$ \\
+$\mathbb Q_p$ cut      & 4 & $\mathbf{-0.08}$ & $\mathbf{-0.07}$ & $\mathbf{-0.06}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+Reading:
 \begin{itemize}
-  \item \textbf{Loss of tensor-product structure} on the triangles: custom
-        quadrature and no sum-factorized patch inverses there; confined to
-        $O(1)$ cells per corner along a codimension-one layer. Alternatively,
-        keep the quad and integrate only over its triangular half
-        (CutFEM-style subcell quadrature on a \emph{fixed} half-cell), which
-        preserves the quad DoF layout and only changes assembly.
-  \item Patch subspaces and the full-residual property must account for the
-        chamfer faces; level geometries remain non-nested (already the case).
+  \item The \emph{remeshed} chamfer ($\mathbb P_p$ triangles) is positive
+        for $p=3$ at all relevant shifts. Since the chamfer also caps $s$
+        at $\approx 0.7$, it removes exactly the configuration in which
+        $p=3$ was certified indefinite. \textbf{Prediction: chamfering
+        makes $p=3$ uniformly robust.}
+  \item It does \emph{not} rescue $p=4$: the triangle block is indefinite
+        from $s = 0.5$. Two reasons: (a) a triangle is thin in the
+        extrapolation direction (extent $h/\sqrt2$ normal to the
+        hypotenuse, tapering), so the effective Chebyshev argument is
+        larger than $s$ suggests; (b) independently, $p=4$ is already
+        indefinite at \emph{flat} faces with $s \approx 1$, which the
+        chamfer does not touch.
+  \item The cut-quadrature variant is weaker (marginally indefinite even
+        at $p=3$): the polynomial is energy-controlled only on the
+        half-cell while being extrapolated from its edge. If chamfering is
+        implemented, the triangles should carry genuine $\mathbb P_p$
+        spaces (or the parent-cell variant needs a stabilization on the
+        inactive half). This is an implementation-relevant distinction the
+        earlier draft of these notes missed.
 \end{itemize}
 
-\paragraph{Cheaper alternatives worth trying first} (they attack the same
-$\eta$ and can be tested without touching the discretization):
-\begin{enumerate}
-  \item \textbf{Reduce $k$ at corner cells only:} use extrapolation order
-        $k_{\mathrm{corner}} < p$ (even $k=1$) on faces of reentrant-corner
-        cells. This caps $\eta$ at the cost of a local $O(\|\mathbf d\|^{2})$
-        consistency error confined to $O(h^{-(d-2)})\cdot O(1)$ cells ---
-        likely invisible in global norms for $d=2$ and a boundary-layer
-        effect for $d=3$. Ten-line change; directly tests N.3.
-  \item \textbf{Corner-cell agglomeration in the smoother:} keep the
-        discretization, but never let a reentrant-corner cell be split
-        across patch boundaries; optionally solve one dedicated patch per
-        corner exactly. (Partly what full-residual shy patches already do
-        --- the question is whether corners need \emph{guaranteed} rather
-        than shyness-dependent coverage.)
-  \item \textbf{$\lambda = 1/2$ everywhere + normal-direction shifts:} the
-        optimal surrogate halves $\|\mathbf d\|$ on average but does
-        \emph{not} remove the worst corner shifts; per N.3 this shifts the
-        breakdown by at most one polynomial degree. Consistent with the
-        observation that $\lambda>0$ brings its own complex-eigenvalue
-        problems~\cite{wichrowski2025geometric}: it is not the fix.
-  \item \textbf{GMRES-based smoothing at the boundary:} replace the
-        Richardson wrapper by a few steps of patch-preconditioned GMRES on
-        the boundary sweep; field-of-values excursions that kill Richardson
-        are tolerable for GMRES. Cheap insurance, not a cure.
-\end{enumerate}
+\subsection*{N.7 The effective fix: truncated extrapolation order}
 
-\subsection*{N.6 Suggested numerical checks (to turn N.2--N.5 into paper-grade claims)}
+Lemma N.1 identifies the amplification driver as the extrapolation
+\emph{order}: truncating the Taylor extension at order $k < p$ caps the
+growth at degree-$k$ extrapolation ($T_k$-like) while retaining
+$O((sh)^{k+1})$ boundary consistency. Certificates for the step cell
+(worst outward configuration), truncation order $k$:
 
-\begin{enumerate}
-  \item Compute $\mathrm{eig}(A_i)$ (or the field of values) for one flat
-        and one reentrant-corner patch, $p = 1,\dots,4$, $\lambda \in
-        \{0, 1/2\}$: verify the $\eta$-scaling and the onset of
-        indefiniteness / complex pairs. This is the single most persuasive
-        plot.
-  \item Local Fourier / half-plane analysis is not available for the corner,
-        but a ``corner problem'' on a fixed $8\times 8$ patch with exact
-        solve outside gives a computable smoothing factor vs.\ $p$.
-  \item Test remedy N.5.1 ($k$-reduction at corners): if the $p=4$ solver
-        recovers, mechanism 2 is confirmed as dominant; if not, mechanism 1
-        (regularity) is the bottleneck and only the cut surrogate helps.
-  \item Prototype the cut surrogate in 2D on the disk: measure iteration
-        counts vs.\ $p$ and the sliver sensitivity with/without a snap rule.
-\end{enumerate}
+\begin{center}
+\begin{tabular}{llcccc}
+\hline
+config & $p$ & $k=p$ & $k=3$ & $k=2$ & $k=1$ \\
+\hline
+step, $s=0.75$   & 4 & $-0.13$ & $-0.10$ & $\mathbf{+0.01}$ & $+0.41$ \\
+step, $s=1$      & 4 & $-0.18$ & $-0.14$ & $-0.03$ & $+0.35$ \\
+step, $s=\sqrt2$ & 4 & $-0.24$ & $-0.18$ & $-0.06$ & $+0.30$ \\
+step, $s=\sqrt2$ & 3 & $-0.05$ & --      & $\mathbf{+0.04}$ & $+0.50$ \\
+flat, $s=1$      & 4 & $-0.03$ & $+0.06$ & $+0.34$ & $+0.98$ \\
+\hline
+\end{tabular}
+\end{center}
 
-% --- references not yet in the .bib (add if these notes graduate into the paper):
-% Kondrat'ev corner asymptotics: Grisvard, "Elliptic Problems in Nonsmooth Domains".
-% SBM analysis with d/h condition: Atallah, Canuto, Scovazzi (CMAME 2020/2021).
-% Ghost penalty: Burman, "Ghost penalty", CRAS 2010; CutFEM overview:
-%   Burman, Claus, Hansbo, Larson, Massing (IJNME 2015).
-% Nonsymmetric Schwarz: Cai & Widlund, SINUM 1992/1993; Eisenstat, Elman, Schultz 1983.
-% Chebyshev extrapolation growth: standard Markov/Bernstein inequality references.
+\begin{itemize}
+  \item $k=1$ restores definiteness \emph{everywhere} with $O(1)$ margins
+        --- a bulletproof but low-order option (locally $O(h^2)$
+        consistency; acceptable if applied only at the few worst faces).
+  \item $k=2$ restores definiteness for $p=4$ up to $s \approx 0.75$ and
+        for $p=3$ everywhere. Combined with the chamfer, which caps $s$
+        at $\approx 0.7$ \emph{and} eliminates two-face cells, $k=2$
+        extrapolation is the predicted robust $p=4$ configuration, with
+        $O(h^3)$ boundary consistency --- the accuracy loss relative to
+        $k=p$ appears only in a boundary layer and should be checked
+        against the interior $O(h^{p+1})$ rates.
+  \item A shift-adaptive rule ($k = p$ where $s \le 0.4$, $k = 2$ where
+        $0.4 < s \le 0.75$, $k=1$ beyond) follows directly from the
+        tables and costs one \texttt{if} per face.
+  \item For inward shifts truncation helps at moderate $s$ but $p \ge 3$
+        remains indefinite at small inward $s$ regardless of $k$ ---
+        reinforcing finding (vi): use $\lambda = 0$ for $p \ge 3$.
+\end{itemize}
+
+\subsection*{N.8 The regularity mechanism (demoted to second order)}
+
+Reentrant staircase corners carry Kondrat'ev singularities
+$r^{2/3}\sin(2\theta/3)$; they are recreated at new positions on every
+level (non-nested active sets), so the associated error is $O(h)$-wavelength
+by construction and falls entirely on the fine-level smoother, and
+degree-$p$ approximation saturates at $O(h^{2/3})$ locally. This degrades
+constants and localizes the hard error components at the boundary --- it
+explains \emph{where} the smoother must work hardest, but not the observed
+$p$-thresholds: the certificates of N.4 do, quantitatively and with the
+right $\lambda$-, $s$-, and configuration-dependence. If the exact SBM
+extrapolation were used ($k$ exact, no indefiniteness), the corner
+singularities alone would be handled by the existing patch smoother, as
+they are for $p \le 2$.
+
+\subsection*{N.9 What is proven, what is certified, what is conjectured}
+
+\emph{Proven} (Lemmas N.1--N.4): sharp Chebyshev amplification with the
+per-degree factor $\rho(s)^2$; unconditional 1D $p=1$ coercivity (outward)
+and the inward threshold $\sigma(h-\delta) > 1$; the kernel-escape
+mechanism and penalty-insensitivity; 1D $p=2$ coercivity to $s\approx2.5$.
+
+\emph{Certified numerically} (exact statements about finite matrices,
+N.4/N.6/N.7): global indefiniteness of the symmetric part for the listed
+$(p, s, \text{config})$; its penalty-insensitivity; positivity of the
+chamfered $\mathbb P_3$ and truncated-$k$ variants.
+
+\emph{Conjectured / to validate in the solver}: (a) chamfer $\Rightarrow$
+$p=3$ uniformly robust; (b) chamfer $+$ $k=2$ $\Rightarrow$ $p=4$ robust;
+(c) shift-adaptive $k$ alone (no chamfer) already recovers $p=4$ with the
+existing smoother --- this is a ten-line change in the extrapolation
+routine and the highest-information-per-effort experiment available;
+(d) restoring definiteness restores the additive patch smoother to
+usefulness (with standard multiplicity damping), enabling the parallel
+variant.
+
+% --- references to add if these notes graduate into the paper:
+% Rivlin, "Chebyshev Polynomials" (extremal growth outside [-1,1]).
+% Grisvard, "Elliptic Problems in Nonsmooth Domains" (corner asymptotics).
+% Atallah, Canuto, Scovazzi (SBM analysis, d/h conditions).
+% Cai & Widlund SINUM 1992/93; Eisenstat, Elman, Schultz 1983 (nonsymmetric bounds).
+% Burman et al. (CutFEM/ghost penalty, for the contrast drawn in N.6).
