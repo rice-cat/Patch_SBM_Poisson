@@ -331,3 +331,73 @@ for p in (2, 3, 4):
     for s in (0.25, 0.5, 0.75):
         row = [cert(p, s, "flat", 4.0, k, inward=True) for k in (p, 2, 1)]
         print(f"{p}  {s:5.3f} " + " ".join(f"{v:8.4f}" for v in row))
+"""PDE-substituted extension: replace normal derivatives >=2 via -Lap u = f (f=0 part):
+ d_y^{2m} -> (-1)^m d_x^{2m},  d_y^{2m+1} -> (-1)^m d_x^{2m} d_y  (face normal = y).
+All terms evaluated ON the face -> no extrapolation beyond first normal derivative."""
+import numpy as np
+from math import factorial
+# (definitions above)
+
+def phiE_pde(C, fp, delta, k, normal):  # normal: 'y' or 'x'
+    out = 0.0
+    for j in range(k + 1):
+        m, r = divmod(j, 2)  # j = 2m + r
+        sgn = (-1) ** m
+        if normal == 'y':
+            T = eval2d(C, fp, dx=2 * m, dy=r)
+        else:
+            T = eval2d(C, fp, dx=r, dy=2 * m)
+        out = out + sgn * (delta ** j) / factorial(j) * T
+    return out
+
+def assemble_pde(p, s, config, gamma, k):
+    C, nodes = basis_coeffs(p)
+    nq = p + 3
+    xq, wq = gauss01(nq)
+    U, V = np.meshgrid(xq, xq, indexing="ij")
+    pts = np.stack([U.ravel(), V.ravel()], axis=1)
+    Wv = np.outer(wq, wq).ravel()
+    Gx = eval2d(C, pts, dx=1); Gy = eval2d(C, pts, dy=1)
+    A = Gx.T @ (Wv[:, None] * Gx) + Gy.T @ (Wv[:, None] * Gy)
+    sigma = gamma * p ** 2
+    faces = [("y", np.stack([xq, np.ones(nq)], axis=1), (0.0, 1.0))]
+    if config == "step":
+        faces.append(("x", np.stack([np.ones(nq), xq], axis=1), (1.0, 0.0)))
+    for nrm, fp, nvec in faces:
+        Phi = eval2d(C, fp)
+        dPhin = nvec[0] * eval2d(C, fp, dx=1) + nvec[1] * eval2d(C, fp, dy=1)
+        PhiE = phiE_pde(C, fp, s, k, nrm)
+        Wf = wq[:, None]
+        A += -Phi.T @ (Wf * dPhin) - dPhin.T @ (Wf * PhiE) + sigma * PhiE.T @ (Wf * PhiE)
+    return A, nodes
+
+def cert(p, s, config, gamma=4.0, k=None):
+    k = p if k is None else k
+    A, nodes = assemble_pde(p, s, config, gamma, k)
+    H = 0.5 * (A + A.T)
+    n1 = p + 1
+    keep = []
+    for i in range(n1):
+        for j in range(n1):
+            x, y = nodes[i], nodes[j]
+            ok = (x > 1e-12 and x < 1 - 1e-12 and y > 1e-12) if config == "flat" \
+                 else (x > 1e-12 and y > 1e-12)
+            if ok: keep.append(i * n1 + j)
+    evS = np.linalg.eigvalsh(H[np.ix_(keep, keep)])
+    ev = np.linalg.eigvalsh(H)
+    lam = np.linalg.eigvals(A)
+    return evS[0], ev[0], ev[-1], np.max(np.abs(lam.imag))
+
+print("=== PDE-substituted extension (f-part omitted), k=p, sigma=4p^2 ===")
+print("config  p   s      lminH_S    lminH     lmaxH     maxIm")
+for config in ("flat", "step"):
+    for p in (3, 4):
+        for s in (0.5, 0.75, 1.0, np.sqrt(2)):
+            l0S, l0, lM, mi = cert(p, s, config)
+            print(f"{config:5s}  {p}  {s:5.3f}  {l0S:9.4f}  {l0:9.4f} {lM:9.3e} {mi:8.4f}")
+print()
+print("=== amplification check: lmaxH growth vs s (was ~sigma*T_p^2 for Taylor) ===")
+for p in (4,):
+    for s in (0.5, 1.0, np.sqrt(2)):
+        _, _, lM, _ = cert(p, s, "flat")
+        print(f"p={p} s={s:5.3f}  lmaxH={lM:9.3e}")

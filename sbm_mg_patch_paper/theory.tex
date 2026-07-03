@@ -56,13 +56,20 @@ $s$ up to $\sqrt 2$ at reentrant pockets. The findings of these notes:
         (cuts are mesh-defined, all cells uniformly shape-regular), but a
         triangle is thin in the extrapolation direction, which eats part
         of the benefit (N.6).
-  \item The effective fix for $p=4$ is \emph{truncating the Taylor
-        extrapolation order} $k$ on the offending faces: $k=2$ restores
-        definiteness at step cells up to $s \approx 0.75$, and $k=1$
-        restores it everywhere with a wide margin (N.7). Combining
-        chamfer (which caps $s$ at $\approx 0.7$) with $k=2$ is the
-        predicted robust $p=4$ configuration that keeps $O(h^3)$ boundary
-        consistency.
+  \item Truncating the Taylor order to $k=2$ ($k=1$) restores definiteness
+        at step cells up to $s \approx 0.75$ (everywhere), at the price of
+        reduced boundary consistency $O(h^{k+1})$ --- which defeats the
+        purpose of $p=4$ (N.7).
+  \item A no-go lemma (N.7b): \emph{any} linear cell-local extension exact
+        on $\mathbb Q_p(K)$ coincides with polynomial extrapolation and
+        carries the full Chebyshev amplification. Alternatives must import
+        extra information: the PDE, the boundary data $g$, or a larger
+        support. The PDE-substituted extension (all normal derivatives of
+        order $\ge 2$ traded for tangential derivatives and $f$-data)
+        keeps full consistency order, gains roughly one polynomial degree
+        of definiteness (certified in N.7b), and combined with the chamfer
+        (which caps $s$ at $\approx 0.7$ and removes two-face cells) is
+        the predicted robust \emph{full-order} $p=4$ configuration.
 \end{enumerate}
 
 \subsection*{N.1 Setting}
@@ -382,19 +389,115 @@ flat, $s=1$      & 4 & $-0.03$ & $+0.06$ & $+0.34$ & $+0.98$ \\
         --- a bulletproof but low-order option (locally $O(h^2)$
         consistency; acceptable if applied only at the few worst faces).
   \item $k=2$ restores definiteness for $p=4$ up to $s \approx 0.75$ and
-        for $p=3$ everywhere. Combined with the chamfer, which caps $s$
-        at $\approx 0.7$ \emph{and} eliminates two-face cells, $k=2$
-        extrapolation is the predicted robust $p=4$ configuration, with
-        $O(h^3)$ boundary consistency --- the accuracy loss relative to
-        $k=p$ appears only in a boundary layer and should be checked
-        against the interior $O(h^{p+1})$ rates.
-  \item A shift-adaptive rule ($k = p$ where $s \le 0.4$, $k = 2$ where
-        $0.4 < s \le 0.75$, $k=1$ beyond) follows directly from the
-        tables and costs one \texttt{if} per face.
+        for $p=3$ everywhere, with $O(h^3)$ boundary consistency.
+  \item Honest objection: with a staircase or chamfered surrogate,
+        $\delta = O(h)$, so $k<p$ caps the \emph{global} boundary accuracy
+        at $O(h^{k+1})$ and largely defeats the purpose of $p=4$. (The
+        truncation is order-neutral only where $\delta = O(h^2)$, i.e.\
+        with a $\Gamma$-interpolating cut.) A shift-adaptive rule
+        ($k=p$ where $s \le 0.4$, smaller $k$ beyond) confines the loss to
+        the worst faces, but the principled resolution is to change the
+        extension, not its order --- see N.7b.
   \item For inward shifts truncation helps at moderate $s$ but $p \ge 3$
         remains indefinite at small inward $s$ regardless of $k$ ---
         reinforcing finding (vi): use $\lambda = 0$ for $p \ge 3$.
 \end{itemize}
+
+\subsection*{N.7b Alternative extension operators: a no-go lemma and three ways around it}
+
+\paragraph{Lemma N.5 (no free lunch for cell-local extensions).}
+\emph{Let $\mathcal L : \mathbb Q_p(K) \to \mathbb R$ be linear, computed
+from data on $K$ only, and exact on polynomials,
+$\mathcal L q = q(\tilde{\mathbf x} + \mathbf d)$ for all $q \in
+\mathbb Q_p(K)$ (as required for $O(h^{p+1})$ consistency from cell-local
+data). Then $\mathcal L$ \emph{is} the point-evaluation extrapolation on
+$\mathbb Q_p(K)$, and its norm is the Chebyshev factor of Lemma N.1.}
+\emph{Proof:} two linear functionals agreeing on the whole space are
+equal. $\square$
+
+Smoothness of the extension is a red herring: on the discrete space every
+exact extension coincides with the one already in use. Any genuine
+alternative must therefore use information beyond the single cell's
+polynomial. Exactly three sources exist, and each gives a known method
+family:
+
+\paragraph{(A) Use the PDE: substituted normal derivatives (recommended).}
+Since $-\Delta u = f$, all normal derivatives of order $\ge 2$ can be
+eliminated recursively,
+\[
+  \partial_n^2 u = -f - \Delta_{\mathrm{tan}} u, \qquad
+  \partial_n^3 u = -\partial_n f - \Delta_{\mathrm{tan}} \partial_n u,
+  \quad \dots
+\]
+so the degree-$k$ Taylor extension becomes
+\[
+  \mathcal E_{\mathrm{pde}} u
+  = u + \delta\, \partial_n u
+  + \sum_{j=2}^{k} \tfrac{\delta^j}{j!}
+    \big( \text{tangential derivatives of } u,\ \partial_n u \big)
+  + \underbrace{\big( f\text{-terms} \big)}_{\text{data, rhs}} ,
+\]
+with \emph{every $u$-dependent term evaluated on the face}: no
+extrapolation beyond the first normal derivative. Crucially,
+$\mathcal E_{\mathrm{pde}}$ is exact on solutions of the PDE --- which is
+all that consistency requires --- so \textbf{the full order $O(\delta^{k+1})$
+is retained} while the Chebyshev growth is traded for tangential Markov
+factors $\big(c\,p^2 \delta/h\big)^{j}$, small for moderate $s$.
+Certificates (same setup as N.4, $f$-part irrelevant for the spectrum):
+
+\begin{center}
+\begin{tabular}{llcccc}
+\hline
+config & $p$ & $s=0.5$ & $s=0.75$ & $s=1$ & $s=\sqrt2$ \\
+\hline
+flat, $\mathcal E_{\mathrm{pde}}$ & 3 & $+2.87$ & $+3.36$ & $+3.84$ & $+4.25$ \\
+flat, $\mathcal E_{\mathrm{pde}}$ & 4 & $+1.34$ & $+0.80$ & $-0.01$ & $-0.71$ \\
+step, $\mathcal E_{\mathrm{pde}}$ & 3 & $+1.20$ & $+0.90$ & $+0.49$ & $-0.10$ \\
+step, $\mathcal E_{\mathrm{pde}}$ & 4 & $+0.12$ & $-0.34$ & $-0.38$ & $-0.33$ \\
+\hline
+\end{tabular}
+\end{center}
+
+Compared with plain Taylor (N.4): roughly one polynomial degree of
+definiteness is gained at full consistency order ($p=4$ flat: $+0.08 \to
++0.80$ at $s = 0.75$; step: indefinite from $s=0.5 \to$ definite at
+$s=0.5$). At $s \gtrsim 1$ the tangential factors take over and
+indefiniteness returns --- so $\mathcal E_{\mathrm{pde}}$ alone does not
+cure the staircase, but \textbf{chamfer ($s \le 0.7$, single near-normal
+face) $+$ $\mathcal E_{\mathrm{pde}}$ is certified-definite in every
+configuration that then occurs, at full order.} Implementation cost:
+tangential/mixed derivatives of the shape functions on the face (already
+available), plus $f$ and its normal-derivative data near the boundary in
+the right-hand side.
+
+\paragraph{(B) Use the boundary data: interpolatory (ghost/ROD-type)
+conditions.} Taylor never uses the one thing that is known exactly: $g$ at
+the projected point $\mathbf x \in \Gamma$. Writing the boundary condition
+via a 1D interpolant along the shift line through $p{+}1$ points
+\emph{inside} $\tilde\Omega$ plus the pinned value $g(\mathbf x)$, the
+surrogate-face value $u(\tilde{\mathbf x})$ is expressed by
+\emph{interpolation} (the evaluation point lies between the samples and
+$\mathbf x$), so the $u$-dependent weights are bounded by a Lebesgue
+constant instead of $T_p$; full order is retained. This is the
+finite-element analogue of ghost-point methods (Gibou--Fedkiw) and
+reconstructed off-site data (ROD). Cost: the stencil crosses 1--2 interior
+cells, so the sparsity pattern widens; the samples stay inside a vertex
+patch, so the full-residual construction survives.
+
+\paragraph{(C) Use a larger support: aggregated extension.} Extrapolate
+from a least-squares polynomial fit over an interior patch of diameter
+$L = 2h$--$3h$ (AgFEM-flavored). The amplification drops to
+$T_p(1 + 2\delta/L)$; by the certificate tables, an effective shift
+$\delta/L \le 0.4$ is safe even at $p=4$, so $L \ge 3h$ suffices for the
+worst staircase pockets. Cost: same widened coupling as (B), plus the fit;
+conceptually the bluntest of the three.
+
+Ranking for this project: (A) is the least invasive (face-local, no
+sparsity change, no new data structures) and combines multiplicatively
+with the chamfer; (B) is the most robust in principle (bounded weights
+regardless of geometry) and is the natural fallback if (A)$+$chamfer still
+misbehaves at $p \ge 5$ or in 3D, where edge/vertex pockets give $s$ up to
+$\sqrt3$.
 
 \subsection*{N.8 The regularity mechanism (demoted to second order)}
 
@@ -423,11 +526,17 @@ N.4/N.6/N.7): global indefiniteness of the symmetric part for the listed
 $(p, s, \text{config})$; its penalty-insensitivity; positivity of the
 chamfered $\mathbb P_3$ and truncated-$k$ variants.
 
+\emph{Proven} (Lemma N.5): no cell-local exact extension can beat the
+Chebyshev amplification; alternatives must use the PDE, the data $g$, or a
+larger support (N.7b).
+
 \emph{Conjectured / to validate in the solver}: (a) chamfer $\Rightarrow$
-$p=3$ uniformly robust; (b) chamfer $+$ $k=2$ $\Rightarrow$ $p=4$ robust;
-(c) shift-adaptive $k$ alone (no chamfer) already recovers $p=4$ with the
-existing smoother --- this is a ten-line change in the extrapolation
-routine and the highest-information-per-effort experiment available;
+$p=3$ uniformly robust; (b) chamfer $+$ PDE-substituted extension
+$\mathcal E_{\mathrm{pde}}$ $\Rightarrow$ $p=4$ robust \emph{at full
+order} (the leading recommendation); (c) shift-adaptive $k$-truncation
+alone (no chamfer) already recovers $p=4$ convergence with the existing
+smoother at reduced boundary accuracy --- still the cheapest diagnostic
+experiment: a ten-line change that directly tests the whole theory;
 (d) restoring definiteness restores the additive patch smoother to
 usefulness (with standard multiplicity damping), enabling the parallel
 variant.
