@@ -517,6 +517,76 @@ regardless of geometry) and is the natural fallback if (A)$+$chamfer still
 misbehaves at $p \ge 5$ or in 3D, where edge/vertex pockets give $s$ up to
 $\sqrt3$.
 
+\subsection*{N.7c Symmetry: a two-out-of-three obstruction and a geometric way out}
+
+The nonsymmetry of SBM is structural: integration by parts forces the
+\emph{plain} trace $v$ in the consistency term $-\int(\partial_n u)\,v$,
+while symmetry would demand $\mathcal E v$ there. The options split as
+follows.
+
+\paragraph{Lemma N.6 (matched pairing is unconditionally coercive).}
+\emph{Define the symmetric variant}
+\[
+  b(u,v) = \int_K \nabla u\cdot\nabla v
+  - \int_F (\partial_n u)\,\mathcal E v
+  - \int_F (\partial_n v)\,\mathcal E u
+  + \sigma \int_F \mathcal E u\, \mathcal E v .
+\]
+\emph{Then $b(v,v) \ge \tfrac12\|\nabla v\|^2 + \tfrac{\sigma}{2}\|\mathcal
+E v\|_F^2$ for $\sigma \ge 4 C_{tr} p^2/h$, independently of the shift, the
+polynomial degree, and the extension.}
+\emph{Proof:} Young's inequality,
+$2|\int(\partial_n v)\mathcal E v| \le \tau \|\partial_n v\|_F^2 +
+\tau^{-1}\|\mathcal E v\|_F^2$ with $\tau = h/(2C_{tr}p^2)$; the trace
+inverse inequality absorbs the first term into $\|\nabla v\|^2$. The
+extension appears \emph{identically} in the cross term and the penalty, so
+the Chebyshev amplification cancels from the argument. $\square$
+
+The entire pathology of N.4 disappears --- CG applies, additive smoothers
+are rehabilitated --- but the symmetrization defect relative to the
+consistent form,
+$-\int_F (\partial_n u)(\mathcal E v - v) = O(\delta)$, caps the boundary
+accuracy at first order. Useful as an \emph{SPD local fallback} on the
+worst faces (an alternative to $k$-truncation with better solver
+structure), not as the global high-order method.
+
+\paragraph{Order-by-order correction hits a wall.} The leading defect
+$\delta \int_F (\partial_n u)(\partial_n v)$ is itself symmetric;
+subtracting it restores $O(\delta^2)$ consistency while preserving
+symmetry, and the cascade can be continued. But the subtracted term
+contributes $-\delta\|\partial_n v\|_F^2 \sim -C\,p^2 s\,\|\nabla v\|_K^2$
+to the diagonal: coercivity is lost at exactly $p^2 s \sim 1$ --- the same
+threshold as before in a different guise. Empirically then: of
+\emph{\{symmetric, high-order consistent, coercive from cell-local
+data\}} one can have any two but not all three; this is Lemma N.5's
+obstruction recurring, and the same three escapes (PDE, data, support)
+apply. Whether PDE-substituting the correction terms
+($\partial_n^2 \to$ tangential) preserves both symmetry and definiteness
+is open and directly decidable with the certificate script.
+
+\paragraph{The geometric route (recommended for a symmetric method):
+shift the mesh, not the boundary condition.} Deform the boundary cells so
+the surrogate boundary lands on $\Gamma$ (isoparametric unfitted FEM in
+the spirit of Lehrenfeld): standard \emph{symmetric} Nitsche then applies
+with no extension operator at all --- symmetry and high order obtained
+through geometry instead of algebra, the exact dual of ``shifted
+boundary''. The staircase cannot be smoothly deformed (corners), but the
+\emph{chamfered} surrogate can: it is a Lipschitz polygon at distance
+$O(h)$ from $\Gamma$ with interior angles near $\pi$, and an $O(h)$
+piecewise-polynomial blend maps it onto $\Gamma$ with uniformly bounded
+Jacobians. In this light the chamfer is not merely a $p=3$ patch: it is
+the enabler of a fully symmetric high-order discretization. Cost:
+non-affine element maps in a one-cell boundary layer (partial loss of
+tensor-product structure there), standard fitted-Nitsche analysis
+otherwise.
+
+\paragraph{Other symmetric options.} A Lagrange-multiplier/mortar
+treatment of the Dirichlet condition yields a symmetric saddle point ---
+heavier machinery, but with solver structure (Vanka-type patch smoothers)
+well within this project's toolbox. Least-squares symmetrization is an
+anti-recommendation: it squares the operator and hence the amplification
+($T_p^2 \to T_p^4$).
+
 \subsection*{N.8 The regularity mechanism (demoted to second order)}
 
 Reentrant staircase corners carry Kondrat'ev singularities
