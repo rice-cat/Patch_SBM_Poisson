@@ -1,0 +1,187 @@
+% ==========================================================================
+% interface.tex -- working notes: SBM for jump-coefficient (interface)
+% problems WITHOUT a mixed formulation. Derivation of a consistent shifted
+% interface coupling, diagnosis of why the naive form fails (already in 1D),
+% and numerical validation. Reproduce all numbers: python3 interface_1d.py
+% \input{interface.tex} at the end of the paper to compile.
+% ==========================================================================
+
+\section*{Appendix (working notes): a consistent shifted formulation for interface problems}
+
+\subsection*{I.1 Problem and setup}
+
+Model problem on $(0,1)$ (all statements extend verbatim to $d>1$):
+\[
+  -(\kappa u')' = f, \qquad
+  \kappa = \begin{cases} \kappa^- & x < x_\Gamma \\ \kappa^+ & x > x_\Gamma \end{cases},
+  \qquad
+  [u]_{x_\Gamma} = 0, \quad [\kappa u']_{x_\Gamma} = 0,
+\]
+with the interface $x_\Gamma$ \emph{not} aligned with the mesh. Shifted
+treatment: the surrogate interface is the nearest mesh vertex $\tilde x$,
+shift $d = x_\Gamma - \tilde x$ (so $|d| \le h/2$ by construction --- note
+this is automatically milder than the Dirichlet SBM staircase, where $s$
+reaches $\sqrt 2$). The degree of freedom at $\tilde x$ is duplicated: two
+one-sided fields $u_h^\pm$, each assembled with its \emph{own} constant
+$\kappa^\pm$ on its own surrogate subdomain.
+
+Interpretation that makes everything work: $u_h^\pm$ do \emph{not}
+approximate the physical solution near the interface; they approximate the
+smooth \emph{extensions} $\tilde u^\pm$ of the two physical pieces, each
+solving its own $\kappa^\pm$-equation past $x_\Gamma$. In the strip between
+$\tilde x$ and $x_\Gamma$, the physical solution is recovered in
+post-processing from the field of the side that physically owns the strip
+(evaluated by extension). The interface conditions are imposed at the
+\emph{true} interface via Taylor/polynomial extension
+$\mathcal E^\pm w (x_\Gamma) = w(\text{eval.\ of the adjacent element's
+polynomial at } x_\Gamma)$, exactly as in the Dirichlet SBM. One side
+evaluates by extrapolation (distance $|d|$), the other by interior
+evaluation. No mixed formulation, no extra flux variable.
+
+\subsection*{I.2 Why the natural symmetric form fails (diagnosis of the 1D failure)}
+
+Notation: plain jump at the surrogate vertex $[v]_{\tilde x} = v^-(\tilde
+x) - v^+(\tilde x)$; extended jump at the true interface $[\mathcal E
+v]_\Gamma = \mathcal E^- v^- (x_\Gamma) - \mathcal E^+ v^+(x_\Gamma)$;
+weighted average of extended fluxes $\{\kappa \mathcal E u'\}_\Gamma =
+\beta^- \kappa^- \mathcal E^- u'\,(x_\Gamma) + \beta^+ \kappa^+ \mathcal
+E^+ u'(x_\Gamma)$ with the harmonic weights $\beta^\mp =
+\kappa^\pm/(\kappa^-{+}\kappa^+)$.
+
+The trap is a mismatch of \emph{locations}: integration by parts of the
+exact solution over the two surrogate subdomains produces flux terms
+\emph{at $\tilde x$} acting on the \emph{plain} jump $[v]_{\tilde x}$,
+whereas the physical conditions hold \emph{at $x_\Gamma$} in the
+\emph{extended} variables. The symmetric-looking Nitsche form that pairs
+the flux with $[\mathcal E v]_\Gamma$,
+\[
+  \cdots - \{\kappa \mathcal E u'\}_\Gamma\, [\mathcal E v]_\Gamma - \cdots
+  \qquad \text{(``naive'')},
+\]
+leaves, for the exact broken line with flux $F$ (take $f=0$, $p=1$), the
+residual
+\[
+  F\big( [v]_{\tilde x} - [\mathcal E v]_\Gamma \big)
+  = -F\, d\, [v']_{\tilde x} \;\neq\; 0 ,
+\]
+an $O(d) = O(h)$ \emph{consistency} error concentrated at the interface:
+the method converges to the wrong solution, and already the piecewise
+linear exact solution is not reproduced. This is precisely the observed 1D
+failure. (Verified numerically: the naive form gives errors
+$3\cdot10^{-2}$--$2\cdot10^{-1}$ on the broken line, non-decreasing in
+$p$.)
+
+\subsection*{I.3 The consistent form}
+
+The two interface conditions play different roles and must live at
+different locations:
+
+\begin{equation}
+  a(u,v) \;=\; \sum_\pm \int_{\tilde\Omega^\pm} \kappa\, u' v'
+  \;-\; \{\kappa \mathcal E u'\}_\Gamma\, \underbrace{[v]_{\tilde x}}_{\text{plain, at }\tilde x}
+  \;-\; \{\kappa \mathcal E v'\}_\Gamma\, \underbrace{[\mathcal E u]_\Gamma}_{\text{extended, at }\Gamma}
+  \;+\; \sigma\, [\mathcal E u]_\Gamma [\mathcal E v]_\Gamma ,
+  \label{eq:sim_form}
+\end{equation}
+with $\sigma = \gamma\, \kappa_{\mathrm{hm}}\, p^2/h$,
+$\kappa_{\mathrm{hm}} = 2\kappa^-\kappa^+/(\kappa^-{+}\kappa^+)$, and the
+right-hand side carrying a \emph{shifted-source correction}:
+\begin{equation}
+  L(v) \;=\; \sum_\pm \int_{\tilde\Omega^\pm} f v
+  \;+\; \Big( \int_{\tilde x}^{x_\Gamma} f \, dx \Big)\, [v]_{\tilde x} .
+  \label{eq:sim_rhs}
+\end{equation}
+
+Rationale, term by term:
+\begin{itemize}
+  \item \textbf{First flux term at $\tilde x$, extended flux from
+        $\Gamma$:} integration by parts puts the flux terms at $\tilde x$;
+        the physically known quantity (continuous flux) lives at
+        $x_\Gamma$. For $f = 0$ the two coincide on each side (the flux of
+        the extension is constant in 1D); the extended flux average is
+        exactly what cancels the IBP terms. This mirrors the structure of
+        the Dirichlet SBM form in the paper, where the first flux term
+        also carries the \emph{plain} test trace and only the adjoint
+        term carries $\mathcal E$.
+  \item \textbf{Adjoint term and penalty on $[\mathcal E u]_\Gamma$:} the
+        value-continuity condition holds at $x_\Gamma$; both terms vanish
+        on the exact solution, so any consistent-looking location would
+        do --- placing them at $\Gamma$ in extended variables enforces
+        the correct condition to full order.
+  \item \textbf{Shifted source \eqref{eq:sim_rhs}:} with $f \ne 0$ the
+        one-sided fluxes at $\tilde x$ and at $x_\Gamma$ differ by the
+        strip integral, $\kappa u'(\tilde x) = \kappa u'(x_\Gamma) +
+        \int_{\tilde x}^{x_\Gamma} f$; for $f$ continuous this shift is
+        the \emph{same on both sides}, hence it multiplies
+        $[v]_{\tilde x}$ and moves to the right-hand side. Omitting it
+        costs $O(h)$ consistency (observed: convergence stalls). For $f$
+        discontinuous across $\Gamma$ the two shifts differ and an
+        additional $\{v\}$-weighted data term appears --- same derivation.
+\end{itemize}
+
+\subsection*{I.4 Numerical validation (see \texttt{interface\_1d.py})}
+
+$\kappa^- = 1$, $\kappa^+ = 10$, $x_\Gamma = 0.523$ (generic, off-node),
+$\mathbb P_p$ elements, $n = 8$ elements unless stated:
+
+\begin{center}
+\begin{tabular}{lccc}
+\hline
+ & $p=1$ & $p=2$ & $p=3$ \\
+\hline
+broken line ($f=0$), consistent form & $8\cdot10^{-15}$ & $5\cdot10^{-14}$ & $8\cdot10^{-14}$ \\
+broken line, naive form              & $3\cdot10^{-2}$ & $8\cdot10^{-2}$ & $2\cdot10^{-1}$ \\
+$f=1$ (piecewise quadratic), $p\ge2$ &  --- & $7\cdot10^{-14}$ & $6\cdot10^{-14}$ \\
+\hline
+\end{tabular}
+\end{center}
+
+The consistent form reproduces every exact solution lying in the discrete
+space to machine precision (broken line for all $p$; the piecewise
+quadratic for $p \ge 2$, which certifies the shifted-source term), while
+$p=1$ converges at the expected rate. Robustness in the jump: with
+$\kappa^+/\kappa^- = 10^6$ the broken line is reproduced to $10^{-8}$
+(conditioning-limited), thanks to the harmonic weights
+$\beta^\mp \propto \kappa^\pm$ and the harmonic-mean penalty --- the
+standard cure from unfitted Nitsche interface methods, which carries over
+unchanged.
+
+\subsection*{I.5 Remarks and outlook to 2D/3D}
+
+\begin{itemize}
+  \item \textbf{Relation to the literature.} A shifted interface method
+        of this flavor exists (Li \& Scovazzi and follow-ups); these
+        notes' added value is the explicit identification of (a) the
+        location mismatch $[v]_{\tilde x}$ vs.\ $[\mathcal E v]_\Gamma$ as
+        the reason naive derivations fail already in 1D, and (b) the
+        shifted-source correction \eqref{eq:sim_rhs}, which is easy to
+        miss (it vanishes in every $f=0$ sanity test) yet caps accuracy
+        at first order when omitted.
+  \item \textbf{No mixed formulation is needed.} Flux continuity is
+        enforced through the extended-flux average exactly as value
+        continuity is enforced through the extended jump; both are
+        Nitsche-type terms on the primal variable.
+  \item \textbf{In 2D} the surrogate interface is the staircase of faces
+        nearest to $\Gamma$, the strip cells are assigned to one side
+        with that side's $\kappa$, and all findings of the definiteness
+        notes (theory.tex) apply with two changes in our favor: the
+        shift satisfies $|d| \le h/2$ per face by nearest-face selection
+        (vs.\ $\sqrt2 h$ for the Dirichlet staircase pockets), and both
+        traces are one-sided extrapolations over that reduced distance.
+        The same Chebyshev certificates should be run for the coupled
+        two-cell block (two fields, duplicated interface DoFs); the
+        chamfer and the PDE-substituted extension
+        ($\partial_n^2 u = -(f + \nabla\kappa\cdot\nabla u)/\kappa
+        - \Delta_{\mathrm{tan}} u$ per side, $\kappa$ constant per side)
+        transfer verbatim.
+  \item \textbf{Smoother.} The duplicated interface DoFs must belong to a
+        common patch (the vertex patch at $\tilde x$ contains both
+        one-sided fields by construction), so the full-residual shy patch
+        machinery extends without structural change.
+  \item \textbf{Open point.} The first flux term in \eqref{eq:sim_form}
+        is non-symmetric by construction (plain vs.\ extended test
+        traces); the effect on the definiteness certificates at
+        $p \ge 3$, and whether the interface analogue prefers the
+        PDE-substituted extension from the start, should be checked with
+        the same single-block methodology before a 2D implementation.
+\end{itemize}
