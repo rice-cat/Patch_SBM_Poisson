@@ -443,6 +443,24 @@ $\mathcal E_{\mathrm{pde}}$ is exact on solutions of the PDE --- which is
 all that consistency requires --- so \textbf{the full order $O(\delta^{k+1})$
 is retained} while the Chebyshev growth is traded for tangential Markov
 factors $\big(c\,p^2 \delta/h\big)^{j}$, small for moderate $s$.
+\emph{Remark (generality).} The construction transfers to any operator for
+which the surrogate face is non-characteristic, i.e.\ the PDE can be solved
+for the highest normal derivative: variable-coefficient elliptic (divide by
+$n^T\!A\,n > 0$; the margin degrades with anisotropy $\|A\|/(n^T\!A\,n)$),
+elasticity (acoustic tensor $n^T C n$ invertible by Legendre--Hadamard),
+parabolic (imports a $\partial_t u$ term, mass-like entries in implicit
+schemes), and Stokes (momentum supplies $\nu\partial_n^2\mathbf u$ via
+$\nabla p - \mathbf f$; incompressibility gives $\partial_n u_n =
+-\mathrm{div}_{tan}\mathbf u_{tan}$ for free; $\Delta p = \mathrm{div}\,
+\mathbf f$ closes the pressure recursion). For first-order hyperbolic
+systems this is exactly the inverse Lax--Wendroff procedure of Tan \& Shu,
+introduced for the same reason: direct high-order boundary extrapolation is
+unstable, PDE-substituted extrapolation is not. Costs that transfer:
+$k-1$ derivatives of the data (and coefficients) are needed near the
+boundary, and the definiteness \emph{margins} (unlike the mechanism) are
+operator-specific --- the certificates of N.4 should be recomputed per
+operator.
+
 Certificates (same setup as N.4, $f$-part irrelevant for the spectrum):
 
 \begin{center}
@@ -547,3 +565,6 @@ variant.
 % Atallah, Canuto, Scovazzi (SBM analysis, d/h conditions).
 % Cai & Widlund SINUM 1992/93; Eisenstat, Elman, Schultz 1983 (nonsymmetric bounds).
 % Burman et al. (CutFEM/ghost penalty, for the contrast drawn in N.6).
+% Tan & Shu, JCP 2010 (inverse Lax-Wendroff boundary treatment, for N.7b(A)).
+% Gibou & Fedkiw (ghost-point interpolation, for N.7b(B)).
+% Badia, Verdugo, Martin (AgFEM aggregated extension, for N.7b(C)).
